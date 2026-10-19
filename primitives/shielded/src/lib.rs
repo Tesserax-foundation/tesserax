@@ -12,6 +12,7 @@ pub mod encryption;
 pub mod hash;
 pub mod keys;
 pub mod note;
+pub mod proof;
 pub mod tree;
 
 pub use hash::Digest;

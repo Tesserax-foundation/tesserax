@@ -92,10 +92,27 @@ The owner of the input notes authorises the spend by proving knowledge of `nk`: 
 signature is needed. Shielded transfers are submitted without a transparent signer, so that they
 are not linked to any account; their fee is paid from the pool.
 
+## Proof system
+
+The statement is an AIR of 128 rows (`primitives/shielded/src/proof`). Each row evaluates one
+Poseidon2 permutation; periodic selector columns give each row its role (owner tag, commitment,
+nullifier, Merkle level, output `rho`, output commitment, padding). Registers carry the
+nullifier key, the Merkle accumulator, the input value and the running balance between rows.
+
+Proofs use Plonky3 `uni-stark` over Goldilocks, with challenges in its quadratic extension:
+
+- hiding FRI: salted Keccak-256 Merkle commitments and random codewords, so that the openings
+  reveal nothing about the witness (zero knowledge);
+- blowup 8, 38 queries, 16 bits of proof of work before the queries: 130 bits of conjectured
+  security;
+- the prover draws fresh randomness for every proof; two proofs of the same transaction differ.
+
+A proof is about 180 kB. Proving takes about 0.1 s and verifying about 13 ms on an Apple M1.
+
 ## Note encryption
 
 For each output, the sender encapsulates to the recipient's ML-KEM key, derives a key with
-SHA3-256 and encrypts `v || rho || r` with ChaCha20-Poly1305. The ciphertext (1144 bytes) is
+SHA3-256 and encrypts `v || rho || r` with ChaCha20-Poly1305. The ciphertext (1168 bytes: 1088 for the KEM, 64 for the note, 16 for the tag) is
 published with the transaction. Wallets try to decrypt every new note with their decapsulation
 key and check the decrypted note against its commitment.
 

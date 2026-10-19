@@ -1,8 +1,7 @@
 //! Notes, commitments and nullifiers.
 
-use crate::hash::{domain, hash, Digest, Felt};
+use crate::hash::{domain, hash, Digest};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use p3_field::{PrimeCharacteristicRing, PrimeField64};
 use scale_info::TypeInfo;
 
 /// Number of bits of a note value: values are below `2^60` planck.
@@ -58,7 +57,8 @@ pub fn random_randomness() -> [u64; RANDOMNESS_LEN] {
 	getrandom::fill(&mut bytes).expect("the operating system RNG is available; qed");
 	core::array::from_fn(|i| {
 		let chunk: [u8; 8] = bytes[i * 8..i * 8 + 8].try_into().expect("8 bytes; qed");
-		Felt::from_u64(u64::from_le_bytes(chunk)).as_canonical_u64()
+		use p3_field::{PrimeCharacteristicRing, PrimeField64};
+		crate::hash::Felt::from_u64(u64::from_le_bytes(chunk)).as_canonical_u64()
 	})
 }
 
