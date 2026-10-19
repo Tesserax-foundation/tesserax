@@ -12,6 +12,7 @@ members = [
 	"node",
 	"pallets/difficulty",
 	"primitives/crypto",
+	"primitives/shielded",
 	"runtime",
 ]
 
@@ -39,9 +40,16 @@ pallet-difficulty = { path = "pallets/difficulty", default-features = false }
 randomtess = { path = "crypto/randomtess" }
 tessera-crypto = { path = "primitives/crypto", default-features = false }
 tessera-pow = { path = "consensus/pow" }
+tessera-shielded = { path = "primitives/shielded", default-features = false }
 tessera-runtime = { path = "runtime", default-features = false }
 
 # Third party
+chacha20poly1305 = { version = "0.11.0", default-features = false }
+ml-kem = { version = "0.3.3", default-features = false }
+p3-field = { version = "0.8.0", default-features = false }
+p3-goldilocks = { version = "0.8.0", default-features = false }
+p3-symmetric = { version = "0.8.0", default-features = false }
+sha3 = { version = "0.12.0", default-features = false }
 alloy-core = { version = "1.2.1", default-features = false }
 async-trait = { version = "0.1.88" }
 bip39 = { version = "2.2.2", default-features = false, features = ["std"] }
