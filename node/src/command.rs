@@ -73,7 +73,7 @@ pub fn run() -> sc_cli::Result<()> {
 	let cli = Cli::from_args();
 
 	match &cli.subcommand {
-		Some(Subcommand::Key(cmd)) => cmd.run(),
+		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
@@ -200,16 +200,6 @@ pub fn run() -> sc_cli::Result<()> {
 			let mining = mining_config(&cli.mining)?;
 			let runner = cli.create_runner(&cli.run)?;
 			runner.run_node_until_exit(|config| async move {
-				// Only the litep2p backend secures connections with post-quantum TLS
-				// (ML-KEM-768, ML-DSA-65). The libp2p backend uses Noise over X25519.
-				if !matches!(
-					config.network.network_backend,
-					sc_network::config::NetworkBackendType::Litep2p
-				) {
-					return Err(sc_cli::Error::Input(
-						"Only the litep2p network backend is supported".into(),
-					));
-				}
 				service::new_full::<sc_network::Litep2pNetworkBackend>(config, mining)
 					.map_err(sc_cli::Error::Service)
 			})

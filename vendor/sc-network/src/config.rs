@@ -22,9 +22,7 @@
 //! See the documentation of [`Params`].
 
 pub use crate::{
-	discovery::DEFAULT_KADEMLIA_REPLICATION_FACTOR,
 	peer_store::PeerStoreProvider,
-	protocol::{notification_service, NotificationsSink, ProtocolHandlePair},
 	request_responses::{
 		IncomingRequest, OutgoingResponse, ProtocolConfig as RequestResponseConfig,
 	},
@@ -35,7 +33,8 @@ pub use crate::{
 	types::ProtocolName,
 };
 
-pub use sc_network_types::{build_multiaddr, ed25519};
+pub use litep2p::crypto::ml_dsa;
+pub use sc_network_types::build_multiaddr;
 use sc_network_types::{
 	multiaddr::{self, Multiaddr},
 	PeerId,
@@ -68,6 +67,13 @@ use std::{
 	sync::Arc,
 	time::Duration,
 };
+
+/// Default value for Kademlia replication factor which determines to how many closest peers a
+/// record is replicated to.
+pub const DEFAULT_KADEMLIA_REPLICATION_FACTOR: usize = 20;
+
+/// Configuration of a notification protocol.
+pub type NonDefaultSetConfig = crate::litep2p::shim::notification::config::NotificationProtocolConfig;
 
 /// Default timeout for idle connections of 10 seconds is good enough for most networks.
 /// It doesn't make sense to expose it as a CLI parameter on individual nodes, but customizations
@@ -318,18 +324,18 @@ impl NonReservedPeerMode {
 /// the evaluation of the node key configuration.
 #[derive(Clone, Debug)]
 pub enum NodeKeyConfig {
-	/// A Ed25519 secret key configuration.
-	Ed25519(Secret<ed25519::SecretKey>),
+	/// The seed of the node's ML-DSA-65 identity key.
+	MlDsa(Secret<ml_dsa::SecretKey>),
 }
 
 impl Default for NodeKeyConfig {
 	fn default() -> NodeKeyConfig {
-		Self::Ed25519(Secret::New)
+		Self::MlDsa(Secret::New)
 	}
 }
 
-/// The options for obtaining a Ed25519 secret key.
-pub type Ed25519Secret = Secret<ed25519::SecretKey>;
+/// The options for obtaining an ML-DSA-65 secret key.
+pub type MlDsaSecret = Secret<ml_dsa::SecretKey>;
 
 /// The configuration options for obtaining a secret key `K`.
 #[derive(Clone)]
@@ -340,7 +346,7 @@ pub enum Secret<K> {
 	/// it is created with a newly generated secret key `K`. The format
 	/// of the file is determined by `K`:
 	///
-	///   * `ed25519::SecretKey`: An unencoded 32 bytes Ed25519 secret key.
+	///   * `ml_dsa::SecretKey`: the 32 byte ML-DSA-65 seed, raw or hex encoded.
 	File(PathBuf),
 	/// Always generate a new secret key `K`.
 	New,
@@ -367,29 +373,33 @@ impl NodeKeyConfig {
 	///
 	///  * If the secret is configured to be new, it is generated and the corresponding keypair is
 	///    returned.
-	pub fn into_keypair(self) -> io::Result<ed25519::Keypair> {
+	pub fn into_keypair(self) -> io::Result<ml_dsa::Keypair> {
 		use NodeKeyConfig::*;
 		match self {
-			Ed25519(Secret::New) => Ok(ed25519::Keypair::generate()),
+			MlDsa(Secret::New) => Ok(ml_dsa::Keypair::generate()),
 
-			Ed25519(Secret::Input(k)) => Ok(ed25519::Keypair::from(k).into()),
+			MlDsa(Secret::Input(k)) => Ok(ml_dsa::Keypair::from(k)),
 
-			Ed25519(Secret::File(f)) => get_secret(
+			MlDsa(Secret::File(f)) => get_secret(
 				f,
-				|mut b| match String::from_utf8(b.to_vec()).ok().and_then(|s| {
-					if s.len() == 64 {
-						array_bytes::hex2bytes(&s).ok()
-					} else {
-						None
-					}
-				}) {
-					Some(s) => ed25519::SecretKey::try_from_bytes(s),
-					_ => ed25519::SecretKey::try_from_bytes(&mut b),
+				|mut b| {
+					let parsed = match String::from_utf8(b.to_vec()).ok().and_then(|s| {
+						let s = s.trim();
+						if s.len() == 64 {
+							array_bytes::hex2bytes(s).ok()
+						} else {
+							None
+						}
+					}) {
+						Some(s) => ml_dsa::SecretKey::try_from_bytes(s),
+						_ => ml_dsa::SecretKey::try_from_bytes(&mut b),
+					};
+					parsed.map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))
 				},
-				ed25519::SecretKey::generate,
+				ml_dsa::SecretKey::generate,
 				|b| b.as_ref().to_vec(),
 			)
-			.map(ed25519::Keypair::from),
+			.map(ml_dsa::Keypair::from),
 		}
 	}
 }
@@ -476,136 +486,6 @@ impl Default for SetConfig {
 			reserved_nodes: Vec::new(),
 			non_reserved_mode: NonReservedPeerMode::Accept,
 		}
-	}
-}
-
-/// Extension to [`SetConfig`] for sets that aren't the default set.
-///
-/// > **Note**: As new fields might be added in the future, please consider using the `new` method
-/// >			and modifiers instead of creating this struct manually.
-#[derive(Debug)]
-pub struct NonDefaultSetConfig {
-	/// Name of the notifications protocols of this set. A substream on this set will be
-	/// considered established once this protocol is open.
-	///
-	/// > **Note**: This field isn't present for the default set, as this is handled internally
-	/// > by the networking code.
-	protocol_name: ProtocolName,
-
-	/// If the remote reports that it doesn't support the protocol indicated in the
-	/// `notifications_protocol` field, then each of these fallback names will be tried one by
-	/// one.
-	///
-	/// If a fallback is used, it will be reported in
-	/// `sc_network::protocol::event::Event::NotificationStreamOpened::negotiated_fallback`
-	fallback_names: Vec<ProtocolName>,
-
-	/// Handshake of the protocol
-	///
-	/// NOTE: Currently custom handshakes are not fully supported. See issue #5685 for more
-	/// details. This field is temporarily used to allow moving the hardcoded block announcement
-	/// protocol out of `protocol.rs`.
-	handshake: Option<NotificationHandshake>,
-
-	/// Maximum allowed size of single notifications.
-	max_notification_size: u64,
-
-	/// Base configuration.
-	set_config: SetConfig,
-
-	/// Notification handle.
-	///
-	/// Notification handle is created during `NonDefaultSetConfig` creation and its other half,
-	/// `Box<dyn NotificationService>` is given to the protocol created the config and
-	/// `ProtocolHandle` is given to `Notifications` when it initializes itself. This handle allows
-	/// `Notifications ` to communicate with the protocol directly without relaying events through
-	/// `sc-network.`
-	protocol_handle_pair: ProtocolHandlePair,
-}
-
-impl NonDefaultSetConfig {
-	/// Creates a new [`NonDefaultSetConfig`]. Zero slots and accepts only reserved nodes.
-	/// Also returns an object which allows the protocol to communicate with `Notifications`.
-	pub fn new(
-		protocol_name: ProtocolName,
-		fallback_names: Vec<ProtocolName>,
-		max_notification_size: u64,
-		handshake: Option<NotificationHandshake>,
-		set_config: SetConfig,
-	) -> (Self, Box<dyn NotificationService>) {
-		let (protocol_handle_pair, notification_service) =
-			notification_service(protocol_name.clone());
-		(
-			Self {
-				protocol_name,
-				max_notification_size,
-				fallback_names,
-				handshake,
-				set_config,
-				protocol_handle_pair,
-			},
-			notification_service,
-		)
-	}
-
-	/// Get reference to protocol name.
-	pub fn protocol_name(&self) -> &ProtocolName {
-		&self.protocol_name
-	}
-
-	/// Get reference to fallback protocol names.
-	pub fn fallback_names(&self) -> impl Iterator<Item = &ProtocolName> {
-		self.fallback_names.iter()
-	}
-
-	/// Get reference to handshake.
-	pub fn handshake(&self) -> &Option<NotificationHandshake> {
-		&self.handshake
-	}
-
-	/// Get maximum notification size.
-	pub fn max_notification_size(&self) -> u64 {
-		self.max_notification_size
-	}
-
-	/// Get reference to `SetConfig`.
-	pub fn set_config(&self) -> &SetConfig {
-		&self.set_config
-	}
-
-	/// Take `ProtocolHandlePair` from `NonDefaultSetConfig`
-	pub fn take_protocol_handle(self) -> ProtocolHandlePair {
-		self.protocol_handle_pair
-	}
-
-	/// Modifies the configuration to allow non-reserved nodes.
-	pub fn allow_non_reserved(&mut self, in_peers: u32, out_peers: u32) {
-		self.set_config.in_peers = in_peers;
-		self.set_config.out_peers = out_peers;
-		self.set_config.non_reserved_mode = NonReservedPeerMode::Accept;
-	}
-
-	/// Add a node to the list of reserved nodes.
-	pub fn add_reserved(&mut self, peer: MultiaddrWithPeerId) {
-		self.set_config.reserved_nodes.push(peer);
-	}
-
-	/// Add a list of protocol names used for backward compatibility.
-	///
-	/// See the explanations in [`NonDefaultSetConfig::fallback_names`].
-	pub fn add_fallback_names(&mut self, fallback_names: Vec<ProtocolName>) {
-		self.fallback_names.extend(fallback_names);
-	}
-}
-
-impl NotificationConfig for NonDefaultSetConfig {
-	fn set_config(&self) -> &SetConfig {
-		&self.set_config
-	}
-
-	/// Get reference to protocol name.
-	fn protocol_name(&self) -> &ProtocolName {
-		&self.protocol_name
 	}
 }
 
@@ -996,25 +876,16 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 /// Network backend type.
 #[derive(Debug, Clone, Default, Copy)]
 pub enum NetworkBackendType {
-	/// Use litep2p for P2P networking.
-	///
-	/// This is the preferred option for Substrate-based chains.
+	/// Use litep2p for P2P networking, with post-quantum TLS connections.
 	#[default]
 	Litep2p,
-
-	/// Use libp2p for P2P networking.
-	///
-	/// The libp2p is still used for compatibility reasons until the
-	/// ecosystem switches entirely to litep2p. The backend will enter
-	/// a "best-effort" maintenance mode, where only critical issues will
-	/// get fixed. If you are unsure, please use `NetworkBackendType::Litep2p`.
-	Libp2p,
 }
 
 /// Whether `address` is a `webrtc-direct` address.
 fn is_webrtc_address(address: &Multiaddr) -> bool {
 	address.iter().any(|protocol| matches!(protocol, multiaddr::Protocol::WebRTCDirect))
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -1025,32 +896,28 @@ mod tests {
 		tempfile::Builder::new().prefix(prefix).tempdir().unwrap()
 	}
 
-	fn secret_bytes(kp: ed25519::Keypair) -> Vec<u8> {
-		kp.secret().to_bytes().into()
-	}
-
 	#[test]
 	fn test_secret_file() {
 		let tmp = tempdir_with_prefix("x");
 		std::fs::remove_dir(tmp.path()).unwrap(); // should be recreated
 		let file = tmp.path().join("x").to_path_buf();
-		let kp1 = NodeKeyConfig::Ed25519(Secret::File(file.clone())).into_keypair().unwrap();
-		let kp2 = NodeKeyConfig::Ed25519(Secret::File(file.clone())).into_keypair().unwrap();
-		assert!(file.is_file() && secret_bytes(kp1) == secret_bytes(kp2))
+		let kp1 = NodeKeyConfig::MlDsa(Secret::File(file.clone())).into_keypair().unwrap();
+		let kp2 = NodeKeyConfig::MlDsa(Secret::File(file.clone())).into_keypair().unwrap();
+		assert!(file.is_file() && kp1.public() == kp2.public())
 	}
 
 	#[test]
 	fn test_secret_input() {
-		let sk = ed25519::SecretKey::generate();
-		let kp1 = NodeKeyConfig::Ed25519(Secret::Input(sk.clone())).into_keypair().unwrap();
-		let kp2 = NodeKeyConfig::Ed25519(Secret::Input(sk)).into_keypair().unwrap();
-		assert!(secret_bytes(kp1) == secret_bytes(kp2));
+		let sk = ml_dsa::SecretKey::generate();
+		let kp1 = NodeKeyConfig::MlDsa(Secret::Input(sk.clone())).into_keypair().unwrap();
+		let kp2 = NodeKeyConfig::MlDsa(Secret::Input(sk)).into_keypair().unwrap();
+		assert!(kp1.public() == kp2.public());
 	}
 
 	#[test]
 	fn test_secret_new() {
-		let kp1 = NodeKeyConfig::Ed25519(Secret::New).into_keypair().unwrap();
-		let kp2 = NodeKeyConfig::Ed25519(Secret::New).into_keypair().unwrap();
-		assert!(secret_bytes(kp1) != secret_bytes(kp2));
+		let kp1 = NodeKeyConfig::MlDsa(Secret::New).into_keypair().unwrap();
+		let kp2 = NodeKeyConfig::MlDsa(Secret::New).into_keypair().unwrap();
+		assert!(kp1.public() != kp2.public());
 	}
 }

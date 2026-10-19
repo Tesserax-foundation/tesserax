@@ -68,23 +68,6 @@ version = "3.0.2"
 [dependencies.ip_network]
 version = "0.4.1"
 
-[dependencies.libp2p]
-version = "0.54.1"
-features = [
-    "dns",
-    "identify",
-    "kad",
-    "macros",
-    "mdns",
-    "noise",
-    "ping",
-    "request-response",
-    "tcp",
-    "tokio",
-    "websocket",
-    "yamux",
-]
-
 [dependencies.linked_hash_set]
 version = "0.1.4"
 

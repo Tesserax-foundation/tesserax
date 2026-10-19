@@ -28,21 +28,9 @@ default-features = true
 version = "1.4.0"
 default-features = false
 
-[dependencies.ed25519-dalek]
-version = "2.1"
-default-features = true
-
 [dependencies.libp2p-identity]
 version = "0.2.9"
-features = [
-    "ed25519",
-    "peerid",
-    "rand",
-]
-
-[dependencies.libp2p-kad]
-version = "0.46.2"
-default-features = false
+features = ["peerid", "rand"]
 
 [dependencies.litep2p]
 version = "0.15.3"
@@ -76,10 +64,6 @@ default-features = false
 
 [dependencies.thiserror]
 version = "1.0.64"
-
-[dependencies.zeroize]
-version = "1.7.0"
-default-features = false
 
 [dev-dependencies.quickcheck]
 version = "1.0.3"

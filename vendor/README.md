@@ -8,8 +8,10 @@ authentication. The crates below are forks of the published Polkadot SDK crates,
 | Crate | Base version | License |
 |---|---|---|
 | `litep2p` | 0.15.3 | MIT |
+| `sc-cli` | 0.64.0 (polkadot-sdk stable2606) | GPL-3.0-or-later WITH Classpath-exception-2.0 |
 | `sc-network` | 0.61.0 (polkadot-sdk stable2606) | GPL-3.0-or-later WITH Classpath-exception-2.0 |
 | `sc-network-types` | 0.23.3 (polkadot-sdk stable2606) | Apache-2.0 |
+| `sc-telemetry` | 33.0.0 (polkadot-sdk stable2606) | GPL-3.0-or-later WITH Classpath-exception-2.0 |
 
 ## litep2p
 
@@ -26,15 +28,28 @@ authentication. The crates below are forks of the published Polkadot SDK crates,
 
 ## sc-network
 
-- The litep2p backend derives its ML-DSA-65 identity from the 32 byte node secret, which is used
-  as the FIPS 204 key generation seed.
+- The libp2p network backend is removed (swarm, Noise, Kademlia, mDNS, identify, ping,
+  request-response and notification behaviours) together with the `libp2p` dependency. litep2p is
+  the only backend.
+- `NodeKeyConfig` holds the 32 byte seed of the node's ML-DSA-65 identity key.
 - WebRTC support is removed. Default `webrtc-direct` listen addresses are dropped and public
   `webrtc-direct` addresses are rejected.
 
-The libp2p backend is still compiled but the node refuses to start with it: only the litep2p
-backend provides post-quantum connections.
+## sc-cli
+
+- `--node-key-type` only accepts `ml-dsa`. The node key file is `network/secret_ml_dsa` in the
+  chain directory; `--node-key` and `--node-key-file` take the hex encoded 32 byte seed.
+- `generate-node-key` and `inspect-node-key` generate and inspect ML-DSA-65 node keys.
+- `--network-backend` only accepts `litep2p`; WebRTC listen addresses are no longer added by
+  default and `--force-enable-webrtc` is removed.
 
 ## sc-network-types
 
-- Conversions to the removed litep2p Ed25519 types are dropped. The node secret is generated as
-  32 random bytes.
+- The Ed25519 module and the libp2p Kademlia conversions are removed. `libp2p-identity` is only
+  used for the `PeerId` type of multiaddresses, without any key algorithm.
+
+## sc-telemetry
+
+- The libp2p WebSocket transport is removed: telemetry would be sent over classical TLS. The
+  public API is unchanged, telemetry messages are dropped and configured endpoints are reported
+  once in the logs.

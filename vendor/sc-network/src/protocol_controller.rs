@@ -44,7 +44,7 @@
 use crate::peer_store::{PeerStoreProvider, ProtocolHandle as ProtocolHandleT};
 
 use futures::{channel::oneshot, future::Either, FutureExt, StreamExt};
-use libp2p::PeerId;
+use sc_network_types::PeerId;
 use log::{debug, error, trace, warn};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_arithmetic::traits::SaturatedConversion;
@@ -863,7 +863,7 @@ mod tests {
 		peer_store::{PeerStoreProvider, ProtocolHandle as ProtocolHandleT},
 		ReputationChange,
 	};
-	use libp2p::PeerId;
+	use sc_network_types::PeerId;
 	use sc_network_common::role::ObservedRole;
 	use sc_utils::mpsc::{tracing_unbounded, TryRecvError};
 	use std::collections::HashSet;

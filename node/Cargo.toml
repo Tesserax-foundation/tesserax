@@ -22,7 +22,6 @@ futures = { features = ["thread-pool"], workspace = true }
 getrandom = { workspace = true }
 hex = { workspace = true, default-features = true }
 jsonrpsee = { features = ["server"], workspace = true }
-litep2p = { workspace = true }
 log = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 

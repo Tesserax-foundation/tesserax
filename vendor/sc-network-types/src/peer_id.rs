@@ -100,26 +100,18 @@ impl PeerId {
 		bs58::encode(self.to_bytes()).into_string()
 	}
 
-	/// Convert `PeerId` into ed25519 public key bytes.
+	/// Ed25519 public key bytes of this `PeerId`.
+	///
+	/// Tessera peer ids are derived from ML-DSA-65 keys: this always returns `None`.
 	pub fn into_ed25519(&self) -> Option<[u8; 32]> {
-		let hash = &self.multihash;
-		// https://www.ietf.org/archive/id/draft-multiformats-multihash-07.html#name-the-multihash-identifier-re
-		if hash.code() != 0 {
-			// Hash is not identity
-			return None;
-		}
-
-		let public = libp2p_identity::PublicKey::try_decode_protobuf(hash.digest()).ok()?;
-		public.try_into_ed25519().ok().map(|public| public.to_bytes())
+		None
 	}
 
-	/// Get `PeerId` from ed25519 public key bytes.
-	pub fn from_ed25519(bytes: &[u8; 32]) -> Option<PeerId> {
-		let public = libp2p_identity::ed25519::PublicKey::try_from_bytes(bytes).ok()?;
-		let public: libp2p_identity::PublicKey = public.into();
-		let peer_id: libp2p_identity::PeerId = public.into();
-
-		Some(peer_id.into())
+	/// `PeerId` of an Ed25519 public key.
+	///
+	/// Tessera peer ids are derived from ML-DSA-65 keys: this always returns `None`.
+	pub fn from_ed25519(_bytes: &[u8; 32]) -> Option<PeerId> {
+		None
 	}
 }
 
@@ -156,6 +148,12 @@ impl From<&libp2p_identity::PeerId> for PeerId {
 impl From<&PeerId> for libp2p_identity::PeerId {
 	fn from(peer_id: &PeerId) -> Self {
 		libp2p_identity::PeerId::from_bytes(&peer_id.to_bytes()).expect("to succeed")
+	}
+}
+
+impl From<&PeerId> for PeerId {
+	fn from(peer_id: &PeerId) -> Self {
+		*peer_id
 	}
 }
 

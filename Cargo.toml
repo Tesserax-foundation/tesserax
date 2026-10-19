@@ -52,7 +52,6 @@ futures-timer = { version = "3.0.2" }
 getrandom = { version = "0.3.4", default-features = false, features = ["std"] }
 hex = { version = "0.4.3", default-features = false }
 jsonrpsee = { version = "0.24.11" }
-litep2p = { version = "0.15.3" }
 log = { version = "0.4.22", default-features = false }
 ml-dsa = { version = "0.1.1", default-features = false }
 parking_lot = { version = "0.12.1", default-features = false }
@@ -132,5 +131,7 @@ debug = false
 # ML-KEM-768 only. See `vendor/README.md`.
 [patch.crates-io]
 litep2p = { path = "vendor/litep2p" }
+sc-cli = { path = "vendor/sc-cli" }
 sc-network = { path = "vendor/sc-network" }
 sc-network-types = { path = "vendor/sc-network-types" }
+sc-telemetry = { path = "vendor/sc-telemetry" }

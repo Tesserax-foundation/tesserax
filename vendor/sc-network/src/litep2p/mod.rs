@@ -100,7 +100,7 @@ mod discovery;
 mod ipfs_dht;
 mod peerstore;
 mod service;
-mod shim;
+pub(crate) mod shim;
 
 /// Litep2p bandwidth sink.
 struct Litep2pBandwidthSink {
@@ -256,17 +256,10 @@ impl Litep2pNetworkBackend {
 }
 
 impl Litep2pNetworkBackend {
-	/// Get the `litep2p` keypair from `NodeKeyConfig`.
-	///
-	/// The 32 byte node secret is the seed of the node's ML-DSA-65 identity key.
+	/// Get the `litep2p` ML-DSA-65 keypair from `NodeKeyConfig`.
 	fn get_keypair(node_key: &NodeKeyConfig) -> Result<(Keypair, litep2p::PeerId), Error> {
-		let seed = node_key.clone().into_keypair()?.secret().to_bytes();
-		let secret = litep2p::crypto::ml_dsa::SecretKey::try_from_bytes(seed)
-			.map_err(|_| Error::Io(std::io::Error::other("invalid node key")))?;
-
-		let local_identity = Keypair::from(secret);
-		let local_public = local_identity.public();
-		let local_peer_id = local_public.to_peer_id();
+		let local_identity = node_key.clone().into_keypair()?;
+		let local_peer_id = local_identity.public().to_peer_id();
 
 		Ok((local_identity, local_peer_id))
 	}

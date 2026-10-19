@@ -20,14 +20,11 @@
 
 //! Signature-related code
 
-pub use libp2p::identity::SigningError;
+pub use sc_network_types::kad::SigningError;
 
 /// Public key.
 pub enum PublicKey {
 	/// Litep2p public key.
-	Libp2p(libp2p::identity::PublicKey),
-
-	/// Libp2p public key.
 	Litep2p(litep2p::crypto::PublicKey),
 }
 
@@ -35,7 +32,6 @@ impl PublicKey {
 	/// Protobuf-encode [`PublicKey`].
 	pub fn encode_protobuf(&self) -> Vec<u8> {
 		match self {
-			Self::Libp2p(public) => public.encode_protobuf(),
 			Self::Litep2p(public) => public.to_protobuf_encoding(),
 		}
 	}
@@ -43,7 +39,6 @@ impl PublicKey {
 	/// Get `PeerId` of the [`PublicKey`].
 	pub fn to_peer_id(&self) -> sc_network_types::PeerId {
 		match self {
-			Self::Libp2p(public) => public.to_peer_id().into(),
 			Self::Litep2p(public) => public.to_peer_id().into(),
 		}
 	}
@@ -51,10 +46,7 @@ impl PublicKey {
 
 /// Keypair.
 pub enum Keypair {
-	/// Litep2p keypair.
-	Libp2p(libp2p::identity::Keypair),
-
-	/// Libp2p keypair.
+	/// Litep2p ML-DSA-65 keypair.
 	Litep2p(litep2p::crypto::ml_dsa::Keypair),
 }
 
@@ -67,7 +59,6 @@ impl Keypair {
 	/// Get [`Keypair`]'s public key.
 	pub fn public(&self) -> PublicKey {
 		match self {
-			Keypair::Libp2p(keypair) => PublicKey::Libp2p(keypair.public()),
 			Keypair::Litep2p(keypair) => PublicKey::Litep2p(keypair.public().into()),
 		}
 	}
@@ -96,12 +87,6 @@ impl Signature {
 		keypair: &Keypair,
 	) -> Result<Self, SigningError> {
 		match keypair {
-			Keypair::Libp2p(keypair) => {
-				let public_key = keypair.public();
-				let bytes = keypair.sign(message.as_ref())?;
-
-				Ok(Signature { public_key: PublicKey::Libp2p(public_key), bytes })
-			},
 			Keypair::Litep2p(keypair) => {
 				let public_key = keypair.public();
 				let bytes = keypair.sign(message.as_ref());

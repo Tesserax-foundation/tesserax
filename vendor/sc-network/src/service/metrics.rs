@@ -31,14 +31,7 @@ use std::{
 	},
 };
 
-pub use prometheus_endpoint::{Histogram, HistogramVec};
-
-/// Registers all networking metrics with the given registry.
-pub fn register(registry: &Registry, sources: MetricSources) -> Result<Metrics, PrometheusError> {
-	BandwidthCounters::register(registry, sources.bandwidth)?;
-	NumConnectedGauge::register(registry, sources.connected_peers)?;
-	Metrics::register(registry)
-}
+pub use prometheus_endpoint::HistogramVec;
 
 // Register `sc-network` metrics without bandwidth/connected peer sources.
 pub fn register_without_sources(registry: &Registry) -> Result<Metrics, PrometheusError> {
@@ -46,10 +39,7 @@ pub fn register_without_sources(registry: &Registry) -> Result<Metrics, Promethe
 }
 
 /// Predefined metric sources that are fed directly into prometheus.
-pub struct MetricSources {
-	pub bandwidth: Arc<dyn BandwidthSink>,
-	pub connected_peers: Arc<AtomicUsize>,
-}
+pub struct MetricSources;
 
 impl MetricSources {
 	pub fn register(
@@ -70,16 +60,9 @@ pub struct Metrics {
 	pub connections_opened_total: CounterVec<U64>,
 	pub distinct_peers_connections_closed_total: Counter<U64>,
 	pub distinct_peers_connections_opened_total: Counter<U64>,
-	pub incoming_connections_errors_total: CounterVec<U64>,
 	pub incoming_connections_total: Counter<U64>,
 	pub kademlia_query_duration: HistogramVec,
 	pub kademlia_random_queries_total: Counter<U64>,
-	pub kademlia_records_count: Gauge<U64>,
-	pub kademlia_records_sizes_total: Gauge<U64>,
-	pub kbuckets_num_nodes: GaugeVec<U64>,
-	pub listeners_local_addresses: Gauge<U64>,
-	pub listeners_errors_total: Counter<U64>,
-	pub pending_connections: Gauge<U64>,
 	pub pending_connections_errors_total: CounterVec<U64>,
 	pub requests_in_failure_total: CounterVec<U64>,
 	pub requests_in_success_total: HistogramVec,
@@ -114,14 +97,6 @@ impl Metrics {
 					"substrate_sub_libp2p_distinct_peers_connections_opened_total",
 					"Total number of connections opened with distinct peers"
 			)?, registry)?,
-			incoming_connections_errors_total: prometheus::register(CounterVec::new(
-				Opts::new(
-					"substrate_sub_libp2p_incoming_connections_handshake_errors_total",
-					"Total number of incoming connections that have failed during the \
-					initial handshake"
-				),
-				&["reason"]
-			)?, registry)?,
 			incoming_connections_total: prometheus::register(Counter::new(
 				"substrate_sub_libp2p_incoming_connections_total",
 				"Total number of incoming connections on the listening sockets"
@@ -140,33 +115,6 @@ impl Metrics {
 			kademlia_random_queries_total: prometheus::register(Counter::new(
 				"substrate_sub_libp2p_kademlia_random_queries_total",
 				"Number of random Kademlia queries started",
-			)?, registry)?,
-			kademlia_records_count: prometheus::register(Gauge::new(
-				"substrate_sub_libp2p_kademlia_records_count",
-				"Number of records in the Kademlia records store",
-			)?, registry)?,
-			kademlia_records_sizes_total: prometheus::register(Gauge::new(
-				"substrate_sub_libp2p_kademlia_records_sizes_total",
-				"Total size of all the records in the Kademlia records store",
-			)?, registry)?,
-			kbuckets_num_nodes: prometheus::register(GaugeVec::new(
-				Opts::new(
-					"substrate_sub_libp2p_kbuckets_num_nodes",
-					"Number of nodes per kbucket per Kademlia instance"
-				),
-				&["lower_ilog2_bucket_bound"]
-			)?, registry)?,
-			listeners_local_addresses: prometheus::register(Gauge::new(
-				"substrate_sub_libp2p_listeners_local_addresses",
-				"Number of local addresses we're listening on"
-			)?, registry)?,
-			listeners_errors_total: prometheus::register(Counter::new(
-				"substrate_sub_libp2p_listeners_errors_total",
-				"Total number of non-fatal errors reported by a listener"
-			)?, registry)?,
-			pending_connections: prometheus::register(Gauge::new(
-				"substrate_sub_libp2p_pending_connections",
-				"Number of connections in the process of being established",
 			)?, registry)?,
 			pending_connections_errors_total: prometheus::register(CounterVec::new(
 				Opts::new(

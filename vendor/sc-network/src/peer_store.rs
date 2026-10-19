@@ -21,7 +21,7 @@
 
 use crate::service::{metrics::PeerStoreMetrics, traits::PeerStore as PeerStoreT};
 
-use libp2p::PeerId;
+use sc_network_types::PeerId;
 use log::trace;
 use parking_lot::Mutex;
 use partial_sort::PartialSort;
