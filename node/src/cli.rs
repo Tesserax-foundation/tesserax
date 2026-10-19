@@ -34,9 +34,9 @@ pub struct MiningParams {
 #[derive(Debug, clap::Subcommand)]
 #[allow(clippy::large_enum_variant)]
 pub enum Subcommand {
-	/// Key management cli utilities
+	/// Key management utilities.
 	#[command(subcommand)]
-	Key(sc_cli::KeySubcommand),
+	Key(crate::key::KeySubcommand),
 
 	/// Export the chain specification.
 	ExportChainSpec(sc_cli::ExportChainSpecCmd),

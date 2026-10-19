@@ -7,8 +7,8 @@ use crate::{
 use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
 use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
-use sp_keyring::Sr25519Keyring;
 use std::str::FromStr;
+use tessera_crypto::keyring::Keyring;
 use tessera_pow::{MinerConfig, MiningMode};
 use tessera_runtime::{AccountId, Block, EXISTENTIAL_DEPOSIT};
 
@@ -67,10 +67,13 @@ fn mining_config(params: &MiningParams) -> sc_cli::Result<Option<service::Mining
 
 /// Parse and run command line arguments
 pub fn run() -> sc_cli::Result<()> {
+	sp_core::crypto::set_default_ss58_version(sp_core::crypto::Ss58AddressFormat::custom(
+		tessera_runtime::SS58_PREFIX,
+	));
 	let cli = Cli::from_args();
 
 	match &cli.subcommand {
-		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
+		Some(Subcommand::Key(cmd)) => cmd.run(),
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
@@ -176,7 +179,7 @@ pub fn run() -> sc_cli::Result<()> {
 							Box::new(RemarkBuilder::new(client.clone())),
 							Box::new(TransferKeepAliveBuilder::new(
 								client.clone(),
-								Sr25519Keyring::Alice.to_account_id(),
+								Keyring::Alice.to_account_id(),
 								EXISTENTIAL_DEPOSIT,
 							)),
 						]);

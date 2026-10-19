@@ -22,6 +22,9 @@ frame-support = { features = ["experimental"], workspace = true }
 frame-system = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
 
+# Tessera
+tessera-crypto = { workspace = true }
+
 # frame pallets
 pallet-balances = { workspace = true }
 pallet-difficulty = { workspace = true }
@@ -36,13 +39,13 @@ sp-consensus-pow = { workspace = true }
 sp-core = { features = ["serde"], workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
-sp-keyring = { workspace = true }
 sp-offchain = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-session = { workspace = true }
 sp-storage = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { features = ["serde"], workspace = true }
+sp-weights = { workspace = true }
 
 # RPC related
 frame-system-rpc-runtime-api = { workspace = true }
@@ -51,6 +54,9 @@ pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 # Used for runtime benchmarking
 frame-benchmarking = { optional = true, workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
+
+[dev-dependencies]
+sp-io = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -81,14 +87,15 @@ std = [
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
-	"sp-keyring/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-storage/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
+	"sp-weights/std",
 	"substrate-wasm-builder",
+	"tessera-crypto/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

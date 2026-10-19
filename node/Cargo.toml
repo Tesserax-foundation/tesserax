@@ -16,8 +16,11 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
+bip39 = { workspace = true }
 clap = { features = ["derive"], workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
+getrandom = { workspace = true }
+hex = { workspace = true, default-features = true }
 jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
@@ -44,7 +47,6 @@ sp-core = { workspace = true, default-features = true }
 sp-genesis-builder = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 
@@ -59,6 +61,7 @@ substrate-frame-rpc-system = { workspace = true, default-features = true }
 frame-benchmarking-cli = { workspace = true, default-features = true }
 
 # local
+tessera-crypto = { workspace = true, default-features = true }
 tessera-pow = { workspace = true }
 tessera-runtime = { workspace = true }
 

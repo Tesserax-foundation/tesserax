@@ -10,6 +10,7 @@ members = [
 	"crypto/randomtess",
 	"node",
 	"pallets/difficulty",
+	"primitives/crypto",
 	"runtime",
 ]
 
@@ -35,19 +36,23 @@ erasing_op = { level = "allow", priority = 2 }
 # Local crates
 pallet-difficulty = { path = "pallets/difficulty", default-features = false }
 randomtess = { path = "crypto/randomtess" }
+tessera-crypto = { path = "primitives/crypto", default-features = false }
 tessera-pow = { path = "consensus/pow" }
 tessera-runtime = { path = "runtime", default-features = false }
 
 # Third party
 async-trait = { version = "0.1.88" }
+bip39 = { version = "2.2.2", default-features = false, features = ["std"] }
 clap = { version = "4.5.13" }
 cmake = { version = "0.1.54" }
 codec = { version = "3.7.5", default-features = false, package = "parity-scale-codec" }
 futures = { version = "0.3.31" }
 futures-timer = { version = "3.0.2" }
+getrandom = { version = "0.3.4", default-features = false, features = ["std"] }
 hex = { version = "0.4.3", default-features = false }
 jsonrpsee = { version = "0.24.11" }
 log = { version = "0.4.22", default-features = false }
+ml-dsa = { version = "0.1.1", default-features = false }
 parking_lot = { version = "0.12.1", default-features = false }
 scale-info = { version = "2.11.6", default-features = false }
 serde_json = { version = "1.0.132", default-features = false }
@@ -89,6 +94,7 @@ sp-blockchain = { version = "46.0.1", default-features = false }
 sp-consensus = { version = "0.49.0", default-features = false }
 sp-consensus-pow = { version = "0.49.0", default-features = false }
 sp-core = { version = "43.0.0", default-features = false }
+sp-crypto-hashing = { version = "0.1.0", default-features = false }
 sp-genesis-builder = { version = "0.24.0", default-features = false }
 sp-inherents = { version = "43.0.0", default-features = false }
 sp-io = { version = "48.0.0", default-features = false }
@@ -100,6 +106,7 @@ sp-storage = { version = "25.0.0", default-features = false }
 sp-timestamp = { version = "43.0.0", default-features = false }
 sp-transaction-pool = { version = "43.0.0", default-features = false }
 sp-version = { version = "46.0.0", default-features = false }
+sp-weights = { version = "36.0.0", default-features = false }
 substrate-build-script-utils = { version = "11.0.3", default-features = false }
 substrate-frame-rpc-system = { version = "56.0.0", default-features = false }
 substrate-wasm-builder = { version = "34.0.1", default-features = false }

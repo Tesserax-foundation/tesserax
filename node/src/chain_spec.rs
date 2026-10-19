@@ -1,5 +1,5 @@
 use sc_service::{ChainType, Properties};
-use tessera_runtime::{DECIMALS, WASM_BINARY};
+use tessera_runtime::{DECIMALS, SS58_PREFIX, WASM_BINARY};
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec;
@@ -8,7 +8,7 @@ fn properties() -> Properties {
 	let mut properties = Properties::new();
 	properties.insert("tokenSymbol".into(), "TESS".into());
 	properties.insert("tokenDecimals".into(), DECIMALS.into());
-	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("ss58Format".into(), SS58_PREFIX.into());
 	properties
 }
 

@@ -10,6 +10,9 @@ pub mod apis;
 mod benchmarks;
 pub mod configs;
 pub mod genesis_config_presets;
+pub mod weights;
+#[cfg(test)]
+mod tests;
 
 extern crate alloc;
 use alloc::vec::Vec;
@@ -17,7 +20,7 @@ use alloc::vec::Vec;
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	MultiAddress, MultiSignature,
+	MultiAddress,
 };
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -83,11 +86,15 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-/// Signature of a transaction.
-pub type Signature = MultiSignature;
+/// Signature of a transaction: an ML-DSA-65 signature and the signer's public key. ML-DSA is the
+/// only signature scheme accepted on Tessera.
+pub type Signature = tessera_crypto::AccountSignature;
 
-/// An account on the chain, derived from the public key of its signing key.
+/// An account on the chain: the BLAKE2-256 hash of its ML-DSA public key.
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+
+/// SS58 address format of Tessera accounts. Addresses start with `te`.
+pub const SS58_PREFIX: u16 = 2261;
 
 /// Balance of an account.
 pub type Balance = u128;

@@ -14,29 +14,51 @@ use sp_core::U256;
 use sp_runtime::{traits::One, Perbill};
 use sp_version::RuntimeVersion;
 
+use super::weights::{block_weights::BlockExecutionWeight, extrinsic_weights::ExtrinsicBaseWeight};
 use super::{
 	AccountId, Balance, Balances, Block, BlockNumber, Hash, Nonce, PalletInfo, Runtime,
 	RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask,
-	System, Timestamp, EXISTENTIAL_DEPOSIT, MILLI_SECS_PER_BLOCK, VERSION,
+	System, Timestamp, EXISTENTIAL_DEPOSIT, MILLI_SECS_PER_BLOCK, SS58_PREFIX, VERSION,
 };
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
+
+/// Share of the block weight expected to be used by `on_initialize` hooks.
+const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
+
+/// Two seconds of compute per block. Blocks must stay fast to import: every second spent
+/// executing a block delays its propagation and raises the orphan rate.
+const MAXIMUM_BLOCK_WEIGHT: Weight =
+	Weight::from_parts(2u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX);
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 2400;
 	pub const Version: RuntimeVersion = VERSION;
 
-	/// Two seconds of compute per block. Blocks must stay fast to import: every second spent
-	/// executing a block delays its propagation and raises the orphan rate.
-	pub RuntimeBlockWeights: BlockWeights = BlockWeights::with_sensible_defaults(
-		Weight::from_parts(2u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
-		NORMAL_DISPATCH_RATIO,
-	);
+	/// Base weights benchmarked with ML-DSA transaction signatures.
+	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
+		.base_block(BlockExecutionWeight::get())
+		.for_class(DispatchClass::all(), |weights| {
+			weights.base_extrinsic = ExtrinsicBaseWeight::get();
+		})
+		.for_class(DispatchClass::Normal, |weights| {
+			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+		})
+		.for_class(DispatchClass::Operational, |weights| {
+			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
+			// Operational transactions have some extra reserved space, so that they
+			// are included even if block reached `MAXIMUM_BLOCK_WEIGHT`.
+			weights.reserved = Some(
+				MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT,
+			);
+		})
+		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
+		.build_or_panic();
 	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
 		.max_length(5 * 1024 * 1024)
 		.modify_max_length_for_class(DispatchClass::Normal, |m| *m = NORMAL_DISPATCH_RATIO * *m)
 		.build();
-	pub const SS58Prefix: u8 = 42;
+	pub const SS58Prefix: u16 = SS58_PREFIX;
 }
 
 #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
