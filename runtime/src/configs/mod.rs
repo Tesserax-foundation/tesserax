@@ -1,8 +1,9 @@
+use codec::Decode;
 use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
 	parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, ConstU8, VariantCountOf},
+	traits::{ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Contains, FindAuthor, VariantCountOf},
 	weights::{
 		constants::{RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
 		IdentityFee, Weight,
@@ -11,14 +12,17 @@ use frame_support::{
 use frame_system::limits::{BlockLength, BlockWeights};
 use pallet_transaction_payment::{ConstFeeMultiplier, FungibleAdapter, Multiplier};
 use sp_core::U256;
-use sp_runtime::{traits::One, Perbill};
+use frame_system::EnsureSigned;
+use pallet_revive::AccountId32Mapper;
+use sp_runtime::{traits::One, ConsensusEngineId, FixedU128, Perbill};
 use sp_version::RuntimeVersion;
 
 use super::weights::{block_weights::BlockExecutionWeight, extrinsic_weights::ExtrinsicBaseWeight};
 use super::{
-	AccountId, Balance, Balances, Block, BlockNumber, Hash, Nonce, PalletInfo, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask,
-	System, Timestamp, EXISTENTIAL_DEPOSIT, MILLI_SECS_PER_BLOCK, SS58_PREFIX, VERSION,
+	precompiles::MlDsa65Verify, AccountId, Balance, Balances, Block, BlockNumber, Hash, Nonce,
+	PalletInfo, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason,
+	RuntimeOrigin, RuntimeTask, System, Timestamp, EXISTENTIAL_DEPOSIT, MILLI_SECS_PER_BLOCK,
+	MILLI_UNIT, SS58_PREFIX, VERSION,
 };
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -75,6 +79,42 @@ impl frame_system::Config for Runtime {
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SS58Prefix = SS58Prefix;
 	type MaxConsumers = ConstU32<16>;
+	type BaseCallFilter = NoEthereumTransactions;
+	/// Accounts get their contract address mapping on creation.
+	type OnNewAccount = pallet_revive::AutoMapper<Runtime>;
+	type OnKilledAccount = pallet_revive::AutoMapper<Runtime>;
+}
+
+/// Rejects the Ethereum transaction calls of `pallet_revive`. Ethereum transactions are signed
+/// with ECDSA: contracts are deployed and called with ML-DSA signed extrinsics only.
+pub struct NoEthereumTransactions;
+
+impl Contains<RuntimeCall> for NoEthereumTransactions {
+	fn contains(call: &RuntimeCall) -> bool {
+		!matches!(
+			call,
+			RuntimeCall::Revive(
+				pallet_revive::Call::eth_transact { .. } |
+					pallet_revive::Call::eth_call { .. } |
+					pallet_revive::Call::eth_instantiate_with_code { .. } |
+					pallet_revive::Call::eth_substrate_call { .. }
+			)
+		)
+	}
+}
+
+/// The miner of a block, read from the proof-of-work pre-runtime digest.
+pub struct PowAuthor;
+
+impl FindAuthor<AccountId> for PowAuthor {
+	fn find_author<'a, I>(digests: I) -> Option<AccountId>
+	where
+		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+	{
+		digests.into_iter().find_map(|(id, mut data)| {
+			(id == sp_consensus_pow::POW_ENGINE_ID).then(|| AccountId::decode(&mut data).ok())?
+		})
+	}
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -133,4 +173,54 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
+}
+
+/// Storage deposit for `items` storage items using `bytes` bytes.
+const fn deposit(items: u32, bytes: u32) -> Balance {
+	items as Balance * 20 * MILLI_UNIT + (bytes as Balance) * (MILLI_UNIT / 10)
+}
+
+parameter_types! {
+	pub const DepositPerItem: Balance = deposit(1, 0);
+	pub const DepositPerChildTrieItem: Balance = deposit(1, 0) / 100;
+	pub const DepositPerByte: Balance = deposit(0, 1);
+	pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
+	pub const GasScale: u32 = 10;
+}
+
+/// Smart contracts: PolkaVM programs only, compiled from Solidity with `resolc`.
+impl pallet_revive::Config for Runtime {
+	type Time = Timestamp;
+	type Balance = Balance;
+	type Currency = Balances;
+	type OnBurn = ();
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
+	type Precompiles = (MlDsa65Verify<Self>,);
+	type FindAuthor = PowAuthor;
+	type DepositPerByte = DepositPerByte;
+	type DepositPerItem = DepositPerItem;
+	type DepositPerChildTrieItem = DepositPerChildTrieItem;
+	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
+	type AddressMapper = AccountId32Mapper<Self>;
+	/// No EVM bytecode: contracts run on PolkaVM.
+	type AllowEVMBytecode = ConstBool<false>;
+	type UploadOrigin = EnsureSigned<AccountId>;
+	type InstantiateOrigin = EnsureSigned<AccountId>;
+	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
+	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
+	/// Chain id returned to contracts by `block.chainid`.
+	type ChainId = ConstU64<2261>;
+	/// TESS has 12 decimals, contracts see 18.
+	type NativeToEthRatio = ConstU32<1_000_000>;
+	type FeeInfo = ();
+	type Deposit = ();
+	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
+	type DebugEnabled = ConstBool<false>;
+	type AutoMap = ConstBool<true>;
+	type GasScale = GasScale;
 }

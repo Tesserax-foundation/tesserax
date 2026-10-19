@@ -10,6 +10,7 @@ pub mod apis;
 mod benchmarks;
 pub mod configs;
 pub mod genesis_config_presets;
+pub mod precompiles;
 pub mod weights;
 #[cfg(test)]
 mod tests;
@@ -188,4 +189,7 @@ mod runtime {
 
 	#[runtime::pallet_index(5)]
 	pub type Sudo = pallet_sudo;
+
+	#[runtime::pallet_index(6)]
+	pub type Revive = pallet_revive;
 }

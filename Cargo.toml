@@ -42,6 +42,7 @@ tessera-pow = { path = "consensus/pow" }
 tessera-runtime = { path = "runtime", default-features = false }
 
 # Third party
+alloy-core = { version = "1.2.1", default-features = false }
 async-trait = { version = "0.1.88" }
 bip39 = { version = "2.2.2", default-features = false, features = ["std"] }
 clap = { version = "4.5.13" }
@@ -70,6 +71,7 @@ frame-system-benchmarking = { version = "49.0.0", default-features = false }
 frame-system-rpc-runtime-api = { version = "43.0.0", default-features = false }
 frame-try-runtime = { version = "0.54.0", default-features = false }
 pallet-balances = { version = "50.0.0", default-features = false }
+pallet-revive = { version = "0.19.1", default-features = false }
 pallet-sudo = { version = "49.0.0", default-features = false }
 pallet-timestamp = { version = "48.0.0", default-features = false }
 pallet-transaction-payment = { version = "49.0.0", default-features = false }
@@ -131,6 +133,7 @@ debug = false
 # ML-KEM-768 only. See `vendor/README.md`.
 [patch.crates-io]
 litep2p = { path = "vendor/litep2p" }
+pallet-revive = { path = "vendor/pallet-revive" }
 sc-cli = { path = "vendor/sc-cli" }
 sc-network = { path = "vendor/sc-network" }
 sc-network-types = { path = "vendor/sc-network-types" }

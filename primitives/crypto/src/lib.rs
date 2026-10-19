@@ -143,17 +143,20 @@ impl IdentifyAccount for Public {
 
 /// Verify an ML-DSA signature over `message` with the Tessera signing context.
 pub fn verify(signature: &Signature, message: &[u8], public: &Public) -> bool {
-	let Ok(signature) = ml_dsa::Signature::<MlDsa65>::try_from(&signature.0[..]) else {
+	verify_with_context(&signature.0, message, SIGNING_CONTEXT, &public.0)
+}
+
+/// Verify an encoded ML-DSA-65 signature over `message` with the FIPS 204 context `context`.
+///
+/// Returns `false` for malformed keys or signatures and for contexts longer than 255 bytes.
+pub fn verify_with_context(signature: &[u8], message: &[u8], context: &[u8], public: &[u8]) -> bool {
+	let Ok(signature) = ml_dsa::Signature::<MlDsa65>::try_from(signature) else {
 		return false;
 	};
-	let Ok(encoded) = EncodedVerifyingKey::<MlDsa65>::try_from(&public.0[..]) else {
+	let Ok(encoded) = EncodedVerifyingKey::<MlDsa65>::try_from(public) else {
 		return false;
 	};
-	VerifyingKey::<MlDsa65>::decode(&encoded).verify_with_context(
-		message,
-		SIGNING_CONTEXT,
-		&signature,
-	)
+	VerifyingKey::<MlDsa65>::decode(&encoded).verify_with_context(message, context, &signature)
 }
 
 /// Signature of a transaction: the signer's public key and its ML-DSA signature.
@@ -196,6 +199,26 @@ impl Pair {
 	#[cfg(feature = "full_crypto")]
 	pub fn sign_account(&self, message: &[u8]) -> AccountSignature {
 		AccountSignature { signer: self.public.clone(), signature: TraitPair::sign(self, message) }
+	}
+
+	/// Sign `message` with the FIPS 204 context `context` instead of the transaction context,
+	/// for signatures verified by contracts. `context` must not exceed 255 bytes.
+	#[cfg(feature = "full_crypto")]
+	pub fn sign_with_context(&self, message: &[u8], context: &[u8]) -> Signature {
+		assert!(context.len() <= 255, "FIPS 204 contexts are at most 255 bytes");
+		let mut rnd = [0u8; 32];
+		#[cfg(feature = "std")]
+		getrandom::fill(&mut rnd).expect("the operating system RNG is available; qed");
+
+		// `M' = 0 || len(ctx) || ctx || M`, FIPS 204 Algorithm 2.
+		let signature = self.signing_key().expanded_key().sign_internal(
+			&[&[0u8], &[context.len() as u8], context, message],
+			&B32::from(rnd),
+		);
+
+		let mut encoded = [0u8; SIGNATURE_SIZE];
+		encoded.copy_from_slice(signature.encode().as_slice());
+		Signature(encoded)
 	}
 
 	#[cfg(feature = "full_crypto")]
@@ -258,19 +281,7 @@ impl TraitPair for Pair {
 	/// deterministic variant otherwise.
 	#[cfg(feature = "full_crypto")]
 	fn sign(&self, message: &[u8]) -> Signature {
-		let mut rnd = [0u8; 32];
-		#[cfg(feature = "std")]
-		getrandom::fill(&mut rnd).expect("the operating system RNG is available; qed");
-
-		// `M' = 0 || len(ctx) || ctx || M`, FIPS 204 Algorithm 2.
-		let signature = self.signing_key().expanded_key().sign_internal(
-			&[&[0u8], &[SIGNING_CONTEXT.len() as u8], SIGNING_CONTEXT, message],
-			&B32::from(rnd),
-		);
-
-		let mut encoded = [0u8; SIGNATURE_SIZE];
-		encoded.copy_from_slice(signature.encode().as_slice());
-		Signature(encoded)
+		self.sign_with_context(message, SIGNING_CONTEXT)
 	}
 
 	fn verify<M: AsRef<[u8]>>(signature: &Signature, message: M, public: &Public) -> bool {

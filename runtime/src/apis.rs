@@ -13,9 +13,11 @@ use sp_runtime::{
 use sp_session::OpaqueGeneratedSessionKeys;
 use sp_version::RuntimeVersion;
 
+use pallet_revive::{evm, AddressMapper, EthTransactError};
+
 use super::{
-	AccountId, Balance, Block, Difficulty, Executive, InherentDataExt, Nonce, Runtime, RuntimeCall,
-	RuntimeGenesisConfig, System, TransactionPayment, VERSION,
+	AccountId, Balance, Block, BlockNumber, Difficulty, Executive, InherentDataExt, Nonce, Revive,
+	Runtime, RuntimeCall, RuntimeGenesisConfig, RuntimeOrigin, System, TransactionPayment, VERSION,
 };
 
 impl_runtime_apis! {
@@ -225,6 +227,233 @@ impl_runtime_apis! {
 		}
 	}
 
+	// Contracts are deployed and called with ML-DSA signed extrinsics. The Ethereum transaction
+	// entry points of the API are not supported.
+	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, u64> for Runtime {
+		fn eth_block() -> pallet_revive::EthBlock {
+			Revive::eth_block()
+		}
+
+		fn eth_block_hash(number: pallet_revive::U256) -> Option<pallet_revive::H256> {
+			Revive::eth_block_hash_from_number(number)
+		}
+
+		fn eth_receipt_data() -> Vec<pallet_revive::ReceiptGasInfo> {
+			Revive::eth_receipt_data()
+		}
+
+		fn balance(address: pallet_revive::H160) -> pallet_revive::U256 {
+			Revive::evm_balance(&address)
+		}
+
+		fn block_author() -> pallet_revive::H160 {
+			Revive::block_author()
+		}
+
+		fn block_gas_limit() -> pallet_revive::U256 {
+			Revive::evm_block_gas_limit()
+		}
+
+		fn max_extrinsic_weight_in_gas() -> pallet_revive::U256 {
+			Revive::evm_max_extrinsic_weight_in_gas()
+		}
+
+		fn gas_price() -> pallet_revive::U256 {
+			Revive::evm_base_fee()
+		}
+
+		fn nonce(address: pallet_revive::H160) -> Nonce {
+			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
+			System::account_nonce(account)
+		}
+
+		fn address(account_id: AccountId) -> pallet_revive::H160 {
+			<Runtime as pallet_revive::Config>::AddressMapper::to_address(&account_id)
+		}
+
+		fn eth_transact(
+			_tx: evm::GenericTransaction,
+		) -> Result<pallet_revive::EthTransactInfo<Balance>, EthTransactError> {
+			Err(ethereum_unsupported())
+		}
+
+		fn eth_transact_with_config(
+			_tx: evm::GenericTransaction,
+			_config: pallet_revive::DryRunConfig<u64>,
+		) -> Result<pallet_revive::EthTransactInfo<Balance>, EthTransactError> {
+			Err(ethereum_unsupported())
+		}
+
+		fn eth_estimate_gas(
+			_tx: evm::GenericTransaction,
+			_config: pallet_revive::DryRunConfig<u64>,
+		) -> Result<pallet_revive::U256, EthTransactError> {
+			Err(ethereum_unsupported())
+		}
+
+		fn eth_pre_dispatch_weight(_tx: Vec<u8>) -> Result<Weight, EthTransactError> {
+			Err(ethereum_unsupported())
+		}
+
+		fn call(
+			origin: AccountId,
+			dest: pallet_revive::H160,
+			value: Balance,
+			weight_limit: Option<Weight>,
+			storage_deposit_limit: Option<Balance>,
+			input_data: Vec<u8>,
+		) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, Balance> {
+			let block_weights = <<Runtime as frame_system::Config>::BlockWeights as frame_support::traits::Get<frame_system::limits::BlockWeights>>::get();
+			Revive::prepare_dry_run(&origin);
+			Revive::bare_call(
+				RuntimeOrigin::signed(origin),
+				dest,
+				Revive::convert_native_to_evm(value),
+				pallet_revive::TransactionLimits::WeightAndDeposit {
+					weight_limit: weight_limit.unwrap_or(block_weights.max_block),
+					deposit_limit: storage_deposit_limit.unwrap_or(u128::MAX),
+				},
+				input_data,
+				&pallet_revive::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
+			)
+		}
+
+		fn instantiate(
+			origin: AccountId,
+			value: Balance,
+			weight_limit: Option<Weight>,
+			storage_deposit_limit: Option<Balance>,
+			code: pallet_revive::Code,
+			data: Vec<u8>,
+			salt: Option<[u8; 32]>,
+		) -> pallet_revive::ContractResult<pallet_revive::InstantiateReturnValue, Balance> {
+			let block_weights = <<Runtime as frame_system::Config>::BlockWeights as frame_support::traits::Get<frame_system::limits::BlockWeights>>::get();
+			Revive::prepare_dry_run(&origin);
+			Revive::bare_instantiate(
+				RuntimeOrigin::signed(origin),
+				Revive::convert_native_to_evm(value),
+				pallet_revive::TransactionLimits::WeightAndDeposit {
+					weight_limit: weight_limit.unwrap_or(block_weights.max_block),
+					deposit_limit: storage_deposit_limit.unwrap_or(u128::MAX),
+				},
+				code,
+				data,
+				salt,
+				&pallet_revive::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
+			)
+		}
+
+		fn upload_code(
+			origin: AccountId,
+			code: Vec<u8>,
+			storage_deposit_limit: Option<Balance>,
+		) -> pallet_revive::CodeUploadResult<Balance> {
+			Revive::bare_upload_code(
+				RuntimeOrigin::signed(origin),
+				code,
+				storage_deposit_limit.unwrap_or(u128::MAX),
+			)
+		}
+
+		fn get_storage_var_key(
+			address: pallet_revive::H160,
+			key: Vec<u8>,
+		) -> pallet_revive::GetStorageResult {
+			Revive::get_storage_var_key(address, key)
+		}
+
+		fn get_storage(address: pallet_revive::H160, key: [u8; 32]) -> pallet_revive::GetStorageResult {
+			Revive::get_storage(address, key)
+		}
+
+		fn trace_block(
+			block: Block,
+			tracer_type: evm::TracerType,
+		) -> Vec<(u32, evm::Trace)> {
+			use pallet_revive::tracing::trace;
+
+			if matches!(tracer_type, evm::TracerType::ExecutionTracer(_)) &&
+				!pallet_revive::DebugSettings::is_execution_tracing_enabled::<Runtime>()
+			{
+				return Default::default()
+			}
+
+			let mut traces = Vec::new();
+			let (header, extrinsics) = block.deconstruct();
+			Executive::initialize_block(&header);
+			for (index, ext) in extrinsics.into_iter().enumerate() {
+				let mut tracer = Revive::evm_tracer(tracer_type.clone());
+				let t = tracer.as_tracing();
+				let _ = trace(t, || Executive::apply_extrinsic(ext));
+				if let Some(tx_trace) = tracer.collect_trace() {
+					traces.push((index as u32, tx_trace));
+				}
+			}
+			traces
+		}
+
+		fn trace_tx(
+			block: Block,
+			tx_index: u32,
+			tracer_type: evm::TracerType,
+		) -> Option<evm::Trace> {
+			use pallet_revive::tracing::trace;
+
+			if matches!(tracer_type, evm::TracerType::ExecutionTracer(_)) &&
+				!pallet_revive::DebugSettings::is_execution_tracing_enabled::<Runtime>()
+			{
+				return None
+			}
+
+			let mut tracer = Revive::evm_tracer(tracer_type);
+			let (header, extrinsics) = block.deconstruct();
+			Executive::initialize_block(&header);
+			for (index, ext) in extrinsics.into_iter().enumerate() {
+				if index as u32 == tx_index {
+					let t = tracer.as_tracing();
+					let _ = trace(t, || Executive::apply_extrinsic(ext));
+					break;
+				} else {
+					let _ = Executive::apply_extrinsic(ext);
+				}
+			}
+			tracer.collect_trace()
+		}
+
+		fn trace_call(
+			_tx: evm::GenericTransaction,
+			_tracer_type: evm::TracerType,
+		) -> Result<evm::Trace, EthTransactError> {
+			Err(ethereum_unsupported())
+		}
+
+		fn trace_call_with_config(
+			_tx: evm::GenericTransaction,
+			_tracer_type: evm::TracerType,
+			_config: evm::TracingConfig,
+		) -> Result<evm::Trace, EthTransactError> {
+			Err(ethereum_unsupported())
+		}
+
+		fn runtime_pallets_address() -> pallet_revive::H160 {
+			pallet_revive::RUNTIME_PALLETS_ADDR
+		}
+
+		fn code(address: pallet_revive::H160) -> Vec<u8> {
+			Revive::code(&address)
+		}
+
+		fn account_id(address: pallet_revive::H160) -> AccountId {
+			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address)
+		}
+
+		fn new_balance_with_dust(
+			balance: pallet_revive::U256,
+		) -> Result<(Balance, u32), pallet_revive::BalanceConversionError> {
+			Revive::new_balance_with_dust(balance)
+		}
+	}
+
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			build_state::<RuntimeGenesisConfig>(config)
@@ -238,4 +467,8 @@ impl_runtime_apis! {
 			crate::genesis_config_presets::preset_names()
 		}
 	}
+}
+
+fn ethereum_unsupported() -> EthTransactError {
+	EthTransactError::Message("Ethereum transactions are not supported".into())
 }

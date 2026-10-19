@@ -8,6 +8,7 @@ authentication. The crates below are forks of the published Polkadot SDK crates,
 | Crate | Base version | License |
 |---|---|---|
 | `litep2p` | 0.15.3 | MIT |
+| `pallet-revive` | 0.19.1 (polkadot-sdk stable2606) | Apache-2.0 |
 | `sc-cli` | 0.64.0 (polkadot-sdk stable2606) | GPL-3.0-or-later WITH Classpath-exception-2.0 |
 | `sc-network` | 0.61.0 (polkadot-sdk stable2606) | GPL-3.0-or-later WITH Classpath-exception-2.0 |
 | `sc-network-types` | 0.23.3 (polkadot-sdk stable2606) | Apache-2.0 |
@@ -53,3 +54,12 @@ authentication. The crates below are forks of the published Polkadot SDK crates,
 - The libp2p WebSocket transport is removed: telemetry would be sent over classical TLS. The
   public API is unchanged, telemetry messages are dropped and configured endpoints are reported
   once in the logs.
+
+## pallet-revive
+
+- The builtin precompiles based on elliptic curves are removed: `ecrecover` (secp256k1),
+  `bn128` add, mul and pairing, `p256_verify` (secp256r1) and KZG `point_eval`.
+- The contract API helpers `sr25519_verify`, `ecdsa_recover` and `ecdsa_to_eth_address` always
+  fail.
+- EVM bytecode and Ethereum transactions are disabled by the runtime configuration
+  (`AllowEVMBytecode = false`, Ethereum calls filtered).

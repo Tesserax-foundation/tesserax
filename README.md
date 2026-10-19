@@ -13,6 +13,7 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 | `pallets/difficulty/` | Difficulty adjustment (LWMA over 120 blocks, 18 s target) |
 | `consensus/pow/` | RandomTESS proof of work: seal verification, key schedule, miner, confirmation depth |
 | `primitives/crypto/` | ML-DSA-65 keys, signatures and accounts |
+| `vendor/` | Forks of Polkadot SDK crates for post-quantum networking and contracts, see `vendor/README.md` |
 | `crypto/randomtess/` | RandomTESS hash function (RandomX v2 sources with the Tessera configuration) |
 
 ## Consensus
@@ -41,6 +42,39 @@ accounts.
 ```bash
 ./target/release/tessera key generate
 ./target/release/tessera key inspect "//Alice"
+```
+
+## Smart contracts
+
+Contracts are written in Solidity, compiled to PolkaVM (RISC-V) with
+[`resolc`](https://github.com/paritytech/revive) and executed by `pallet-revive`. There is no EVM:
+
+- only PolkaVM code can be uploaded, EVM bytecode is rejected;
+- contracts are deployed and called with ML-DSA signed extrinsics
+  (`revive.instantiate_with_code`, `revive.call`); Ethereum transactions are rejected;
+- precompiles based on elliptic curves (`ecrecover`, `bn128`, `p256` verification, KZG point
+  evaluation) and the sr25519/ECDSA helpers of the contract API are disabled;
+- contracts can verify ML-DSA-65 signatures through the precompile at
+  `0x00000000000000000000000000000000d5a00000`:
+
+```solidity
+interface IMlDsa65 {
+    function verify(
+        bytes calldata publicKey,
+        bytes calldata context,
+        bytes calldata message,
+        bytes calldata signature
+    ) external view returns (bool);
+}
+```
+
+  The FIPS 204 context `"tessera"` is reserved for transactions and always fails.
+
+Every ML-DSA account has a contract address (`msg.sender`), the last 20 bytes of the Keccak-256
+hash of its account id. The mapping is registered automatically when the account is created.
+
+```bash
+npx @parity/resolc --bin --abi -o out MyContract.sol
 ```
 
 ## Building
