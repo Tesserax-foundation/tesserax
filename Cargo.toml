@@ -1,0 +1,120 @@
+[workspace.package]
+authors = ["Tessera developers"]
+edition = "2021"
+repository = "https://github.com/Wayleyy/tessera"
+
+[workspace]
+resolver = "2"
+members = [
+	"consensus/pow",
+	"crypto/randomtess",
+	"node",
+	"pallets/difficulty",
+	"runtime",
+]
+
+[workspace.lints.rust]
+suspicious_double_ref_op = { level = "allow", priority = 2 }
+unexpected_cfgs = { level = "warn", check-cfg = [
+	'cfg(build_opt_level, values("3"))',
+	'cfg(build_profile, values("debug", "release"))',
+	'cfg(enable_alloc_error_handler)',
+	'cfg(substrate_runtime)',
+] }
+
+[workspace.lints.clippy]
+all = { level = "allow", priority = 0 }
+complexity = { level = "warn", priority = 1 }
+correctness = { level = "warn", priority = 1 }
+type_complexity = { level = "allow", priority = 2 }
+too_many_arguments = { level = "allow", priority = 2 }
+identity_op = { level = "allow", priority = 2 }
+erasing_op = { level = "allow", priority = 2 }
+
+[workspace.dependencies]
+# Local crates
+pallet-difficulty = { path = "pallets/difficulty", default-features = false }
+randomtess = { path = "crypto/randomtess" }
+tessera-pow = { path = "consensus/pow" }
+tessera-runtime = { path = "runtime", default-features = false }
+
+# Third party
+async-trait = { version = "0.1.88" }
+clap = { version = "4.5.13" }
+cmake = { version = "0.1.54" }
+codec = { version = "3.7.5", default-features = false, package = "parity-scale-codec" }
+futures = { version = "0.3.31" }
+futures-timer = { version = "3.0.2" }
+hex = { version = "0.4.3", default-features = false }
+jsonrpsee = { version = "0.24.11" }
+log = { version = "0.4.22", default-features = false }
+parking_lot = { version = "0.12.1", default-features = false }
+scale-info = { version = "2.11.6", default-features = false }
+serde_json = { version = "1.0.132", default-features = false }
+thiserror = { version = "1.0.64" }
+
+# Polkadot SDK stable2606
+frame-benchmarking = { version = "49.0.0", default-features = false }
+frame-benchmarking-cli = { version = "62.0.0", default-features = false }
+frame-executive = { version = "48.0.0", default-features = false }
+frame-metadata-hash-extension = { version = "0.16.0", default-features = false }
+frame-support = { version = "48.1.0", default-features = false }
+frame-system = { version = "48.0.0", default-features = false }
+frame-system-benchmarking = { version = "49.0.0", default-features = false }
+frame-system-rpc-runtime-api = { version = "43.0.0", default-features = false }
+frame-try-runtime = { version = "0.54.0", default-features = false }
+pallet-balances = { version = "50.0.0", default-features = false }
+pallet-sudo = { version = "49.0.0", default-features = false }
+pallet-timestamp = { version = "48.0.0", default-features = false }
+pallet-transaction-payment = { version = "49.0.0", default-features = false }
+pallet-transaction-payment-rpc = { version = "52.0.0", default-features = false }
+pallet-transaction-payment-rpc-runtime-api = { version = "49.0.0", default-features = false }
+prometheus-endpoint = { version = "0.17.7", default-features = false, package = "substrate-prometheus-endpoint" }
+sc-basic-authorship = { version = "0.58.0", default-features = false }
+sc-cli = { version = "0.64.0", default-features = false }
+sc-client-api = { version = "49.0.0", default-features = false }
+sc-consensus = { version = "0.60.0", default-features = false }
+sc-consensus-pow = { version = "0.60.0", default-features = false }
+sc-executor = { version = "0.50.0", default-features = false }
+sc-network = { version = "0.61.0", default-features = false }
+sc-offchain = { version = "56.0.0", default-features = false }
+sc-service = { version = "0.63.0", default-features = false }
+sc-telemetry = { version = "33.0.0", default-features = false }
+sc-transaction-pool = { version = "49.0.0", default-features = false }
+sc-transaction-pool-api = { version = "48.0.0", default-features = false }
+sp-api = { version = "43.0.0", default-features = false }
+sp-arithmetic = { version = "28.0.1", default-features = false }
+sp-block-builder = { version = "43.0.0", default-features = false }
+sp-blockchain = { version = "46.0.1", default-features = false }
+sp-consensus = { version = "0.49.0", default-features = false }
+sp-consensus-pow = { version = "0.49.0", default-features = false }
+sp-core = { version = "43.0.0", default-features = false }
+sp-genesis-builder = { version = "0.24.0", default-features = false }
+sp-inherents = { version = "43.0.0", default-features = false }
+sp-io = { version = "48.0.0", default-features = false }
+sp-keyring = { version = "48.0.0", default-features = false }
+sp-offchain = { version = "43.0.0", default-features = false }
+sp-runtime = { version = "48.0.0", default-features = false }
+sp-session = { version = "45.0.0", default-features = false }
+sp-storage = { version = "25.0.0", default-features = false }
+sp-timestamp = { version = "43.0.0", default-features = false }
+sp-transaction-pool = { version = "43.0.0", default-features = false }
+sp-version = { version = "46.0.0", default-features = false }
+substrate-build-script-utils = { version = "11.0.3", default-features = false }
+substrate-frame-rpc-system = { version = "56.0.0", default-features = false }
+substrate-wasm-builder = { version = "34.0.1", default-features = false }
+
+[profile.release]
+panic = "unwind"
+
+[profile.production]
+inherits = "release"
+codegen-units = 1
+lto = true
+
+[profile.dev]
+# Keep the target directory small: debug info for the full dependency tree takes tens of GiB.
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

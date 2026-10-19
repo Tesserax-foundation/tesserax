@@ -1,0 +1,41 @@
+use sc_service::{ChainType, Properties};
+use tessera_runtime::{DECIMALS, WASM_BINARY};
+
+/// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
+pub type ChainSpec = sc_service::GenericChainSpec;
+
+fn properties() -> Properties {
+	let mut properties = Properties::new();
+	properties.insert("tokenSymbol".into(), "TESS".into());
+	properties.insert("tokenDecimals".into(), DECIMALS.into());
+	properties.insert("ss58Format".into(), 42.into());
+	properties
+}
+
+pub fn development_chain_spec() -> Result<ChainSpec, String> {
+	Ok(ChainSpec::builder(
+		WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?,
+		None,
+	)
+	.with_name("Tessera Development")
+	.with_id("tessera_dev")
+	.with_chain_type(ChainType::Development)
+	.with_protocol_id("tess")
+	.with_properties(properties())
+	.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
+	.build())
+}
+
+pub fn local_chain_spec() -> Result<ChainSpec, String> {
+	Ok(ChainSpec::builder(
+		WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?,
+		None,
+	)
+	.with_name("Tessera Local Testnet")
+	.with_id("tessera_local")
+	.with_chain_type(ChainType::Local)
+	.with_protocol_id("tess")
+	.with_properties(properties())
+	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
+	.build())
+}
