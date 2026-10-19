@@ -1,0 +1,18 @@
+syntax = "proto2";
+
+package keys_proto;
+
+// Tessera nodes only use ML-DSA-65 identity keys.
+enum KeyType {
+  MlDsa65 = 4;
+}
+
+message PublicKey {
+  required KeyType Type = 1;
+  required bytes Data = 2;
+}
+
+message PrivateKey {
+  required KeyType Type = 1;
+  required bytes Data = 2;
+}

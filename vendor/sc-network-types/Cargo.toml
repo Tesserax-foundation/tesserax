@@ -1,0 +1,86 @@
+[package]
+edition = "2021"
+name = "sc-network-types"
+version = "0.23.3"
+authors = ["Parity Technologies <admin@parity.io>"]
+build = false
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "Substrate network types"
+homepage = "https://paritytech.github.io/polkadot-sdk/"
+documentation = "https://docs.rs/sc-network-types"
+readme = false
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository = "https://github.com/paritytech/polkadot-sdk.git"
+
+[lib]
+name = "sc_network_types"
+path = "src/lib.rs"
+
+[dependencies.bs58]
+version = "0.5.1"
+default-features = true
+
+[dependencies.bytes]
+version = "1.4.0"
+default-features = false
+
+[dependencies.ed25519-dalek]
+version = "2.1"
+default-features = true
+
+[dependencies.libp2p-identity]
+version = "0.2.9"
+features = [
+    "ed25519",
+    "peerid",
+    "rand",
+]
+
+[dependencies.libp2p-kad]
+version = "0.46.2"
+default-features = false
+
+[dependencies.litep2p]
+version = "0.15.3"
+
+[dependencies.log]
+version = "0.4.22"
+default-features = true
+
+[dependencies.multiaddr]
+version = "0.18.1"
+
+[dependencies.multihash]
+version = "0.19.1"
+default-features = false
+
+[dependencies.rand]
+version = "0.8.5"
+default-features = true
+
+[dependencies.serde]
+version = "1.0.214"
+default-features = false
+
+[dependencies.serde_with]
+version = "3.12.0"
+features = [
+    "hex",
+    "macros",
+]
+default-features = false
+
+[dependencies.thiserror]
+version = "1.0.64"
+
+[dependencies.zeroize]
+version = "1.7.0"
+default-features = false
+
+[dev-dependencies.quickcheck]
+version = "1.0.3"
+default-features = true
