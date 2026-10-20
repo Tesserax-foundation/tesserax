@@ -5,7 +5,7 @@ use frame_support::{
 	traits::Authorize,
 };
 use frame_system::RawOrigin;
-use tessera_shielded::{
+use tesserax_shielded::{
 	encryption::{decrypt, encrypt},
 	keys::{Address, SpendingKey},
 	note::{nullifier, output_rho, random_randomness, Note},
@@ -307,7 +307,7 @@ fn transactions_without_signer_are_checked() {
 		t.recipient = Some(8);
 		assert_eq!(authorize(&t), custom(Error::InvalidRecipient));
 		let mut t = transaction.clone();
-		t.fee = tessera_shielded::MAX_VALUE;
+		t.fee = tesserax_shielded::MAX_VALUE;
 		assert_eq!(authorize(&t), custom(Error::AmountOutOfRange));
 
 		let cheap = transfer(&chain, &owned, 0, MINIMUM_FEE - 1);

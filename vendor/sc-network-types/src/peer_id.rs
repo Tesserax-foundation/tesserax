@@ -102,14 +102,14 @@ impl PeerId {
 
 	/// Ed25519 public key bytes of this `PeerId`.
 	///
-	/// Tessera peer ids are derived from ML-DSA-65 keys: this always returns `None`.
+	/// Tesserax peer ids are derived from ML-DSA-65 keys: this always returns `None`.
 	pub fn into_ed25519(&self) -> Option<[u8; 32]> {
 		None
 	}
 
 	/// `PeerId` of an Ed25519 public key.
 	///
-	/// Tessera peer ids are derived from ML-DSA-65 keys: this always returns `None`.
+	/// Tesserax peer ids are derived from ML-DSA-65 keys: this always returns `None`.
 	pub fn from_ed25519(_bytes: &[u8; 32]) -> Option<PeerId> {
 		None
 	}

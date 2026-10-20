@@ -17,7 +17,7 @@ pub(super) use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidityError},
 	ApplyExtrinsicResult, BuildStorage,
 };
-pub(super) use tessera_crypto::{keyring::Keyring, Pair};
+pub(super) use tesserax_crypto::{keyring::Keyring, Pair};
 
 pub(super) fn new_test_ext() -> sp_io::TestExternalities {
 	let storage = RuntimeGenesisConfig {

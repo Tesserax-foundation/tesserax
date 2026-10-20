@@ -1,6 +1,6 @@
 [package]
 name = "pallet-agents"
-description = "Agent accounts of Tessera: keys acting for an owner within a budget, a list of targets and an expiry."
+description = "Agent accounts of Tesserax: keys acting for an owner within a budget, a list of targets and an expiry."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true

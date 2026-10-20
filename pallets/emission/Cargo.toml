@@ -1,6 +1,6 @@
 [package]
 name = "pallet-emission"
-description = "Block rewards of Tessera: 0.85 TESS per block to the miner, halving every 7 000 000 blocks."
+description = "Block rewards of Tesserax: 0.85 TESS per block to the miner, halving every 7 000 000 blocks."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true

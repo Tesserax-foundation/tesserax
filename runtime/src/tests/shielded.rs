@@ -4,7 +4,7 @@
 use super::*;
 use crate::configs::ShieldedMinimumFee;
 use pallet_shielded::{PoolBalance, ShieldedTransaction};
-use tessera_shielded::{
+use tesserax_shielded::{
 	encryption::encrypt,
 	keys::{Address, SpendingKey},
 	note::{nullifier, output_rho, random_randomness, Note},

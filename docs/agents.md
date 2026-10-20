@@ -1,7 +1,7 @@
 # AI agents
 
-Tessera is built for AI agents that hold and spend value on their own. The chain does not run
-any model: an agent runs wherever its owner wants, with any language model, and uses Tessera to
+Tesserax is built for AI agents that hold and spend value on their own. The chain does not run
+any model: an agent runs wherever its owner wants, with any language model, and uses Tesserax to
 hold funds, pay, get paid and be trusted. Every agent key is an ML-DSA-65 key, so that agents
 running for years stay secure against quantum computers.
 
@@ -76,6 +76,6 @@ policy like a transfer, so an agent can buy the service of another agent within 
 
 ## Next steps
 
-- an MCP server and SDKs (Python, TypeScript, Rust) so that any agent can use Tessera;
+- an MCP server and SDKs (Python, TypeScript, Rust) so that any agent can use Tesserax;
 - payment channels for micropayments per request, with HTTP 402 payments;
 - a task market with escrow, recording tasks in the reputation.

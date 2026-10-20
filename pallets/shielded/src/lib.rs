@@ -35,7 +35,7 @@ pub mod weights;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{traits::ConstU32, BoundedVec};
 use scale_info::TypeInfo;
-use tessera_shielded::{
+use tesserax_shielded::{
 	proof::{PublicInputs, MAX_PROOF_SIZE},
 	Digest, EncryptedNote, MAX_VALUE,
 };
@@ -44,7 +44,7 @@ use tessera_shielded::{
 pub type Proof = BoundedVec<u8, ConstU32<{ MAX_PROOF_SIZE as u32 }>>;
 
 /// Context of the binding hash.
-const BINDING_CONTEXT: &[u8] = b"tessera-shielded-binding";
+const BINDING_CONTEXT: &[u8] = b"tesserax-shielded-binding";
 
 /// A shielded transaction: public inputs, encrypted output notes and proof.
 #[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
@@ -106,7 +106,7 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{CheckedSub, Saturating};
-	use tessera_shielded::tree::Frontier;
+	use tesserax_shielded::tree::Frontier;
 
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -337,14 +337,14 @@ pub mod pallet {
 				ensure!(!Nullifiers::<T>::contains_key(nullifier), Error::<T>::NullifierSpent);
 			}
 			ensure!(Roots::<T>::get().contains(&t.anchor), Error::<T>::UnknownAnchor);
-			ensure!(Tree::<T>::get().size + 2 <= 1u64 << tessera_shielded::tree::TREE_DEPTH, Error::<T>::TreeFull);
+			ensure!(Tree::<T>::get().size + 2 <= 1u64 << tesserax_shielded::tree::TREE_DEPTH, Error::<T>::TreeFull);
 			PoolBalance::<T>::get()
 				.saturating_add(t.value_in.into())
 				.checked_sub(&BalanceOf::<T>::from(t.value_out).saturating_add(t.fee.into()))
 				.ok_or(Error::<T>::PoolUnderflow)?;
 			if verify_proof {
 				ensure!(
-					tessera_shielded::proof::verify(&t.proof, &t.public_inputs(source)),
+					tesserax_shielded::proof::verify(&t.proof, &t.public_inputs(source)),
 					Error::<T>::InvalidProof
 				);
 			}

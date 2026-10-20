@@ -1,6 +1,6 @@
 [package]
 name = "randomtess"
-description = "RandomTESS proof-of-work hash function (Tessera configuration of RandomX v2)."
+description = "RandomTESS proof-of-work hash function (Tesserax configuration of RandomX v2)."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true

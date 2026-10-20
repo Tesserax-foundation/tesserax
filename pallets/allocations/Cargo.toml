@@ -1,6 +1,6 @@
 [package]
 name = "pallet-allocations"
-description = "Genesis allocations of Tessera: team and foundation funds released by vesting schedules with an optional cliff."
+description = "Genesis allocations of Tesserax: team and foundation funds released by vesting schedules with an optional cliff."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true

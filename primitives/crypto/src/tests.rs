@@ -35,7 +35,7 @@ fn signatures_are_hedged() {
 
 #[test]
 fn signing_context_is_bound() {
-	// A signature made without the Tessera context must not verify.
+	// A signature made without the Tesserax context must not verify.
 	let pair = pair(1);
 	let foreign = pair.signing_key().expanded_key().sign_deterministic(b"message", b"").unwrap();
 	let mut encoded = [0u8; SIGNATURE_SIZE];
@@ -45,7 +45,7 @@ fn signing_context_is_bound() {
 
 #[test]
 fn matches_fips_204_verification() {
-	// Signatures verify with the reference `verify_with_context` and the Tessera context.
+	// Signatures verify with the reference `verify_with_context` and the Tesserax context.
 	let pair = pair(3);
 	let signature = TraitPair::sign(&pair, b"payload");
 	let decoded = ml_dsa::Signature::<MlDsa65>::try_from(&signature.0[..]).unwrap();

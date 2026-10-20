@@ -1,11 +1,11 @@
 //! Account key utilities.
 //!
-//! Tessera accounts are ML-DSA-65 keys. New keys come from a 24 word BIP39 phrase, i.e. 256 bits
+//! Tesserax accounts are ML-DSA-65 keys. New keys come from a 24 word BIP39 phrase, i.e. 256 bits
 //! of entropy, so that a quantum search over the phrase space stays out of reach.
 
 use sc_cli::{GenerateNodeKeyCmd, InspectNodeKeyCmd, SubstrateCli};
 use sp_core::crypto::{Pair as _, Ss58Codec};
-use tessera_crypto::Pair;
+use tesserax_crypto::Pair;
 
 /// Key management utilities.
 #[derive(Debug, clap::Subcommand)]

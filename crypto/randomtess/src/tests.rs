@@ -7,7 +7,7 @@ fn light_vm(key: &[u8]) -> Vm {
 
 #[test]
 fn deterministic() {
-	let mut vm = light_vm(b"tessera test key");
+	let mut vm = light_vm(b"tesserax test key");
 	assert_eq!(vm.hash(b"input"), vm.hash(b"input"));
 	assert_ne!(vm.hash(b"input"), vm.hash(b"input2"));
 }
@@ -21,12 +21,12 @@ fn key_changes_hash() {
 
 #[test]
 fn jit_matches_interpreter() {
-	let key = b"tessera test key";
+	let key = b"tesserax test key";
 	let mut jit = light_vm(key);
 	let flags = Flags::portable();
 	let mut interpreter =
 		Vm::light(flags, Arc::new(Cache::new(flags, key).unwrap())).unwrap();
-	for input in [&b""[..], b"a", b"tessera", &[0xffu8; 200][..]] {
+	for input in [&b""[..], b"a", b"tesserax", &[0xffu8; 200][..]] {
 		assert_eq!(jit.hash(input), interpreter.hash(input));
 	}
 }
@@ -35,11 +35,11 @@ fn jit_matches_interpreter() {
 /// that alters these values is a consensus change.
 #[test]
 fn reference_vectors() {
-	let mut vm = light_vm(b"Tessera RandomTESS test key");
+	let mut vm = light_vm(b"Tesserax RandomTESS test key");
 	let vectors: [(&[u8], &str); 3] = [
-		(b"", "28802c65211573e8a7a0e0c203a4c21864356532937f7b1df28c34c5f2c14a3f"),
-		(b"Tessera", "5c42c03daac654cd8e845deb0f40c9e9a1fc0cc2b7082b20ee9bf31d8e5c396a"),
-		(&[0x42; 40], "f5d6e9bc115782cc6f6bbd413b35bd0a788d2d50c1f2fa8199f15e788ed68fa4"),
+		(b"", "90ca8996fd84a4fd7bef450ea9b04488bafc900a3ed195bac2dc5f2282fb329a"),
+		(b"Tesserax", "365e9fdb82a9e7573168c0f432380c3249dbbccf5d4b356d467427bcc9deb277"),
+		(&[0x42; 40], "7822da42b546814b1833614527604ae50c3aac2553680913c2fa0cd5bb88e76a"),
 	];
 	for (input, expected) in vectors {
 		assert_eq!(hex::encode(vm.hash(input)), expected);
@@ -51,7 +51,7 @@ fn reference_vectors() {
 #[ignore]
 fn fast_matches_light() {
 	let flags = Flags::recommended();
-	let cache = Arc::new(Cache::new(flags, b"tessera test key").unwrap());
+	let cache = Arc::new(Cache::new(flags, b"tesserax test key").unwrap());
 	let mut light = Vm::light(flags, cache.clone()).unwrap();
 	let dataset = Arc::new(Dataset::new(flags, &cache, 4).unwrap());
 	let mut fast = Vm::fast(flags, dataset).unwrap();

@@ -1,4 +1,4 @@
-//! Shielded pool primitives for Tessera.
+//! Shielded pool primitives for Tesserax.
 //!
 //! Notes are committed with Poseidon2 over the Goldilocks field, spent by publishing nullifiers,
 //! and encrypted for their recipient with ML-KEM-768. See `docs/privacy.md`.

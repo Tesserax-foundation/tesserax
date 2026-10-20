@@ -7,8 +7,8 @@ use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_core::Encode;
 use std::{sync::Arc, time::Duration};
-use tessera_pow::{MinerConfig, TesseraPow, CONFIRMATION_DEPTH};
-use tessera_runtime::{apis::RuntimeApi, opaque::Block, AccountId};
+use tesserax_pow::{MinerConfig, TesseraxPow, CONFIRMATION_DEPTH};
+use tesserax_runtime::{apis::RuntimeApi, opaque::Block, AccountId};
 
 pub(crate) type FullClient = sc_service::TFullClient<
 	Block,
@@ -17,7 +17,7 @@ pub(crate) type FullClient = sc_service::TFullClient<
 >;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
-type Algorithm = TesseraPow<Block, FullClient>;
+type Algorithm = TesseraxPow<Block, FullClient>;
 type BlockImport = sc_consensus_pow::PowBlockImport<
 	Block,
 	Arc<FullClient>,
@@ -107,7 +107,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 		.build(),
 	);
 
-	let algorithm = TesseraPow::new(client.clone());
+	let algorithm = TesseraxPow::new(client.clone());
 
 	let block_import = sc_consensus_pow::PowBlockImport::new(
 		client.clone(),
@@ -231,7 +231,7 @@ pub fn new_full<
 	task_manager.spawn_essential_handle().spawn(
 		"pow-confirmation",
 		None,
-		tessera_pow::finalize_at_depth::<Block, FullBackend, _>(
+		tesserax_pow::finalize_at_depth::<Block, FullBackend, _>(
 			client.clone(),
 			CONFIRMATION_DEPTH,
 		),
@@ -264,7 +264,7 @@ pub fn new_full<
 			.spawn_essential_handle()
 			.spawn_blocking("pow-mining-worker", Some("block-authoring"), worker);
 
-		tessera_pow::start_miner(handle, client, mining.miner);
+		tesserax_pow::start_miner(handle, client, mining.miner);
 	}
 
 	Ok(task_manager)

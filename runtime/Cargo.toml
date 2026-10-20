@@ -1,6 +1,6 @@
 [package]
-name = "tessera-runtime"
-description = "The Tessera runtime."
+name = "tesserax-runtime"
+description = "The Tesserax runtime."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -22,9 +22,9 @@ frame-support = { features = ["experimental"], workspace = true }
 frame-system = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
 
-# Tessera
+# Tesserax
 alloy-core = { workspace = true, features = ["sol-types"] }
-tessera-crypto = { workspace = true }
+tesserax-crypto = { workspace = true }
 
 # frame pallets
 pallet-agent-registry = { workspace = true }
@@ -66,7 +66,7 @@ frame-system-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true, default-features = true }
-tessera-shielded = { workspace = true, default-features = true }
+tesserax-shielded = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -114,7 +114,7 @@ std = [
 	"sp-version/std",
 	"sp-weights/std",
 	"substrate-wasm-builder",
-	"tessera-crypto/std",
+	"tesserax-crypto/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

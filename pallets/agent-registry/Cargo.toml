@@ -1,6 +1,6 @@
 [package]
 name = "pallet-agent-registry"
-description = "Registry of AI agents on Tessera: identity, owner, service endpoint, capabilities and reputation."
+description = "Registry of AI agents on Tesserax: identity, owner, service endpoint, capabilities and reputation."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true

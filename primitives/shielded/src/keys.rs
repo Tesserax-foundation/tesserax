@@ -71,7 +71,7 @@ mod wallet {
 		/// ML-KEM-768 decapsulation key: the incoming viewing key.
 		pub fn decapsulation_key(&self) -> ml_kem_768::DecapsulationKey {
 			let mut hasher = Sha3_512::new();
-			hasher.update(b"tessera-shielded-kem");
+			hasher.update(b"tesserax-shielded-kem");
 			hasher.update(self.seed);
 			let kem_seed: [u8; 64] = hasher.finalize().into();
 			ml_kem_768::DecapsulationKey::from_seed(Array::from(kem_seed))

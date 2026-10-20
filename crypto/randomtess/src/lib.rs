@@ -1,6 +1,6 @@
-//! RandomTESS, the proof-of-work hash function of Tessera.
+//! RandomTESS, the proof-of-work hash function of Tesserax.
 //!
-//! RandomTESS is RandomX v2 compiled with a Tessera specific configuration (see
+//! RandomTESS is RandomX v2 compiled with a Tesserax specific configuration (see
 //! `randomx/src/configuration.h`): a distinct Argon2 salt and rebalanced pairs of functionally
 //! equivalent instructions. Memory requirements and security margins are those of RandomX v2:
 //! 256 MiB for the light mode cache and a little over 2 GiB for the fast mode dataset.

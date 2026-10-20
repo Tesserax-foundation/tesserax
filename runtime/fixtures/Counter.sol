@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// ML-DSA-65 verification precompile of the Tessera runtime.
+/// ML-DSA-65 verification precompile of the Tesserax runtime.
 interface IMlDsa65 {
     function verify(
         bytes calldata publicKey,

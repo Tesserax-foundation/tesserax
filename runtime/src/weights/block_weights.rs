@@ -1,10 +1,10 @@
 //! Generated with the Substrate benchmark CLI 62.0.0 on 2026-10-19 (Apple M1).
 //!
-//! SHORT-NAME: `block`, LONG-NAME: `BlockExecution`, RUNTIME: `Tessera Development`
+//! SHORT-NAME: `block`, LONG-NAME: `BlockExecution`, RUNTIME: `Tesserax Development`
 //! WARMUPS: `10`, REPEAT: `100`
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
 //!
-//! Command: `tessera benchmark overhead --dev --weight-path runtime/src/weights`
+//! Command: `tesserax benchmark overhead --dev --weight-path runtime/src/weights`
 
 use sp_core::parameter_types;
 use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};

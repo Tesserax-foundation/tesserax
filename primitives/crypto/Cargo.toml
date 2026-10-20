@@ -1,6 +1,6 @@
 [package]
-name = "tessera-crypto"
-description = "ML-DSA keys, signatures and accounts for Tessera."
+name = "tesserax-crypto"
+description = "ML-DSA keys, signatures and accounts for Tesserax."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true

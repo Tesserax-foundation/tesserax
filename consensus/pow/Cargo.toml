@@ -1,6 +1,6 @@
 [package]
-name = "tessera-pow"
-description = "RandomTESS proof of work for the Tessera node: verification, mining and confirmation depth."
+name = "tesserax-pow"
+description = "RandomTESS proof of work for the Tesserax node: verification, mining and confirmation depth."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true

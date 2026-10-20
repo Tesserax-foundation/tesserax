@@ -90,7 +90,7 @@ fn whole_schedule_mints_the_scheduled_supply() {
 }
 
 #[test]
-fn tessera_schedule() {
+fn tesserax_schedule() {
 	// 0.85 TESS per block, halving every 7 000 000 blocks: 11 900 000 TESS at most.
 	const UNIT: u128 = 1_000_000_000_000;
 	let initial = 85 * UNIT / 100;

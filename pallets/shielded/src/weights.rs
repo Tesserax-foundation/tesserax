@@ -1,6 +1,6 @@
 //! Weights of the shielded pool pallet.
 //!
-//! Measured with `tessera benchmark pallet --pallet pallet_shielded --extrinsic '*' --steps 2
+//! Measured with `tesserax benchmark pallet --pallet pallet_shielded --extrinsic '*' --steps 2
 //! --repeat 20` on the compiled WebAssembly runtime (Apple M1). Must be measured again on the
 //! reference hardware before launch.
 

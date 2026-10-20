@@ -1,6 +1,6 @@
 [package]
-name = "tessera-node"
-description = "The Tessera node."
+name = "tesserax-node"
+description = "The Tesserax node."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -9,7 +9,7 @@ publish = false
 build = "build.rs"
 
 [[bin]]
-name = "tessera"
+name = "tesserax"
 path = "src/main.rs"
 
 [lints]
@@ -61,27 +61,27 @@ substrate-frame-rpc-system = { workspace = true, default-features = true }
 frame-benchmarking-cli = { workspace = true, default-features = true }
 
 # local
-tessera-crypto = { workspace = true, default-features = true }
-tessera-pow = { workspace = true }
-tessera-runtime = { workspace = true }
+tesserax-crypto = { workspace = true, default-features = true }
+tesserax-pow = { workspace = true }
+tesserax-runtime = { workspace = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-std = ["tessera-runtime/std"]
+std = ["tesserax-runtime/std"]
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"tessera-runtime/runtime-benchmarks",
+	"tesserax-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
-	"tessera-runtime/try-runtime",
+	"tesserax-runtime/try-runtime",
 ]

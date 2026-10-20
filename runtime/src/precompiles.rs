@@ -12,7 +12,7 @@ sol! {
 		/// Whether `signature` is a valid ML-DSA-65 signature of `message` under `publicKey`
 		/// with the FIPS 204 context string `context`.
 		///
-		/// Returns `false` for malformed inputs. The context `"tessera"` is reserved for
+		/// Returns `false` for malformed inputs. The context `"tesserax"` is reserved for
 		/// transaction signatures and always fails, so that a transaction signature can never be
 		/// accepted as a contract level signature.
 		function verify(
@@ -55,8 +55,8 @@ impl<T: pallet_revive::Config> Precompile for MlDsa65Verify<T> {
 			0,
 		))?;
 
-		let valid = call.context.as_ref() != tessera_crypto::SIGNING_CONTEXT &&
-			tessera_crypto::verify_with_context(
+		let valid = call.context.as_ref() != tesserax_crypto::SIGNING_CONTEXT &&
+			tesserax_crypto::verify_with_context(
 				&call.signature,
 				&call.message,
 				&call.context,

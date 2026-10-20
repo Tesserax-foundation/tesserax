@@ -1,4 +1,4 @@
-//! The Tessera runtime.
+//! The Tesserax runtime.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -52,8 +52,8 @@ pub mod opaque {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: alloc::borrow::Cow::Borrowed("tessera"),
-	impl_name: alloc::borrow::Cow::Borrowed("tessera-node"),
+	spec_name: alloc::borrow::Cow::Borrowed("tesserax"),
+	impl_name: alloc::borrow::Cow::Borrowed("tesserax-node"),
 	authoring_version: 1,
 	spec_version: 100,
 	impl_version: 1,
@@ -121,13 +121,13 @@ pub fn native_version() -> NativeVersion {
 }
 
 /// Signature of a transaction: an ML-DSA-65 signature and the signer's public key. ML-DSA is the
-/// only signature scheme accepted on Tessera.
-pub type Signature = tessera_crypto::AccountSignature;
+/// only signature scheme accepted on Tesserax.
+pub type Signature = tesserax_crypto::AccountSignature;
 
 /// An account on the chain: the BLAKE2-256 hash of its ML-DSA public key.
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
-/// SS58 address format of Tessera accounts. Addresses start with `te`.
+/// SS58 address format of Tesserax accounts. Addresses start with `te`.
 pub const SS58_PREFIX: u16 = 2261;
 
 /// Balance of an account.

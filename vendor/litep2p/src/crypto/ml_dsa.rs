@@ -1,4 +1,4 @@
-// Copyright 2026 Tessera developers
+// Copyright 2026 Tesserax developers
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the "Software"),

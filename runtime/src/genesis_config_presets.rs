@@ -8,7 +8,7 @@ use frame_support::build_struct_json_patch;
 use serde_json::Value;
 use sp_core::U256;
 use sp_genesis_builder::{self, PresetId};
-use tessera_crypto::keyring::Keyring;
+use tesserax_crypto::keyring::Keyring;
 
 /// Initial difficulty of development chains: a few seconds per block for a single CPU core.
 const DEV_INITIAL_DIFFICULTY: u64 = 2_000;

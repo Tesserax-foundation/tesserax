@@ -1,6 +1,6 @@
 [package]
-name = "tessera-shielded"
-description = "Shielded pool primitives for Tessera: notes, commitments, nullifiers, note tree and note encryption."
+name = "tesserax-shielded"
+description = "Shielded pool primitives for Tesserax: notes, commitments, nullifiers, note tree and note encryption."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true

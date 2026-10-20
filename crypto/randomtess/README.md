@@ -1,8 +1,8 @@
 # RandomTESS
 
-RandomTESS is the proof-of-work hash function of Tessera. It is RandomX v2 built with a Tessera
+RandomTESS is the proof-of-work hash function of Tesserax. It is RandomX v2 built with a Tesserax
 specific configuration, so that hashpower rented or pooled for other RandomX chains cannot be
-pointed at Tessera without a dedicated miner.
+pointed at Tesserax without a dedicated miner.
 
 ## Sources
 

@@ -1,4 +1,4 @@
-// Copyright 2026 Tessera developers
+// Copyright 2026 Tesserax developers
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the "Software"),
@@ -61,13 +61,13 @@ use std::{sync::Arc, time::Duration};
 const LOG_TARGET: &str = "litep2p::crypto::tls";
 
 /// Protocol negotiated with multistream-select before the TLS handshake.
-pub(crate) const PROTOCOL_NAME: &str = "/tessera/tls/1.0.0";
+pub(crate) const PROTOCOL_NAME: &str = "/tesserax/tls/1.0.0";
 
-/// ALPN protocol of Tessera TLS connections.
-const ALPN: &[u8] = b"tessera";
+/// ALPN protocol of Tesserax TLS connections.
+const ALPN: &[u8] = b"tesserax";
 
 /// Server name sent by dialers. Peers are identified by their key, not by a name.
-const SERVER_NAME: &str = "tessera";
+const SERVER_NAME: &str = "tesserax";
 
 /// The only signature algorithm accepted: ML-DSA-65.
 static SIGNATURE_ALGORITHMS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgorithms {

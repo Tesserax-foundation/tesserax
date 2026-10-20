@@ -1,4 +1,4 @@
-//! The Tessera node.
+//! The Tesserax node.
 
 #![warn(missing_docs)]
 

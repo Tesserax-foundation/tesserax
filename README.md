@@ -1,14 +1,14 @@
-# Tessera
+# Tesserax
 
-Tessera is a proof-of-work blockchain built with the Polkadot SDK (Substrate) as an independent
-chain. Blocks are mined on CPUs with RandomTESS, Tessera's configuration of RandomX v2, and every
+Tesserax is a proof-of-work blockchain built with the Polkadot SDK (Substrate) as an independent
+chain. Blocks are mined on CPUs with RandomTESS, Tesserax's configuration of RandomX v2, and every
 transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 
 ## Repository layout
 
 | Path | Description |
 |---|---|
-| `node/` | The `tessera` node: networking, block import, built-in miner, RPC |
+| `node/` | The `tesserax` node: networking, block import, built-in miner, RPC |
 | `runtime/` | The on-chain logic, compiled to WebAssembly |
 | `pallets/agents/` | Agent accounts: keys spending for an owner within a budget, targets and an expiry |
 | `pallets/agent-registry/` | Registry of AI agents: identity, owner, endpoint, capabilities and reputation |
@@ -20,7 +20,7 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 | `primitives/crypto/` | ML-DSA-65 keys, signatures and accounts |
 | `primitives/shielded/` | Notes, note tree, note encryption and the STARK circuit of the shielded pool |
 | `vendor/` | Forks of Polkadot SDK crates for post-quantum networking and contracts, see `vendor/README.md` |
-| `crypto/randomtess/` | RandomTESS hash function (RandomX v2 sources with the Tessera configuration) |
+| `crypto/randomtess/` | RandomTESS hash function (RandomX v2 sources with the Tesserax configuration) |
 
 ## Consensus
 
@@ -62,7 +62,7 @@ foundation allocation to a 2-of-3 multisig of Alice, Bob and Charlie.
 
 ## AI agents
 
-Tessera is built for AI agents that hold and spend value on their own, with any language model.
+Tesserax is built for AI agents that hold and spend value on their own, with any language model.
 An owner delegates to an agent's ML-DSA key a budget per period, a limit per call, the
 recipients and contracts allowed and an expiry; the chain enforces them and the owner revokes
 the delegation at once. Agents register their identity, endpoint and capabilities, and build a
@@ -75,15 +75,15 @@ accounts.
 
 - An account id is the BLAKE2-256 hash of an ML-DSA-65 public key.
 - A transaction carries the signer's public key (1952 bytes) and an ML-DSA signature (3309 bytes)
-  made with the FIPS 204 context string `tessera`. It is valid when the key hashes to the sender
+  made with the FIPS 204 context string `tesserax`. It is valid when the key hashes to the sender
   and the signature verifies.
 - Addresses use the SS58 format 2261 and start with `te`.
 - Keys are derived from 24 word BIP39 phrases (256 bits of entropy). Only hard derivation
   (`//name`) is supported.
 
 ```bash
-./target/release/tessera key generate
-./target/release/tessera key inspect "//Alice"
+./target/release/tesserax key generate
+./target/release/tesserax key inspect "//Alice"
 ```
 
 ## Smart contracts
@@ -110,7 +110,7 @@ interface IMlDsa65 {
 }
 ```
 
-  The FIPS 204 context `"tessera"` is reserved for transactions and always fails.
+  The FIPS 204 context `"tesserax"` is reserved for transactions and always fails.
 
 Every ML-DSA account has a contract address (`msg.sender`), the last 20 bytes of the Keccak-256
 hash of its account id. The mapping is registered automatically when the account is created.
@@ -138,7 +138,7 @@ cargo build --release
 ## Running a development chain
 
 ```bash
-./target/release/tessera --dev --mine --author tesCrqHdUnYBar3RrUCeRt865AjG3UXifLKYvGKvR7asQJpVX
+./target/release/tesserax --dev --mine --author tesCrqHdUnYBar3RrUCeRt865AjG3UXifLKYvGKvR7asQJpVX
 ```
 
 `--mine` starts the built-in CPU miner, `--author` is the account credited for mined blocks (here

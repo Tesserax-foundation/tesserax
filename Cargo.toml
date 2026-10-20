@@ -1,7 +1,7 @@
 [workspace.package]
-authors = ["Tessera developers"]
+authors = ["Tesserax developers"]
 edition = "2021"
-repository = "https://github.com/Wayleyy/tessera"
+repository = "https://github.com/Wayleyy/tesserax"
 
 [workspace]
 resolver = "2"
@@ -48,10 +48,10 @@ pallet-difficulty = { path = "pallets/difficulty", default-features = false }
 pallet-emission = { path = "pallets/emission", default-features = false }
 pallet-shielded = { path = "pallets/shielded", default-features = false }
 randomtess = { path = "crypto/randomtess" }
-tessera-crypto = { path = "primitives/crypto", default-features = false }
-tessera-pow = { path = "consensus/pow" }
-tessera-shielded = { path = "primitives/shielded", default-features = false }
-tessera-runtime = { path = "runtime", default-features = false }
+tesserax-crypto = { path = "primitives/crypto", default-features = false }
+tesserax-pow = { path = "consensus/pow" }
+tesserax-shielded = { path = "primitives/shielded", default-features = false }
+tesserax-runtime = { path = "runtime", default-features = false }
 
 # Third party
 chacha20poly1305 = { version = "0.11.0", default-features = false }

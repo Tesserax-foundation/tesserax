@@ -1,6 +1,6 @@
 //! Weights of the agents pallet.
 //!
-//! Measured with `tessera benchmark pallet --steps 10 --repeat 20` on the compiled WebAssembly
+//! Measured with `tesserax benchmark pallet --steps 10 --repeat 20` on the compiled WebAssembly
 //! runtime (Apple M1). Must be measured again on the reference hardware before launch.
 
 use core::marker::PhantomData;

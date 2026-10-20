@@ -16,7 +16,7 @@ pub use crate::{ENCRYPTED_NOTE_SIZE, KEM_CIPHERTEXT_SIZE, PLAINTEXT_SIZE};
 
 fn symmetric_key(shared: &[u8; 32]) -> Key {
 	let mut hasher = Sha3_256::new();
-	hasher.update(b"tessera-note-encryption");
+	hasher.update(b"tesserax-note-encryption");
 	hasher.update(shared);
 	Key::from(<[u8; 32]>::from(hasher.finalize()))
 }

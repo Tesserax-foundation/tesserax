@@ -24,7 +24,7 @@ use std::{
 };
 
 use crate::{
-	hash_meets_difficulty, seed_hash, work_input, Difficulty, Seal, TesseraPow, LOG_TARGET,
+	hash_meets_difficulty, seed_hash, work_input, Difficulty, Seal, TesseraxPow, LOG_TARGET,
 };
 
 /// Hashes computed between two checks for a new block template.
@@ -103,7 +103,7 @@ impl Shared {
 
 /// Start the mining threads. They run until the process exits.
 pub fn start_miner<B, C, L>(
-	handle: MiningHandle<B, TesseraPow<B, C>, L>,
+	handle: MiningHandle<B, TesseraxPow<B, C>, L>,
 	client: Arc<C>,
 	config: MinerConfig,
 ) where
@@ -135,18 +135,18 @@ pub fn start_miner<B, C, L>(
 	for index in 0..threads {
 		let (handle, client, shared) = (handle.clone(), client.clone(), shared.clone());
 		thread::Builder::new()
-			.name(format!("tessera-miner-{index}"))
+			.name(format!("tesserax-miner-{index}"))
 			.spawn(move || mine(handle, client, shared))
 			.expect("spawning a mining thread failed");
 	}
 
 	thread::Builder::new()
-		.name("tessera-hashrate".into())
+		.name("tesserax-hashrate".into())
 		.spawn(move || report(handle, shared))
 		.expect("spawning the hashrate reporter failed");
 }
 
-fn mine<B, C, L>(handle: MiningHandle<B, TesseraPow<B, C>, L>, client: Arc<C>, shared: Arc<Shared>)
+fn mine<B, C, L>(handle: MiningHandle<B, TesseraxPow<B, C>, L>, client: Arc<C>, shared: Arc<Shared>)
 where
 	B: BlockT,
 	C: ProvideRuntimeApi<B> + HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error>,
@@ -198,7 +198,7 @@ where
 	}
 }
 
-fn report<B, C, L>(handle: MiningHandle<B, TesseraPow<B, C>, L>, shared: Arc<Shared>)
+fn report<B, C, L>(handle: MiningHandle<B, TesseraxPow<B, C>, L>, shared: Arc<Shared>)
 where
 	B: BlockT,
 	C: ProvideRuntimeApi<B> + HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error>,

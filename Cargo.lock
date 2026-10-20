@@ -7380,7 +7380,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "tessera-shielded",
+ "tesserax-shielded",
 ]
 
 [[package]]
@@ -13065,7 +13065,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
 
 [[package]]
-name = "tessera-crypto"
+name = "tesserax-crypto"
 version = "0.1.0"
 dependencies = [
  "getrandom 0.3.4",
@@ -13079,7 +13079,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tessera-node"
+name = "tesserax-node"
 version = "0.1.0"
 dependencies = [
  "bip39",
@@ -13118,13 +13118,13 @@ dependencies = [
  "sp-timestamp",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
- "tessera-crypto",
- "tessera-pow",
- "tessera-runtime",
+ "tesserax-crypto",
+ "tesserax-pow",
+ "tesserax-runtime",
 ]
 
 [[package]]
-name = "tessera-pow"
+name = "tesserax-pow"
 version = "0.1.0"
 dependencies = [
  "futures",
@@ -13143,7 +13143,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tessera-runtime"
+name = "tesserax-runtime"
 version = "0.1.0"
 dependencies = [
  "alloy-core",
@@ -13187,12 +13187,12 @@ dependencies = [
  "sp-version",
  "sp-weights",
  "substrate-wasm-builder",
- "tessera-crypto",
- "tessera-shielded",
+ "tesserax-crypto",
+ "tesserax-shielded",
 ]
 
 [[package]]
-name = "tessera-shielded"
+name = "tesserax-shielded"
 version = "0.1.0"
 dependencies = [
  "chacha20poly1305",

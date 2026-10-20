@@ -8,13 +8,13 @@ use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE
 use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
 use std::str::FromStr;
-use tessera_crypto::keyring::Keyring;
-use tessera_pow::{MinerConfig, MiningMode};
-use tessera_runtime::{AccountId, Block, EXISTENTIAL_DEPOSIT};
+use tesserax_crypto::keyring::Keyring;
+use tesserax_pow::{MinerConfig, MiningMode};
+use tesserax_runtime::{AccountId, Block, EXISTENTIAL_DEPOSIT};
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Tessera Node".into()
+		"Tesserax Node".into()
 	}
 
 	fn impl_version() -> String {
@@ -30,7 +30,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/Wayleyy/tessera/issues".into()
+		"https://github.com/Wayleyy/tesserax/issues".into()
 	}
 
 	fn copyright_start_year() -> i32 {
@@ -68,7 +68,7 @@ fn mining_config(params: &MiningParams) -> sc_cli::Result<Option<service::Mining
 /// Parse and run command line arguments
 pub fn run() -> sc_cli::Result<()> {
 	sp_core::crypto::set_default_ss58_version(sp_core::crypto::Ss58AddressFormat::custom(
-		tessera_runtime::SS58_PREFIX,
+		tesserax_runtime::SS58_PREFIX,
 	));
 	let cli = Cli::from_args();
 

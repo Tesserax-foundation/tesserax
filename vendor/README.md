@@ -1,6 +1,6 @@
 # Vendored forks
 
-Tessera's peer-to-peer layer is post-quantum: node identities are ML-DSA-65 keys and every
+Tesserax's peer-to-peer layer is post-quantum: node identities are ML-DSA-65 keys and every
 connection is secured with TLS 1.3 restricted to ML-KEM-768 key exchange and ML-DSA-65
 authentication. The crates below are forks of the published Polkadot SDK crates, wired in through
 `[patch.crates-io]` in the workspace manifest.
@@ -20,7 +20,7 @@ authentication. The crates below are forks of the published Polkadot SDK crates,
   The `PeerId` is the SHA-256 multihash of the protobuf encoded public key. Ed25519 and RSA
   identities are removed.
 - The Noise handshake (X25519) is replaced by TLS 1.3 (`crypto::tls`, `rustls` with the
-  `aws-lc-rs` provider), negotiated as `/tessera/tls/1.0.0` on TCP and WebSocket connections:
+  `aws-lc-rs` provider), negotiated as `/tesserax/tls/1.0.0` on TCP and WebSocket connections:
   - key exchange: `MLKEM768` only, no elliptic curve or hybrid group;
   - authentication: mutual, ML-DSA-65 raw public keys (RFC 7250), no X.509 certificates;
   - cipher suites: `TLS13_AES_256_GCM_SHA384`, `TLS13_CHACHA20_POLY1305_SHA256`;

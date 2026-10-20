@@ -46,7 +46,7 @@ fn blocks_without_miner_are_not_rewarded() {
 }
 
 #[test]
-fn tessera_emission_schedule() {
+fn tesserax_emission_schedule() {
 	assert_eq!(Emission::block_reward(0), 0);
 	assert_eq!(Emission::block_reward(1), 850 * MILLI_UNIT);
 	assert_eq!(Emission::block_reward(HALVING_INTERVAL), 850 * MILLI_UNIT);

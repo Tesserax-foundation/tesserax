@@ -1,6 +1,6 @@
 [package]
 name = "pallet-shielded"
-description = "Shielded pool of Tessera: private transfers proven with zero-knowledge STARKs."
+description = "Shielded pool of Tesserax: private transfers proven with zero-knowledge STARKs."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -18,12 +18,12 @@ frame-system = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-tessera-shielded = { workspace = true }
+tesserax-shielded = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
-tessera-shielded = { workspace = true, default-features = true }
+tesserax-shielded = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -35,7 +35,7 @@ std = [
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"tessera-shielded/std",
+	"tesserax-shielded/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

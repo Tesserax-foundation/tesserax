@@ -1,6 +1,6 @@
 # Private transactions
 
-Tessera has an optional shielded pool. Transparent TESS can be moved into the pool, transferred
+Tesserax has an optional shielded pool. Transparent TESS can be moved into the pool, transferred
 privately inside it and moved back out. Shielded transfers hide the sender, the recipient and the
 amount.
 
@@ -148,7 +148,7 @@ Two calls:
 Value moved into the pool is burned from the transparent supply and value moved out is minted:
 the total supply is the total issuance of the balances pallet plus the pool balance.
 
-The binding hash is `blake2_256("tessera-shielded-binding" || source || recipient || notes)`
+The binding hash is `blake2_256("tesserax-shielded-binding" || source || recipient || notes)`
 (SCALE encoded), reduced to a digest. Wallets compute it before proving.
 
 Each applied transaction emits `Transacted` with the nullifiers, the commitments, the position of

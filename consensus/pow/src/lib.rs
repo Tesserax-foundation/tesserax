@@ -1,4 +1,4 @@
-//! RandomTESS proof of work for the Tessera node.
+//! RandomTESS proof of work for the Tesserax node.
 //!
 //! A block is valid when `RandomTESS(key, pre_hash || nonce)`, read as a little-endian 256-bit
 //! integer, multiplied by the block difficulty does not overflow 256 bits. `pre_hash` is the hash
@@ -86,26 +86,26 @@ impl Verifier {
 }
 
 /// The RandomTESS [`PowAlgorithm`].
-pub struct TesseraPow<B, C> {
+pub struct TesseraxPow<B, C> {
 	client: Arc<C>,
 	verifier: Arc<Mutex<Verifier>>,
 	_marker: PhantomData<B>,
 }
 
-impl<B, C> Clone for TesseraPow<B, C> {
+impl<B, C> Clone for TesseraxPow<B, C> {
 	fn clone(&self) -> Self {
 		Self { client: self.client.clone(), verifier: self.verifier.clone(), _marker: PhantomData }
 	}
 }
 
-impl<B, C> TesseraPow<B, C> {
+impl<B, C> TesseraxPow<B, C> {
 	pub fn new(client: Arc<C>) -> Self {
 		let verifier = Verifier { flags: Flags::recommended(), vms: Vec::new() };
 		Self { client, verifier: Arc::new(Mutex::new(verifier)), _marker: PhantomData }
 	}
 }
 
-impl<B, C> PowAlgorithm<B> for TesseraPow<B, C>
+impl<B, C> PowAlgorithm<B> for TesseraxPow<B, C>
 where
 	B: BlockT,
 	C: ProvideRuntimeApi<B> + HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error>,

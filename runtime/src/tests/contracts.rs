@@ -153,14 +153,14 @@ fn transaction_signatures_are_rejected_by_contracts() {
 		let contract = deploy_counter();
 		let pair = Keyring::Charlie.pair();
 		let message = b"any payload";
-		let signature = pair.sign_with_context(message, tessera_crypto::SIGNING_CONTEXT).0;
-		assert!(tessera_crypto::verify_with_context(
+		let signature = pair.sign_with_context(message, tesserax_crypto::SIGNING_CONTEXT).0;
+		assert!(tesserax_crypto::verify_with_context(
 			&signature,
 			message,
-			tessera_crypto::SIGNING_CONTEXT,
+			tesserax_crypto::SIGNING_CONTEXT,
 			&pair.public().0
 		));
-		assert!(!verify(contract, &pair.public().0, tessera_crypto::SIGNING_CONTEXT, message, &signature));
+		assert!(!verify(contract, &pair.public().0, tesserax_crypto::SIGNING_CONTEXT, message, &signature));
 	});
 }
 

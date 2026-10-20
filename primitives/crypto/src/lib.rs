@@ -1,6 +1,6 @@
-//! ML-DSA keys, signatures and accounts for Tessera.
+//! ML-DSA keys, signatures and accounts for Tesserax.
 //!
-//! Tessera uses ML-DSA-65 (FIPS 204, NIST security category 3) for every signature: there is no
+//! Tesserax uses ML-DSA-65 (FIPS 204, NIST security category 3) for every signature: there is no
 //! sr25519, ed25519 or ECDSA account on the chain.
 //!
 //! An account is identified by the BLAKE2-256 hash of its ML-DSA public key. Since an account id
@@ -9,7 +9,7 @@
 //! account and the signature verifies under that key.
 //!
 //! All signatures are computed with the FIPS 204 context string [`SIGNING_CONTEXT`], which
-//! separates Tessera signatures from signatures made with the same key for other protocols.
+//! separates Tesserax signatures from signatures made with the same key for other protocols.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -43,8 +43,8 @@ pub const SIGNATURE_SIZE: usize = 3309;
 /// Size of the seed an ML-DSA key pair is generated from.
 pub const SEED_SIZE: usize = 32;
 
-/// FIPS 204 context string of every Tessera signature.
-pub const SIGNING_CONTEXT: &[u8] = b"tessera";
+/// FIPS 204 context string of every Tesserax signature.
+pub const SIGNING_CONTEXT: &[u8] = b"tesserax";
 
 /// Seed of an ML-DSA key pair (FIPS 204 `xi`).
 pub type Seed = [u8; SEED_SIZE];
@@ -141,7 +141,7 @@ impl IdentifyAccount for Public {
 	}
 }
 
-/// Verify an ML-DSA signature over `message` with the Tessera signing context.
+/// Verify an ML-DSA signature over `message` with the Tesserax signing context.
 pub fn verify(signature: &Signature, message: &[u8], public: &Public) -> bool {
 	verify_with_context(&signature.0, message, SIGNING_CONTEXT, &public.0)
 }
