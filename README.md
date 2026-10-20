@@ -180,3 +180,16 @@ repository) on `127.0.0.1:3333`, several times faster than the built-in miner. S
 ```bash
 cargo test --workspace
 ```
+
+## License
+
+Copyright 2026 Tesserax developers. See [LICENSE](LICENSE) for the details.
+
+- The runtime, the pallets, the primitives, the SDKs, the MCP server and the wallet are under the
+  [Apache License 2.0](LICENSE-APACHE2): anyone can build agents, wallets and services on
+  Tesserax, open or closed source.
+- The node (`node/`) and its proof-of-work consensus (`consensus/pow/`) are under the
+  [GNU GPL v3.0 or later](LICENSE-GPL3) with the Classpath exception, as the Polkadot SDK client
+  crates they build on.
+- `crypto/randomtess/` is under the BSD 3-Clause License of RandomX, and `vendor/` keeps the
+  licenses of the crates it copies.
