@@ -81,6 +81,18 @@ pub const MICRO_UNIT: Balance = 1_000_000;
 /// Existential deposit.
 pub const EXISTENTIAL_DEPOSIT: Balance = MILLI_UNIT;
 
+/// Total supply: 14 000 000 TESS.
+pub const TOTAL_SUPPLY: Balance = 14_000_000 * UNIT;
+
+/// Mining rewards: 85% of the supply, 11 900 000 TESS.
+pub const MINING_SUPPLY: Balance = 11_900_000 * UNIT;
+
+/// Reward of each block before the first halving: 0.85 TESS.
+pub const BLOCK_REWARD: Balance = 850 * MILLI_UNIT;
+
+/// Number of blocks between two halvings of the block reward, about four years.
+pub const HALVING_INTERVAL: BlockNumber = 7_000_000;
+
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
@@ -195,4 +207,7 @@ mod runtime {
 
 	#[runtime::pallet_index(7)]
 	pub type Shielded = pallet_shielded;
+
+	#[runtime::pallet_index(8)]
+	pub type Emission = pallet_emission;
 }

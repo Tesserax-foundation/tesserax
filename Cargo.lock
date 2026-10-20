@@ -7131,6 +7131,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-emission"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-message-queue"
 version = "52.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13074,6 +13088,7 @@ dependencies = [
  "frame-try-runtime",
  "pallet-balances",
  "pallet-difficulty",
+ "pallet-emission",
  "pallet-revive",
  "pallet-shielded",
  "pallet-sudo",

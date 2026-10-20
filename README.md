@@ -11,6 +11,7 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 | `node/` | The `tessera` node: networking, block import, built-in miner, RPC |
 | `runtime/` | The on-chain logic, compiled to WebAssembly |
 | `pallets/difficulty/` | Difficulty adjustment (LWMA over 120 blocks, 18 s target) |
+| `pallets/emission/` | Block rewards: 0.85 TESS per block to the miner, halving every 7 000 000 blocks |
 | `pallets/shielded/` | Shielded pool: private transfers proven with zero-knowledge STARKs, see `docs/privacy.md` |
 | `consensus/pow/` | RandomTESS proof of work: seal verification, key schedule, miner, confirmation depth |
 | `primitives/crypto/` | ML-DSA-65 keys, signatures and accounts |
@@ -27,6 +28,27 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 - The difficulty is recomputed every block by the runtime from the last 120 solve times.
 - The heaviest chain wins. Blocks 60 deep in the best chain are finalized: deeper
   reorganizations are rejected.
+
+## Emission
+
+The supply is 14 000 000 TESS (12 decimals):
+
+| Share | Amount | Release |
+|---|---|---|
+| Mining, 85% | 11 900 000 TESS | Block rewards (`pallets/emission`) |
+| Team, 10% | 1 400 000 TESS | Linear vesting over 48 months, no cliff |
+| Foundation, 5% | 700 000 TESS | 140 000 at genesis, 560 000 linearly over 36 months |
+
+The team and foundation allocations are part of the genesis of the public network. Development
+chains endow test accounts instead.
+
+- Each block mints 0.85 TESS to its miner, the account in the proof-of-work pre-runtime digest,
+  which the seal covers. The genesis block has no reward.
+- The reward halves every 7 000 000 blocks (about four years): 0.425 TESS from block 7 000 001,
+  0.2125 TESS from block 14 000 001, and so on. The halvings mint at most 11 900 000 TESS; the
+  runtime also caps the total minted at that amount.
+- Value in the shielded pool is not counted in the total issuance of the balances pallet: the
+  total supply is the total issuance plus the pool balance (see `docs/privacy.md`).
 
 ## Accounts and signatures
 

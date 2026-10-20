@@ -21,8 +21,8 @@ use super::weights::{block_weights::BlockExecutionWeight, extrinsic_weights::Ext
 use super::{
 	precompiles::MlDsa65Verify, AccountId, Balance, Balances, Block, BlockNumber, Hash, Nonce,
 	PalletInfo, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason,
-	RuntimeOrigin, RuntimeTask, System, Timestamp, EXISTENTIAL_DEPOSIT, MILLI_SECS_PER_BLOCK,
-	MILLI_UNIT, SS58_PREFIX, VERSION,
+	RuntimeOrigin, RuntimeTask, System, Timestamp, BLOCK_REWARD, EXISTENTIAL_DEPOSIT, HALVING_INTERVAL,
+	MILLI_SECS_PER_BLOCK, MILLI_UNIT, MINING_SUPPLY, SS58_PREFIX, VERSION,
 };
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -173,6 +173,17 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
+}
+
+/// Block rewards: 0.85 TESS per block to the miner, halving every 7 000 000 blocks.
+impl pallet_emission::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type FindAuthor = PowAuthor;
+	type InitialReward = ConstU128<BLOCK_REWARD>;
+	type HalvingInterval = ConstU32<HALVING_INTERVAL>;
+	type MiningSupply = ConstU128<MINING_SUPPLY>;
+	type WeightInfo = pallet_emission::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {

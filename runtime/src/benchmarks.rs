@@ -6,4 +6,5 @@ frame_benchmarking::define_benchmarks!(
 	[pallet_timestamp, Timestamp]
 	[pallet_sudo, Sudo]
 	[pallet_shielded, Shielded]
+	[pallet_emission, Emission]
 );

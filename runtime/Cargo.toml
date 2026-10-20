@@ -29,6 +29,7 @@ tessera-crypto = { workspace = true }
 # frame pallets
 pallet-balances = { workspace = true }
 pallet-difficulty = { workspace = true }
+pallet-emission = { workspace = true }
 pallet-revive = { workspace = true }
 pallet-shielded = { workspace = true }
 pallet-sudo = { workspace = true }
@@ -79,6 +80,7 @@ std = [
 	"frame-try-runtime?/std",
 	"pallet-balances/std",
 	"pallet-difficulty/std",
+	"pallet-emission/std",
 	"pallet-revive/std",
 	"pallet-shielded/std",
 	"alloy-core/std",
@@ -110,6 +112,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-emission/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
 	"pallet-shielded/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
@@ -124,6 +127,7 @@ try-runtime = [
 	"frame-try-runtime/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-difficulty/try-runtime",
+	"pallet-emission/try-runtime",
 	"pallet-revive/try-runtime",
 	"pallet-shielded/try-runtime",
 	"pallet-sudo/try-runtime",
