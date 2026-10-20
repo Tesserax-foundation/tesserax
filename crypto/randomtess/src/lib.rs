@@ -7,6 +7,10 @@
 //!
 //! The light mode is meant for verification, the fast mode for mining. Both produce the same
 //! hashes.
+//!
+//! As in RandomX v2, the proof-of-work value is the [`commitment`] of a hash to its input: it is
+//! cheap to compute from a claimed hash, so a node can reject an invalid proof of work before it
+//! runs the virtual machine.
 
 use std::{
 	os::raw::{c_int, c_ulong, c_void},
@@ -55,6 +59,12 @@ mod ffi {
 			input: *const c_void,
 			input_size: usize,
 			output: *mut c_void,
+		);
+		pub fn randomx_calculate_commitment(
+			input: *const c_void,
+			input_size: usize,
+			hash_in: *const c_void,
+			com_out: *mut c_void,
 		);
 	}
 }
@@ -275,6 +285,20 @@ impl Drop for Vm {
 	fn drop(&mut self) {
 		unsafe { ffi::randomx_destroy_vm(self.raw.as_ptr()) }
 	}
+}
+
+/// The RandomX v2 commitment of `hash` to `input`: Blake2b-256 of `input || hash`.
+pub fn commitment(input: &[u8], hash: &Hash) -> Hash {
+	let mut output = [0u8; HASH_SIZE];
+	unsafe {
+		ffi::randomx_calculate_commitment(
+			input.as_ptr() as *const c_void,
+			input.len(),
+			hash.as_ptr() as *const c_void,
+			output.as_mut_ptr() as *mut c_void,
+		)
+	};
+	output
 }
 
 #[cfg(test)]

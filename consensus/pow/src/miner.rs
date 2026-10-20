@@ -24,7 +24,8 @@ use std::{
 };
 
 use crate::{
-	hash_meets_difficulty, seed_hash, work_input, Difficulty, Seal, TesseraxPow, LOG_TARGET,
+	meets_difficulty, pow_value, seed_hash, work_input, Difficulty, Seal, TesseraxPow, LOG_TARGET,
+	NONCE_SIZE,
 };
 
 /// Hashes computed between two checks for a new block template.
@@ -154,7 +155,11 @@ where
 	L: sc_consensus::JustificationSyncLink<B>,
 {
 	let mut vm: Option<Vm> = None;
-	let mut nonce = RandomState::new().build_hasher().finish();
+	// Random leading bytes and a counter in the last 8 bytes of the nonce.
+	let mut nonce = [0u8; NONCE_SIZE];
+	let prefix = RandomState::new().build_hasher().finish().to_le_bytes();
+	nonce[..NONCE_SIZE - 8].copy_from_slice(&prefix[..NONCE_SIZE - 8]);
+	let mut counter = RandomState::new().build_hasher().finish();
 
 	loop {
 		let version = handle.version();
@@ -186,10 +191,12 @@ where
 
 		'template: while handle.version() == version {
 			for _ in 0..BATCH {
-				nonce = nonce.wrapping_add(1);
-				let hash = vm.hash(&work_input(metadata.pre_hash.as_ref(), nonce));
-				if hash_meets_difficulty(&hash, metadata.difficulty) {
-					futures::executor::block_on(handle.submit(Seal { nonce }.encode()));
+				counter = counter.wrapping_add(1);
+				nonce[NONCE_SIZE - 8..].copy_from_slice(&counter.to_le_bytes());
+				let input = work_input(metadata.pre_hash.as_ref(), &nonce);
+				let hash = vm.hash(&input);
+				if meets_difficulty(&pow_value(&input, &hash), metadata.difficulty) {
+					futures::executor::block_on(handle.submit(Seal { nonce, hash }.encode()));
 					break 'template;
 				}
 			}

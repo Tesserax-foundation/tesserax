@@ -1,9 +1,16 @@
 //! RandomTESS proof of work for the Tesserax node.
 //!
-//! A block is valid when `RandomTESS(key, pre_hash || nonce)`, read as a little-endian 256-bit
-//! integer, multiplied by the block difficulty does not overflow 256 bits. `pre_hash` is the hash
-//! of the header without its seal, `nonce` is the 64-bit little-endian nonce stored in the seal
-//! and `key` is the hash of a past block, see [`seed_height`].
+//! The work input of a block is 43 bytes: the hash of the header without its seal (`pre_hash`),
+//! followed by an 11-byte nonce. The last 4 bytes of the nonce, at offset 39, are the nonce a
+//! miner such as XMRig iterates; the 7 bytes before them are an extra nonce that a stratum server
+//! sets differently for each connection.
+//!
+//! As in RandomX v2, the proof-of-work value is the commitment `Blake2b(input || hash)` of the
+//! RandomTESS hash of the input. A block is valid when that value, read as a little-endian 256-bit
+//! integer, multiplied by the block difficulty does not overflow 256 bits, and when the hash
+//! carried by the seal is the RandomTESS hash of the input under the key of the block (the hash
+//! of a past block, see [`seed_height`]). The commitment is checked first: an invalid proof of
+//! work is rejected with a single Blake2b, before the virtual machine runs.
 //!
 //! The difficulty of each block is computed by the runtime (`pallet-difficulty`) and read through
 //! [`sp_consensus_pow::DifficultyApi`].
@@ -22,6 +29,7 @@ use std::{marker::PhantomData, sync::Arc};
 mod confirmation;
 mod miner;
 mod seed;
+pub mod stratum;
 
 pub use confirmation::{finalize_at_depth, CONFIRMATION_DEPTH};
 pub use miner::{start_miner, MinerConfig, MiningMode};
@@ -32,29 +40,46 @@ const LOG_TARGET: &str = "pow";
 /// Proof-of-work difficulty: the expected number of hashes needed to find a block.
 pub type Difficulty = U256;
 
+/// Size of the nonce of a seal.
+pub const NONCE_SIZE: usize = 11;
+
+/// Size of the extra nonce, the part of the nonce set by a stratum server.
+pub const EXTRA_NONCE_SIZE: usize = 7;
+
+/// Offset in the work input of the 4-byte nonce iterated by miners.
+pub const MINER_NONCE_OFFSET: usize = 32 + EXTRA_NONCE_SIZE;
+
+/// Number of bytes hashed for each nonce.
+pub const WORK_INPUT_SIZE: usize = 32 + NONCE_SIZE;
+
 /// Content of the PoW seal digest.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Encode, Decode)]
 pub struct Seal {
-	pub nonce: u64,
+	/// Extra nonce followed by the miner nonce.
+	pub nonce: [u8; NONCE_SIZE],
+	/// RandomTESS hash of the work input.
+	pub hash: randomtess::Hash,
 }
 
-/// Number of bytes hashed for each nonce.
-pub const WORK_INPUT_SIZE: usize = 40;
-
 /// RandomTESS input for a header pre-hash and a nonce.
-pub fn work_input(pre_hash: &[u8], nonce: u64) -> [u8; WORK_INPUT_SIZE] {
+pub fn work_input(pre_hash: &[u8], nonce: &[u8; NONCE_SIZE]) -> [u8; WORK_INPUT_SIZE] {
 	let mut input = [0u8; WORK_INPUT_SIZE];
 	input[..32].copy_from_slice(&pre_hash[..32]);
-	input[32..].copy_from_slice(&nonce.to_le_bytes());
+	input[32..].copy_from_slice(nonce);
 	input
 }
 
-/// Whether a RandomTESS hash satisfies `difficulty`.
-pub fn hash_meets_difficulty(hash: &randomtess::Hash, difficulty: Difficulty) -> bool {
+/// The proof-of-work value of a work input and its RandomTESS hash.
+pub fn pow_value(input: &[u8], hash: &randomtess::Hash) -> randomtess::Hash {
+	randomtess::commitment(input, hash)
+}
+
+/// Whether a proof-of-work value satisfies `difficulty`.
+pub fn meets_difficulty(value: &randomtess::Hash, difficulty: Difficulty) -> bool {
 	if difficulty.is_zero() {
 		return false;
 	}
-	let (_, overflow) = U256::from_little_endian(hash).overflowing_mul(difficulty);
+	let (_, overflow) = U256::from_little_endian(value).overflowing_mul(difficulty);
 	!overflow
 }
 
@@ -129,6 +154,10 @@ where
 		difficulty: Difficulty,
 	) -> Result<bool, Error<B>> {
 		let Ok(seal) = Seal::decode_all(&mut &seal[..]) else { return Ok(false) };
+		let input = work_input(pre_hash.as_ref(), &seal.nonce);
+		if !meets_difficulty(&pow_value(&input, &seal.hash), difficulty) {
+			return Ok(false);
+		}
 
 		let parent = match parent {
 			BlockId::Hash(hash) => *hash,
@@ -143,10 +172,10 @@ where
 		let hash = self
 			.verifier
 			.lock()
-			.hash(key.as_ref(), &work_input(pre_hash.as_ref(), seal.nonce))
+			.hash(key.as_ref(), &input)
 			.map_err(|e| Error::Environment(e.to_string()))?;
 
-		Ok(hash_meets_difficulty(&hash, difficulty))
+		Ok(hash == seal.hash)
 	}
 }
 
@@ -160,33 +189,48 @@ mod tests {
 
 	#[test]
 	fn difficulty_threshold() {
-		let mut hash = [0u8; 32];
-		assert!(hash_meets_difficulty(&hash, U256::MAX));
-		assert!(!hash_meets_difficulty(&hash, U256::zero()));
+		let mut value = [0u8; 32];
+		assert!(meets_difficulty(&value, U256::MAX));
+		assert!(!meets_difficulty(&value, U256::zero()));
 
 		// 2^254 passes difficulty 3, not 4.
-		hash[31] = 0x40;
-		assert!(hash_meets_difficulty(&hash, U256::from(3)));
-		assert!(!hash_meets_difficulty(&hash, U256::from(4)));
+		value[31] = 0x40;
+		assert!(meets_difficulty(&value, U256::from(3)));
+		assert!(!meets_difficulty(&value, U256::from(4)));
 
-		hash = [0xff; 32];
-		assert!(hash_meets_difficulty(&hash, U256::one()));
-		assert!(!hash_meets_difficulty(&hash, U256::from(2)));
+		value = [0xff; 32];
+		assert!(meets_difficulty(&value, U256::one()));
+		assert!(!meets_difficulty(&value, U256::from(2)));
 	}
 
 	#[test]
 	fn work_input_layout() {
 		let pre_hash = [7u8; 32];
-		let input = work_input(&pre_hash, 0x0102030405060708);
+		let nonce = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+		let input = work_input(&pre_hash, &nonce);
+		assert_eq!(input.len(), 43);
 		assert_eq!(&input[..32], &pre_hash);
-		assert_eq!(&input[32..], &[8, 7, 6, 5, 4, 3, 2, 1]);
+		assert_eq!(&input[32..MINER_NONCE_OFFSET], &[1, 2, 3, 4, 5, 6, 7]);
+		// Where XMRig writes its 32-bit nonce.
+		assert_eq!(MINER_NONCE_OFFSET, 39);
+		assert_eq!(&input[39..], &[8, 9, 10, 11]);
+	}
+
+	#[test]
+	fn pow_value_is_the_commitment() {
+		let input = work_input(&[7u8; 32], &[0; NONCE_SIZE]);
+		let hash = [9u8; 32];
+		let expected = <sp_runtime::traits::BlakeTwo256 as sp_runtime::traits::Hash>::hash(
+			&[&input[..], &hash].concat(),
+		);
+		assert_eq!(pow_value(&input, &hash), expected.0);
 	}
 
 	#[test]
 	fn seal_encoding() {
-		let seal = Seal { nonce: 42 };
+		let seal = Seal { nonce: [42; NONCE_SIZE], hash: [7; 32] };
 		let encoded = seal.encode();
-		assert_eq!(encoded.len(), 8);
+		assert_eq!(encoded.len(), NONCE_SIZE + 32);
 		assert_eq!(Seal::decode_all(&mut &encoded[..]).unwrap(), seal);
 		let mut trailing = encoded.clone();
 		trailing.push(0);

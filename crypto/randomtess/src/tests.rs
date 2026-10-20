@@ -46,6 +46,25 @@ fn reference_vectors() {
 	}
 }
 
+/// The commitment is Blake2b-256 of the input followed by the hash.
+#[test]
+fn commitment_vectors() {
+	let mut vm = light_vm(b"Tesserax RandomTESS test key");
+	let input = [0x42u8; 43];
+	let hash = vm.hash(&input);
+	let commitment = commitment(&input, &hash);
+	assert_ne!(commitment, hash);
+	assert_eq!(commitment, commitment_of(&input, &hash));
+	assert_eq!(
+		hex::encode(commitment),
+		"b5098470799f651832b0244f8487d8c4bba775dd2588bfb76a5e0cda7d5b233a"
+	);
+}
+
+fn commitment_of(input: &[u8], hash: &Hash) -> Hash {
+	sp_crypto_hashing::blake2_256(&[input, &hash[..]].concat())
+}
+
 /// Fast mode allocates and initializes the full 2 GiB dataset.
 #[test]
 #[ignore]

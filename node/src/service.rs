@@ -7,7 +7,7 @@ use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_core::Encode;
 use std::{sync::Arc, time::Duration};
-use tesserax_pow::{MinerConfig, TesseraxPow, CONFIRMATION_DEPTH};
+use tesserax_pow::{stratum::StratumConfig, MinerConfig, TesseraxPow, CONFIRMATION_DEPTH};
 use tesserax_runtime::{apis::RuntimeApi, opaque::Block, AccountId};
 
 /// Host functions of the runtime, with those of the benchmarks when benchmarking.
@@ -64,10 +64,12 @@ pub type Service = sc_service::PartialComponents<
 	(BlockImport, Algorithm, Option<Telemetry>),
 >;
 
-/// Built-in miner settings.
+/// Block production settings: the built-in miner, the stratum server for external miners, or
+/// both.
 pub struct Mining {
 	pub author: AccountId,
-	pub miner: MinerConfig,
+	pub miner: Option<MinerConfig>,
+	pub stratum: Option<StratumConfig>,
 }
 
 pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
@@ -268,7 +270,16 @@ pub fn new_full<
 			.spawn_essential_handle()
 			.spawn_blocking("pow-mining-worker", Some("block-authoring"), worker);
 
-		tesserax_pow::start_miner(handle, client, mining.miner);
+		if let Some(stratum) = mining.stratum {
+			task_manager.spawn_handle().spawn(
+				"pow-stratum",
+				Some("block-authoring"),
+				tesserax_pow::stratum::run(handle.clone(), client.clone(), stratum),
+			);
+		}
+		if let Some(miner) = mining.miner {
+			tesserax_pow::start_miner(handle, client, miner);
+		}
 	}
 
 	Ok(task_manager)

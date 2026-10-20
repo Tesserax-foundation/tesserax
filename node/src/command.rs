@@ -9,7 +9,7 @@ use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
 use std::str::FromStr;
 use tesserax_crypto::keyring::Keyring;
-use tesserax_pow::{MinerConfig, MiningMode};
+use tesserax_pow::{stratum::StratumConfig, MinerConfig, MiningMode};
 use tesserax_runtime::{AccountId, Block, EXISTENTIAL_DEPOSIT};
 
 impl SubstrateCli for Cli {
@@ -49,20 +49,32 @@ impl SubstrateCli for Cli {
 }
 
 fn mining_config(params: &MiningParams) -> sc_cli::Result<Option<service::Mining>> {
-	if !params.mine {
+	if !params.mine && params.stratum.is_none() {
 		return Ok(None);
 	}
-	let author = params.author.as_deref().ok_or("--mine requires --author")?;
+	let author = params.author.as_deref().ok_or("--mine and --stratum require --author")?;
 	let author = AccountId::from_str(author)
 		.map_err(|e| format!("Invalid --author account {author}: {e}"))?;
-	let threads = params.mining_threads.unwrap_or_else(|| {
-		std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1)
+
+	let miner = if params.mine {
+		let threads = params.mining_threads.unwrap_or_else(|| {
+			std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1)
+		});
+		if threads == 0 {
+			return Err("--mining-threads must be at least 1".into());
+		}
+		let mode = if params.mining_light { MiningMode::Light } else { MiningMode::Fast };
+		Some(MinerConfig { threads, mode })
+	} else {
+		None
+	};
+
+	let stratum = params.stratum.map(|listen| StratumConfig {
+		listen,
+		author: author.clone(),
+		max_connections: params.stratum_max_miners.max(1),
 	});
-	if threads == 0 {
-		return Err("--mining-threads must be at least 1".into());
-	}
-	let mode = if params.mining_light { MiningMode::Light } else { MiningMode::Fast };
-	Ok(Some(service::Mining { author, miner: MinerConfig { threads, mode } }))
+	Ok(Some(service::Mining { author, miner, stratum }))
 }
 
 /// Parse and run command line arguments

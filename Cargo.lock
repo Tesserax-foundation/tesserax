@@ -9118,6 +9118,7 @@ version = "0.1.0"
 dependencies = [
  "cmake",
  "hex",
+ "sp-crypto-hashing",
  "thiserror 1.0.69",
 ]
 
@@ -13464,6 +13465,7 @@ name = "tesserax-pow"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "hex",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.5",
@@ -13471,11 +13473,13 @@ dependencies = [
  "sc-client-api",
  "sc-consensus",
  "sc-consensus-pow",
+ "serde_json",
  "sp-api",
  "sp-blockchain",
  "sp-consensus-pow",
  "sp-core",
  "sp-runtime",
+ "tokio",
 ]
 
 [[package]]

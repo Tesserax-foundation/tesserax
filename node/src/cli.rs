@@ -21,6 +21,22 @@ pub struct MiningParams {
 	#[arg(long, value_name = "ACCOUNT")]
 	pub author: Option<String>,
 
+	/// Serve block templates to external miners such as XMRig (algorithm rx/tess) over stratum.
+	/// Blocks mined this way credit --author. Listens on 127.0.0.1:3333 when no address is
+	/// given; the server has no authentication, keep it on a private network.
+	#[arg(
+		long,
+		requires = "author",
+		value_name = "ADDRESS",
+		num_args = 0..=1,
+		default_missing_value = "127.0.0.1:3333"
+	)]
+	pub stratum: Option<std::net::SocketAddr>,
+
+	/// Maximum number of miners connected to the stratum server at once.
+	#[arg(long, value_name = "COUNT", default_value_t = 256)]
+	pub stratum_max_miners: usize,
+
 	/// Number of mining threads. Defaults to the number of CPU cores.
 	#[arg(long, value_name = "COUNT")]
 	pub mining_threads: Option<usize>,

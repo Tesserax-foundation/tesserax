@@ -23,7 +23,7 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 | `pallets/difficulty/` | Difficulty adjustment (LWMA over 120 blocks, 18 s target) |
 | `pallets/emission/` | Block rewards: 0.85 TESS per block to the miner, halving every 7 000 000 blocks |
 | `pallets/shielded/` | Shielded pool: private transfers proven with zero-knowledge STARKs, see `docs/privacy.md` |
-| `consensus/pow/` | RandomTESS proof of work: seal verification, key schedule, miner, confirmation depth |
+| `consensus/pow/` | RandomTESS proof of work: seal verification, key schedule, built-in miner, stratum server for XMRig, confirmation depth |
 | `primitives/crypto/` | ML-DSA-87 keys, signatures and accounts |
 | `primitives/shielded/` | Notes, note tree, note encryption and the STARK circuit of the shielded pool |
 | `vendor/` | Forks of Polkadot SDK crates for post-quantum networking and contracts, see `vendor/README.md` |
@@ -32,8 +32,9 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 ## Consensus
 
 - Target block time: 18 seconds.
-- A block is valid when `RandomTESS(key, pre_hash || nonce)`, read as a little-endian 256-bit
-  integer, times the difficulty does not overflow 256 bits.
+- The work input of a block is its pre-hash followed by an 11-byte nonce. A block is valid when
+  the RandomX v2 commitment `Blake2b(input || RandomTESS(key, input))`, read as a little-endian
+  256-bit integer, times the difficulty does not overflow 256 bits.
 - The RandomTESS key changes every 2048 blocks and is the hash of a block buried 64 blocks deep.
 - The difficulty is recomputed every block by the runtime from the last 120 solve times.
 - The heaviest chain wins. Blocks 60 deep in the best chain are finalized: deeper
@@ -169,6 +170,10 @@ cargo build --release
 the development account `//Alice`).
 `--mining-threads N` sets the number of threads (all cores by default) and `--mining-light`
 mines with 256 MiB of memory instead of 2 GiB, at a much lower hashrate.
+
+`--stratum` serves block templates to XMRig (algorithm `rx/tess`, from the `tesserax-miner`
+repository) on `127.0.0.1:3333`, several times faster than the built-in miner. See
+[docs/mining.md](docs/mining.md).
 
 ## Tests
 
