@@ -48,6 +48,37 @@ with hard derivation (`phrase//agent`) and a password (`phrase///password`), a d
 `mlDsaTxCreator(keypair)` signs any `polkadot-api` transaction, for calls the client does not
 wrap: `client.api` is the `polkadot-api` API of the chain.
 
+## Micropayments
+
+Paid HTTP services use payment channels and the HTTP 402 protocol of `docs/micropayments.md`.
+
+```ts
+import { ChannelPayer, ChannelReceiver, PAYMENT_HEADER, VOUCHER_HEADER } from "@tesserax/sdk";
+
+// An agent paying services per request, from its owner's funds.
+const payer = new ChannelPayer(client, agent, {
+  owner: owner.address,
+  deposit: Amount.fromTess("2"),
+  maxPrice: Amount.fromTess("0.01"),
+});
+const response = await payer.fetch("https://translator.example/translate", { method: "POST", body });
+
+// A service charging 0.001 TESS per request (node:http).
+const receiver = new ChannelReceiver(client, serviceKey);
+const price = Amount.fromTess("0.001");
+const voucher = request.headers[VOUCHER_HEADER.toLowerCase()];
+const result = typeof voucher === "string" ? await receiver.verify(voucher, price) : undefined;
+if (!result?.ok) {
+  response.writeHead(402, { [PAYMENT_HEADER]: await receiver.paymentRequired(price, result?.rejection) });
+  return response.end();
+}
+// ... serve, and from time to time:
+await receiver.claimAll();
+```
+
+The first payment to a service opens a channel (one transaction); the next ones are vouchers
+signed off chain. A claim costs about 0.002 TESS of fees, whatever the number of payments.
+
 ## Tests
 
 ```bash

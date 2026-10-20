@@ -39,6 +39,33 @@ Keys are derived exactly as by the node: `Keypair.from_uri` takes a 24-word phra
 with hard derivation (`phrase//agent`) and a password (`phrase///password`), a development key
 (`//Alice`) or a `0x` seed. `sdk/vectors/keys.json` holds the reference keys.
 
+## Micropayments
+
+Paid HTTP services use payment channels and the HTTP 402 protocol of `docs/micropayments.md`.
+
+```python
+from tesserax import ChannelPayer, ChannelReceiver, PaymentRejected, Rejection, PAYMENT_HEADER, VOUCHER_HEADER
+
+# An agent paying services per request, from its owner's funds.
+payer = ChannelPayer(client, agent, deposit=Amount.from_tess("2"), max_price=Amount.from_tess("0.01"), owner=owner.address)
+status, headers, body = payer.request("https://translator.example/translate", method="POST", body=b"...")
+
+# A service charging 0.001 TESS per request.
+receiver = ChannelReceiver(client, service_key)
+price = Amount.from_tess("0.001")
+voucher = request.headers.get(VOUCHER_HEADER)
+try:
+    if voucher is None:
+        raise PaymentRejected(Rejection("payment required"))
+    receiver.verify(voucher, price)  # then serve the request
+except PaymentRejected as rejected:
+    respond(402, {PAYMENT_HEADER: receiver.payment_required(price, rejected.rejection)})
+receiver.claim_all()  # from time to time
+```
+
+The first payment to a service opens a channel (one transaction); the next ones are vouchers
+signed off chain. A claim costs about 0.002 TESS of fees, whatever the number of payments.
+
 ## Tests
 
 ```bash

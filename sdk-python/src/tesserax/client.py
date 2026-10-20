@@ -38,6 +38,8 @@ class Balance:
 class TxOutcome:
     block_hash: str
     extrinsic_hash: str
+    #: Events of the transaction, as `(pallet, event, attributes)`.
+    events: list = field(default_factory=list, repr=False)
 
 
 @dataclass
@@ -208,7 +210,12 @@ class Client:
             module_name = message.get("module") or message.get("type")
             error = f"{module_name}::{name}" if module_name and name else name
             raise TransactionFailed(f"transaction failed: {error or message}", error)
-        return TxOutcome(block_hash=receipt.block_hash, extrinsic_hash=receipt.extrinsic_hash)
+        events = []
+        for event in receipt.triggered_events:
+            value = event.value
+            inner = value.get("event", value)
+            events.append((inner.get("module_id"), inner.get("event_id"), inner.get("attributes")))
+        return TxOutcome(block_hash=receipt.block_hash, extrinsic_hash=receipt.extrinsic_hash, events=events)
 
     def transfer(self, signer: Keypair, to: str, amount: Amount) -> TxOutcome:
         """Transfer `amount` to `to`, keeping the signer's account alive."""
@@ -337,6 +344,74 @@ class Client:
             reverse=True,
         )
         return found
+
+    # Payment channels.
+
+    def genesis_hash(self) -> bytes:
+        """Genesis hash of the chain, which vouchers sign."""
+        return bytes.fromhex(self.substrate.get_block_hash(0)[2:])
+
+    def channel(self, channel_id: int):
+        """The channel `channel_id`, if open."""
+        from .channels import channel_info
+
+        result = self.substrate.query("Channels", "Channels", [channel_id])
+        return channel_info(channel_id, result.value) if result.value is not None else None
+
+    def channels_of(self, payer: str) -> list:
+        """Open channels paid by `payer`."""
+        from .channels import channel_info
+
+        account = format_address(parse_address(payer))
+        return [
+            channel_info(key.value, value.value)
+            for key, value in self.substrate.query_map("Channels", "Channels", page_size=100)
+            if _account(value.value["payer"]) == account
+        ]
+
+    @staticmethod
+    def _opened(outcome: TxOutcome) -> int:
+        for pallet, event, attributes in outcome.events:
+            if pallet == "Channels" and event == "Opened":
+                return attributes["id"] if isinstance(attributes, dict) else attributes[0]
+        raise TransactionFailed("the channel was not opened")
+
+    @staticmethod
+    def _open_params(payee: str, signer: Keypair, deposit: Amount) -> dict:
+        return {"payee": _hex(parse_address(payee)), "signer": _hex(signer.public_key), "deposit": deposit.planck}
+
+    def open_channel(self, payer: Keypair, payee: str, deposit: Amount) -> int:
+        """Open a channel from `payer` to `payee`, whose vouchers the payer's key signs."""
+        return self._opened(self.submit(payer, "Channels", "open", self._open_params(payee, payer, deposit)))
+
+    def agent_open_channel(self, agent: Keypair, owner: str, payee: str, deposit: Amount) -> int:
+        """Open a channel from `owner` to `payee` through the delegation of `agent`, whose key
+        signs the vouchers."""
+        params = self._open_params(payee, agent, deposit)
+        return self._opened(self.agent_execute(agent, owner, "Channels", "open", params))
+
+    def _payer_call(self, signer: Keypair, owner: Optional[str], function: str, params: dict) -> TxOutcome:
+        if owner:
+            return self.agent_execute(signer, owner, "Channels", function, params)
+        return self.submit(signer, "Channels", function, params)
+
+    def top_up_channel(self, signer: Keypair, channel_id: int, amount: Amount, owner: Optional[str] = None) -> TxOutcome:
+        """Add `amount` to the deposit, as the payer, or as its agent when `owner` is given."""
+        return self._payer_call(signer, owner, "top_up", {"id": channel_id, "amount": amount.planck})
+
+    def request_close_channel(self, signer: Keypair, channel_id: int, owner: Optional[str] = None) -> TxOutcome:
+        return self._payer_call(signer, owner, "request_close", {"id": channel_id})
+
+    def finalize_close_channel(self, signer: Keypair, channel_id: int) -> TxOutcome:
+        return self.submit(signer, "Channels", "finalize_close", {"id": channel_id})
+
+    def claim_channel(self, payee: Keypair, voucher) -> TxOutcome:
+        """Claim `voucher` as the payee of its channel."""
+        params = {"id": voucher.channel, "amount": voucher.amount.planck, "signature": _hex(voucher.signature)}
+        return self.submit(payee, "Channels", "claim", params)
+
+    def close_channel(self, payee: Keypair, channel_id: int) -> TxOutcome:
+        return self.submit(payee, "Channels", "close", {"id": channel_id})
 
     # Encoding and decoding.
 

@@ -98,3 +98,6 @@ The SDKs implement both sides:
 | Rust `sdk/` | `ChannelPayer`, used by the MCP tool `tesserax_fetch` | `ChannelReceiver` |
 | Python `sdk-python/` | `ChannelPayer.request` | `ChannelReceiver.verify` |
 | TypeScript `sdk-ts/` | `ChannelPayer.fetch` | `ChannelReceiver.verify` |
+
+`sdk/vectors/voucher.json` holds a voucher signed by the Rust SDK: the three SDKs build the same
+message and accept its signature, and each is tested end to end with a paid HTTP service.

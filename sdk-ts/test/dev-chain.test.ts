@@ -40,10 +40,12 @@ test("agents on a development chain", { skip: !url && "set TESSERAX_URL to a dev
         description: "French to English",
         endpoint: "https://translator.example/mcp",
         capabilities: ["translation"],
+        metadata: `0x${"ab".repeat(32)}`,
       });
     }
     const found = await client.findAgents("translation");
     assert.ok(found.some((a) => a.address === merchant.address));
+    assert.equal((await client.agent(merchant.address))?.profile.metadata, `0x${"ab".repeat(32)}`);
 
     const payments = (await client.agent(merchant.address))!.reputation.payments;
     await client.agentPayAgent(agent, owner.address, merchant.address, tess("1"));

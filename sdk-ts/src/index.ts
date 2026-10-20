@@ -23,6 +23,23 @@ export {
 } from "./keys.js";
 export { mlDsaTxCreator } from "./signer.js";
 export {
+  CLOSE_SAFETY_BLOCKS,
+  ChannelPayer,
+  ChannelReceiver,
+  Channels,
+  PAYMENT_HEADER,
+  VOUCHER_CONTEXT,
+  VOUCHER_HEADER,
+  Voucher,
+  paymentRequiredHeader,
+  parsePaymentRequired,
+  voucherMessage,
+  type ChannelInfo,
+  type PayerChannel,
+  type PaymentRequired,
+  type Rejection,
+} from "./channels.js";
+export {
   MORTALITY,
   TesseraxClient,
   TransactionFailed,

@@ -42,6 +42,8 @@ export interface TxOutcome {
   blockHash: string;
   blockNumber: number;
   txHash: string;
+  /** Events emitted by the transaction. */
+  events: { type: string; value: { type: string; value: unknown } }[];
 }
 
 /** Limits of a delegation from an owner to an agent. */
@@ -155,6 +157,16 @@ export class TesseraxClient {
     };
   }
 
+  /** Number of the best block. */
+  async bestBlockNumber(): Promise<number> {
+    return (await this.client.getBestBlocks())[0].number;
+  }
+
+  /** Genesis hash of the chain, which vouchers sign. */
+  async genesisHash(): Promise<Uint8Array> {
+    return fromHex((await this.client.getChainSpecData()).genesisHash);
+  }
+
   async balance(of: string): Promise<Balance> {
     const { data } = (await this.api.query.System.Account.getValue(address(of), { at: "best" })) as {
       data: { free: bigint; reserved: bigint; frozen: bigint };
@@ -188,7 +200,12 @@ export class TesseraxClient {
       const error = chainError(included.dispatchError);
       throw new TransactionFailed(`transaction failed: ${error}`, error);
     }
-    return { blockHash: included.block.hash, blockNumber: included.block.number, txHash: included.txHash };
+    return {
+      blockHash: included.block.hash,
+      blockNumber: included.block.number,
+      txHash: included.txHash,
+      events: included.events as unknown as TxOutcome["events"],
+    };
   }
 
   /** Transfer `amount` to `to`, keeping the signer's account alive. */
@@ -341,7 +358,11 @@ export class TesseraxClient {
         description: text(info.profile.description),
         endpoint: text(info.profile.endpoint),
         capabilities: info.profile.capabilities.map(text),
-        metadata: info.profile.metadata ? toHex(info.profile.metadata) : undefined,
+        metadata: info.profile.metadata
+          ? typeof info.profile.metadata === "string"
+            ? info.profile.metadata
+            : toHex(info.profile.metadata)
+          : undefined,
       },
       reputation: {
         payments: BigInt(r.payments),
@@ -369,10 +390,12 @@ const encodePolicy = (policy: Policy) => ({
 const encodeProfile = (profile: Profile) => {
   const capabilities = profile.capabilities ?? [];
   if (capabilities.length > 16) throw new RangeError("at most 16 capabilities");
-  let metadata: Uint8Array | undefined;
+  // Fixed-size byte arrays are hexadecimal strings for polkadot-api.
+  let metadata: string | undefined;
   if (profile.metadata !== undefined) {
-    metadata = fromHex(profile.metadata);
-    if (metadata.length !== 32) throw new RangeError("metadata must be a 32-byte hash");
+    const bytes = fromHex(profile.metadata);
+    if (bytes.length !== 32) throw new RangeError("metadata must be a 32-byte hash");
+    metadata = toHex(bytes);
   }
   return {
     name: bounded(profile.name, 64, "name"),

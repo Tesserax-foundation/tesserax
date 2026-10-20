@@ -9,6 +9,19 @@ registry.
 """
 
 from .amount import DECIMALS, Amount
+from .channels import (
+    PAYMENT_HEADER,
+    VOUCHER_HEADER,
+    ChannelInfo,
+    ChannelPayer,
+    ChannelReceiver,
+    PayerChannel,
+    PaymentRejected,
+    PaymentRequired,
+    Rejection,
+    Voucher,
+    voucher_message,
+)
 from .client import (
     AgentRecord,
     Balance,
@@ -32,6 +45,17 @@ from .keys import SS58_PREFIX, Keypair, format_address, parse_address, verify
 
 __all__ = [
     "DECIMALS",
+    "PAYMENT_HEADER",
+    "VOUCHER_HEADER",
+    "ChannelInfo",
+    "ChannelPayer",
+    "ChannelReceiver",
+    "PayerChannel",
+    "PaymentRejected",
+    "PaymentRequired",
+    "Rejection",
+    "Voucher",
+    "voucher_message",
     "SS58_PREFIX",
     "AgentRecord",
     "Amount",
