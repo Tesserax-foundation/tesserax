@@ -21,6 +21,10 @@ class InvalidInput(TesseraxError, ValueError):
     """An input does not fit the limits of the chain."""
 
 
+class StorageError(TesseraxError):
+    """A state file cannot be read or written, or belongs to another chain or key."""
+
+
 class TransactionFailed(TesseraxError):
     """The chain refused or failed a transaction. `error` is the name of the chain error, such as
     `Agents::BudgetExceeded`, when known."""

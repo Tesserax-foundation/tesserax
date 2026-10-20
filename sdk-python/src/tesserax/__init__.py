@@ -38,6 +38,7 @@ from .errors import (
     InvalidAmount,
     InvalidInput,
     InvalidKey,
+    StorageError,
     TesseraxError,
     TransactionFailed,
 )
@@ -72,6 +73,7 @@ __all__ = [
     "Policy",
     "Profile",
     "Reputation",
+    "StorageError",
     "TesseraxError",
     "TransactionFailed",
     "TxOutcome",

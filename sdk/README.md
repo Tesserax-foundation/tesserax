@@ -31,11 +31,12 @@ client.agent_pay_agent(&agent, &owner.account_id(), &payee, Amount::from_tess("0
 
 Micropayments (`docs/micropayments.md`): `ChannelPayer` pays HTTP 402 services with vouchers on
 payment channels it opens and tops up on demand, `ChannelReceiver` verifies the vouchers paying a
-service and claims them.
+service and claims them. `with_file` keeps their state in a file, so that a restart loses
+neither channels nor vouchers.
 
 ```rust
-// A service charging 0.001 TESS per request.
-let receiver = ChannelReceiver::new(client.clone(), service_key);
+// A service charging 0.001 TESS per request, keeping its vouchers across restarts.
+let receiver = ChannelReceiver::with_file(client.clone(), service_key, "service-channels.json")?;
 match request.header(VOUCHER_HEADER) {
 	Some(voucher) => match receiver.verify(voucher, price).await {
 		Ok(_) => serve(),

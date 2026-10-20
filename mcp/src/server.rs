@@ -9,7 +9,7 @@ use rmcp::{
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tesserax_sdk::{
-	format_address, parse_address, AccountId, Amount, ChannelPayer, Client, Keypair, PayerChannel,
+	format_address, parse_address, AccountId, Amount, ChannelPayer, Client, Keypair,
 	PaymentRequired, Profile, PAYMENT_HEADER, VOUCHER_HEADER,
 };
 
@@ -20,7 +20,6 @@ const MAX_BODY: usize = 100_000;
 pub struct Payments {
 	payer: Option<ChannelPayer>,
 	max_price: Amount,
-	file: Option<PathBuf>,
 	http: reqwest::Client,
 }
 
@@ -33,21 +32,14 @@ impl Payments {
 		max_price: Amount,
 		file: Option<PathBuf>,
 	) -> Result<Self, Box<dyn std::error::Error>> {
-		let payer = key.map(|key| ChannelPayer::new(client.clone(), key.clone(), owner, deposit));
-		if let (Some(payer), Some(path)) = (&payer, &file) {
-			if path.exists() {
-				let saved: HashMap<String, PayerChannel> = serde_json::from_slice(&std::fs::read(path)?)?;
-				payer.restore(saved).await;
-			}
-		}
+		let payer = match (key, file) {
+			(Some(key), Some(path)) =>
+				Some(ChannelPayer::with_file(client.clone(), key.clone(), owner, deposit, path)?),
+			(Some(key), None) => Some(ChannelPayer::new(client.clone(), key.clone(), owner, deposit)),
+			(None, _) => None,
+		};
 		let http = reqwest::Client::builder().user_agent("tesserax-mcp").build()?;
-		Ok(Payments { payer, max_price, file, http })
-	}
-
-	async fn save(&self) -> Result<(), String> {
-		let (Some(payer), Some(path)) = (&self.payer, &self.file) else { return Ok(()) };
-		let state = serde_json::to_vec_pretty(&payer.channels().await).map_err(|e| e.to_string())?;
-		std::fs::write(path, state).map_err(|e| format!("cannot save {}: {e}", path.display()))
+		Ok(Payments { payer, max_price, http })
 	}
 }
 
@@ -435,7 +427,6 @@ impl Tesserax {
 				return fail("no key configured: set TESSERAX_KEY to pay services");
 			};
 			let voucher = attempt!(payer.pay(&requirement, max_price).await);
-			attempt!(self.payments.save().await);
 			payment = Some(Payment {
 				payee: requirement.payee.clone(),
 				channel: voucher.channel,

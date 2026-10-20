@@ -99,5 +99,46 @@ The SDKs implement both sides:
 | Python `sdk-python/` | `ChannelPayer.request` | `ChannelReceiver.verify` |
 | TypeScript `sdk-ts/` | `ChannelPayer.fetch` | `ChannelReceiver.verify` |
 
+## State files
+
+Both sides keep state that must survive a restart:
+
+- the client, the amount it signed on each channel: a client that forgets it opens a new channel
+  per service (another deposit locked), or signs vouchers the service rejects;
+- the service, the amount it accepted on each channel and the latest voucher not claimed yet: a
+  service that forgets it loses the vouchers it did not claim, and serves again requests paid
+  with vouchers it already accepted.
+
+With a state file, the SDKs write this state to disk before a voucher leaves the client, and
+before the service serves a request it accepted a voucher for. The file is replaced atomically
+(written to a temporary file, flushed, renamed), readable by the user only, and bound to a chain
+and a key: a file written for another genesis, key, owner or service is refused. A voucher stays
+in the file of the service until its claim succeeds; vouchers already claimed, or of channels
+closed since, are dropped at the next `claim_all`. A state file is used by one process at a time.
+
+| | Client | Service |
+|---|---|---|
+| Rust | `ChannelPayer::with_file` | `ChannelReceiver::with_file` |
+| Python | `ChannelPayer(..., state_file=)` | `ChannelReceiver(..., state_file=)` |
+| TypeScript | `ChannelPayer.withFile` | `ChannelReceiver.withFile` |
+| MCP server | `TESSERAX_CHANNELS_FILE` | |
+
+The three SDKs share the format of the files, JSON:
+
+```json
+{
+  "version": 1,
+  "kind": "receiver",
+  "genesis": "0x...",
+  "payee": "te...",
+  "channels": {
+    "12": { "accepted": "0.037", "unclaimed": { "channel": 12, "amount": "0.037", "signature": "<base64>" } }
+  }
+}
+```
+
+A client file has `"kind": "payer"`, the `signer` and `owner` addresses, and the channels by payee:
+`{"id": 12, "deposit": "2", "spent": "0.037"}`.
+
 `sdk/vectors/voucher.json` holds a voucher signed by the Rust SDK: the three SDKs build the same
 message and accept its signature, and each is tested end to end with a paid HTTP service.

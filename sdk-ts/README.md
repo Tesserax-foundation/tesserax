@@ -56,15 +56,18 @@ Paid HTTP services use payment channels and the HTTP 402 protocol of `docs/micro
 import { ChannelPayer, ChannelReceiver, PAYMENT_HEADER, VOUCHER_HEADER } from "@tesserax/sdk";
 
 // An agent paying services per request, from its owner's funds.
-const payer = new ChannelPayer(client, agent, {
-  owner: owner.address,
-  deposit: Amount.fromTess("2"),
-  maxPrice: Amount.fromTess("0.01"),
-});
+// The state file resumes its channels after a restart.
+const payer = await ChannelPayer.withFile(
+  client,
+  agent,
+  { owner: owner.address, deposit: Amount.fromTess("2"), maxPrice: Amount.fromTess("0.01") },
+  "agent-channels.json",
+);
 const response = await payer.fetch("https://translator.example/translate", { method: "POST", body });
 
 // A service charging 0.001 TESS per request (node:http).
-const receiver = new ChannelReceiver(client, serviceKey);
+// The state file keeps the vouchers not claimed yet across restarts.
+const receiver = await ChannelReceiver.withFile(client, serviceKey, "service-channels.json");
 const price = Amount.fromTess("0.001");
 const voucher = request.headers[VOUCHER_HEADER.toLowerCase()];
 const result = typeof voucher === "string" ? await receiver.verify(voucher, price) : undefined;

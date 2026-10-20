@@ -47,11 +47,14 @@ Paid HTTP services use payment channels and the HTTP 402 protocol of `docs/micro
 from tesserax import ChannelPayer, ChannelReceiver, PaymentRejected, Rejection, PAYMENT_HEADER, VOUCHER_HEADER
 
 # An agent paying services per request, from its owner's funds.
-payer = ChannelPayer(client, agent, deposit=Amount.from_tess("2"), max_price=Amount.from_tess("0.01"), owner=owner.address)
+payer = ChannelPayer(
+    client, agent, deposit=Amount.from_tess("2"), max_price=Amount.from_tess("0.01"), owner=owner.address,
+    state_file="agent-channels.json",  # resumes its channels after a restart
+)
 status, headers, body = payer.request("https://translator.example/translate", method="POST", body=b"...")
 
 # A service charging 0.001 TESS per request.
-receiver = ChannelReceiver(client, service_key)
+receiver = ChannelReceiver(client, service_key, state_file="service-channels.json")  # keeps unclaimed vouchers
 price = Amount.from_tess("0.001")
 voucher = request.headers.get(VOUCHER_HEADER)
 try:

@@ -15,8 +15,14 @@ use crate::{
 	Amount, Client, Error, Result,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{
+	collections::{BTreeMap, HashMap},
+	path::{Path, PathBuf},
+};
 use tokio::sync::Mutex;
+
+/// Version of the channel state files.
+const STATE_VERSION: u32 = 1;
 
 /// FIPS 204 context of voucher signatures.
 pub const VOUCHER_CONTEXT: &[u8] = b"tesserax-channel";
@@ -273,7 +279,7 @@ impl Client {
 }
 
 /// A channel the payer uses.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PayerChannel {
 	pub id: u64,
 	pub deposit: Amount,
@@ -281,10 +287,30 @@ pub struct PayerChannel {
 	pub spent: Amount,
 }
 
+/// State file of a [`ChannelPayer`].
+#[derive(Serialize, Deserialize)]
+struct PayerState {
+	version: u32,
+	kind: String,
+	/// Genesis hash of the chain, hexadecimal.
+	genesis: String,
+	/// Address of the key signing the vouchers.
+	signer: String,
+	/// Address of the owner the channels are opened for, in delegated mode.
+	owner: Option<String>,
+	/// Channels by payee address.
+	channels: BTreeMap<String, PayerChannel>,
+}
+
 /// Pays services over payment channels, one channel per payee, opened and topped up on demand.
 ///
 /// In delegated mode (`owner` given), channels are opened for the owner through the agent's
 /// delegation and the agent's key signs the vouchers.
+///
+/// With a state file ([`ChannelPayer::with_file`]), every channel opened, every top-up and every
+/// voucher is written to disk before the voucher is returned: after a restart the payer resumes
+/// its channels instead of opening new ones, and never signs a voucher below one it already gave.
+/// A state file must be used by one payer at a time.
 pub struct ChannelPayer {
 	client: Client,
 	key: Keypair,
@@ -293,20 +319,86 @@ pub struct ChannelPayer {
 	deposit: Amount,
 	genesis: [u8; 32],
 	channels: Mutex<HashMap<String, PayerChannel>>,
+	file: Option<PathBuf>,
 }
 
 impl ChannelPayer {
+	/// A payer keeping its channels in memory only.
 	pub fn new(client: Client, key: Keypair, owner: Option<AccountId>, deposit: Amount) -> Self {
 		let genesis = client.genesis_hash();
-		ChannelPayer { client, key, owner, deposit, genesis, channels: Mutex::new(HashMap::new()) }
+		ChannelPayer { client, key, owner, deposit, genesis, channels: Mutex::new(HashMap::new()), file: None }
+	}
+
+	/// A payer keeping its channels in the state file `path`, created if missing. Refuses a file
+	/// written for another chain, key or owner.
+	pub fn with_file(
+		client: Client,
+		key: Keypair,
+		owner: Option<AccountId>,
+		deposit: Amount,
+		path: impl Into<PathBuf>,
+	) -> Result<Self> {
+		let path = path.into();
+		let mut payer = Self::new(client, key, owner, deposit);
+		let channels = match crate::store::load::<serde_json::Value>(&path)? {
+			None => HashMap::new(),
+			// Files written before the versioned format: the channels by payee only.
+			Some(value) if value.get("version").is_none() => serde_json::from_value(value)
+				.map_err(|e| Error::Storage(format!("{} is not a payer state file: {e}", path.display())))?,
+			Some(value) => {
+				let state: PayerState = serde_json::from_value(value)
+					.map_err(|e| Error::Storage(format!("{} is not a payer state file: {e}", path.display())))?;
+				payer.check(&state, &path)?;
+				state.channels.into_iter().collect()
+			},
+		};
+		payer.channels = Mutex::new(channels);
+		payer.file = Some(path);
+		Ok(payer)
+	}
+
+	fn check(&self, state: &PayerState, path: &Path) -> Result<()> {
+		let mismatch = |what: &str| Err(Error::Storage(format!("{} was written for another {what}", path.display())));
+		if state.version != STATE_VERSION || state.kind != "payer" {
+			return Err(Error::Storage(format!(
+				"{} is not a payer state file of version {STATE_VERSION}",
+				path.display()
+			)));
+		}
+		if state.genesis != hex(&self.genesis) {
+			return mismatch("chain");
+		}
+		if state.signer != self.key.address() {
+			return mismatch("key");
+		}
+		if state.owner != self.owner.as_ref().map(format_address) {
+			return mismatch("owner");
+		}
+		Ok(())
+	}
+
+	/// Write `channels` to the state file, if any.
+	fn persist(&self, channels: &HashMap<String, PayerChannel>) -> Result<()> {
+		let Some(path) = &self.file else { return Ok(()) };
+		let state = PayerState {
+			version: STATE_VERSION,
+			kind: "payer".into(),
+			genesis: hex(&self.genesis),
+			signer: self.key.address(),
+			owner: self.owner.as_ref().map(format_address),
+			channels: channels.iter().map(|(payee, channel)| (payee.clone(), channel.clone())).collect(),
+		};
+		crate::store::save(path, &state)
 	}
 
 	/// Resume from channels used before, by payee address.
-	pub async fn restore(&self, channels: HashMap<String, PayerChannel>) {
-		self.channels.lock().await.extend(channels);
+	pub async fn restore(&self, channels: HashMap<String, PayerChannel>) -> Result<()> {
+		let mut current = self.channels.lock().await;
+		current.extend(channels);
+		self.persist(&current)
 	}
 
-	/// Channels in use, by payee address, to persist across restarts.
+	/// Channels in use, by payee address.
 	pub async fn channels(&self) -> HashMap<String, PayerChannel> {
 		self.channels.lock().await.clone()
 	}
@@ -340,7 +432,7 @@ impl ChannelPayer {
 		}
 
 		let deposit = self.deposit.max(requirement.price);
-		let channel = match channels.get(&requirement.payee).cloned() {
+		let mut channel = match channels.get(&requirement.payee).cloned() {
 			// A channel still open on chain.
 			Some(channel) if self.client.channel(channel.id).await?.is_some_and(|c| c.closes_at.is_none()) =>
 				channel,
@@ -349,22 +441,32 @@ impl ChannelPayer {
 					Some(owner) => self.client.agent_open_channel(&self.key, owner, &payee, deposit).await?,
 					None => self.client.open_channel(&self.key, &payee, deposit).await?,
 				};
-				PayerChannel { id, deposit, spent: Amount(0) }
+				let channel = PayerChannel { id, deposit, spent: Amount(0) };
+				channels.insert(requirement.payee.clone(), channel.clone());
+				self.persist(&channels)?;
+				channel
 			},
 		};
-		let mut channel = channel;
 
 		let amount = Amount(channel.spent.0 + requirement.price.0);
 		if amount > channel.deposit {
 			let top_up = Amount(self.deposit.0.max(amount.0 - channel.deposit.0));
 			self.client.top_up_channel(&self.key, self.owner.as_ref(), channel.id, top_up).await?;
 			channel.deposit = Amount(channel.deposit.0 + top_up.0);
+			channels.insert(requirement.payee.clone(), channel.clone());
+			self.persist(&channels)?;
 		}
 
-		let voucher = Voucher::sign(&self.key, &self.genesis, channel.id, amount);
-		channel.spent = amount;
-		channels.insert(requirement.payee.clone(), channel);
-		Ok(voucher)
+		// Recorded before the voucher leaves the payer.
+		let previous = channels.insert(requirement.payee.clone(), PayerChannel { spent: amount, ..channel.clone() });
+		if let Err(error) = self.persist(&channels) {
+			match previous {
+				Some(previous) => channels.insert(requirement.payee.clone(), previous),
+				None => channels.remove(&requirement.payee),
+			};
+			return Err(error);
+		}
+		Ok(Voucher::sign(&self.key, &self.genesis, channel.id, amount))
 	}
 }
 
@@ -377,30 +479,102 @@ pub struct Rejection {
 }
 
 struct ReceivedChannel {
-	info: ChannelInfo,
-	fetched: std::time::Instant,
+	/// State of the channel on chain, read at `fetched`; unknown after a restart.
+	info: Option<(ChannelInfo, std::time::Instant)>,
 	/// Amount of the latest voucher accepted.
 	accepted: Amount,
 	/// Latest voucher accepted and not claimed yet.
 	unclaimed: Option<Voucher>,
 }
 
+/// What a [`ChannelReceiver`] keeps of a channel in its state file.
+#[derive(Serialize, Deserialize)]
+struct ReceivedState {
+	accepted: Amount,
+	unclaimed: Option<Voucher>,
+}
+
+/// State file of a [`ChannelReceiver`].
+#[derive(Serialize, Deserialize)]
+struct ReceiverState {
+	version: u32,
+	kind: String,
+	/// Genesis hash of the chain, hexadecimal.
+	genesis: String,
+	/// Address of the service.
+	payee: String,
+	/// Channels by id.
+	channels: BTreeMap<u64, ReceivedState>,
+}
+
 /// Verifies the vouchers paying a service and claims them.
+///
+/// With a state file ([`ChannelReceiver::with_file`]), the amount accepted on each channel and
+/// the latest voucher not claimed yet are written to disk before a voucher is accepted: after a
+/// restart the service still claims what it was paid, and refuses vouchers it already accepted.
+/// A state file must be used by one receiver at a time.
 pub struct ChannelReceiver {
 	client: Client,
 	key: Keypair,
 	genesis: [u8; 32],
 	channels: Mutex<HashMap<u64, ReceivedChannel>>,
+	file: Option<PathBuf>,
 }
 
 /// How long the state of a channel is trusted before reading it again from the chain.
 const CHANNEL_REFRESH: std::time::Duration = std::time::Duration::from_secs(60);
 
 impl ChannelReceiver {
-	/// A receiver for the service signing with `key`, payee of the channels.
+	/// A receiver for the service signing with `key`, payee of the channels, keeping its state in
+	/// memory only.
 	pub fn new(client: Client, key: Keypair) -> Self {
 		let genesis = client.genesis_hash();
-		ChannelReceiver { client, key, genesis, channels: Mutex::new(HashMap::new()) }
+		ChannelReceiver { client, key, genesis, channels: Mutex::new(HashMap::new()), file: None }
+	}
+
+	/// A receiver keeping its state in the file `path`, created if missing. Refuses a file written
+	/// for another chain or service.
+	pub fn with_file(client: Client, key: Keypair, path: impl Into<PathBuf>) -> Result<Self> {
+		let path = path.into();
+		let mut receiver = Self::new(client, key);
+		if let Some(state) = crate::store::load::<ReceiverState>(&path)? {
+			if state.version != STATE_VERSION || state.kind != "receiver" {
+				return Err(Error::Storage(format!(
+					"{} is not a receiver state file of version {STATE_VERSION}",
+					path.display()
+				)));
+			}
+			if state.genesis != hex(&receiver.genesis) {
+				return Err(Error::Storage(format!("{} was written for another chain", path.display())));
+			}
+			if state.payee != receiver.key.address() {
+				return Err(Error::Storage(format!("{} was written for another service", path.display())));
+			}
+			let channels = state
+				.channels
+				.into_iter()
+				.map(|(id, c)| (id, ReceivedChannel { info: None, accepted: c.accepted, unclaimed: c.unclaimed }))
+				.collect();
+			receiver.channels = Mutex::new(channels);
+		}
+		receiver.file = Some(path);
+		Ok(receiver)
+	}
+
+	/// Write `channels` to the state file, if any.
+	fn persist(&self, channels: &HashMap<u64, ReceivedChannel>) -> Result<()> {
+		let Some(path) = &self.file else { return Ok(()) };
+		let state = ReceiverState {
+			version: STATE_VERSION,
+			kind: "receiver".into(),
+			genesis: hex(&self.genesis),
+			payee: self.key.address(),
+			channels: channels
+				.iter()
+				.map(|(id, c)| (*id, ReceivedState { accepted: c.accepted, unclaimed: c.unclaimed.clone() }))
+				.collect(),
+		};
+		crate::store::save(path, &state)
 	}
 
 	/// The `Tesserax-Payment` header asking for `price`, after `rejection` if any.
@@ -422,8 +596,9 @@ impl ChannelReceiver {
 		let voucher = Voucher::from_header(header).map_err(|e| reject(&e.to_string(), None))?;
 		let mut channels = self.channels.lock().await;
 
-		let stale = channels.get(&voucher.channel).is_none_or(|c| {
-			c.fetched.elapsed() > CHANNEL_REFRESH || voucher.amount > c.info.deposit
+		let stale = channels.get(&voucher.channel).is_none_or(|c| match &c.info {
+			Some((info, fetched)) => fetched.elapsed() > CHANNEL_REFRESH || voucher.amount > info.deposit,
+			None => true,
 		});
 		if stale {
 			let info = self
@@ -433,63 +608,74 @@ impl ChannelReceiver {
 				.map_err(|e| reject(&format!("cannot read the channel: {e}"), None))?
 				.ok_or_else(|| reject("unknown channel", None))?;
 			let entry = channels.entry(voucher.channel).or_insert_with(|| ReceivedChannel {
+				info: None,
 				accepted: info.claimed,
 				unclaimed: None,
-				info: info.clone(),
-				fetched: std::time::Instant::now(),
 			});
 			entry.accepted = entry.accepted.max(info.claimed);
-			entry.info = info;
-			entry.fetched = std::time::Instant::now();
+			entry.info = Some((info, std::time::Instant::now()));
 		}
 		let channel = channels.get_mut(&voucher.channel).expect("inserted above; qed");
+		let info = &channel.info.as_ref().expect("fetched above; qed").0;
 
-		if channel.info.payee != self.key.address() {
+		if info.payee != self.key.address() {
 			return Err(reject("the channel pays another payee", None));
 		}
-		if let Some(closes_at) = channel.info.closes_at {
+		if let Some(closes_at) = info.closes_at {
 			let now = self.client.best_block_number().await.map_err(|e| reject(&e.to_string(), None))?;
 			if closes_at.saturating_sub(now) < CLOSE_SAFETY_BLOCKS {
 				return Err(reject("the channel is closing", Some(channel.accepted)));
 			}
 		}
-		if voucher.amount > channel.info.deposit {
+		if voucher.amount > info.deposit {
 			return Err(reject("the voucher exceeds the deposit", Some(channel.accepted)));
 		}
 		if voucher.amount.0 < channel.accepted.0.saturating_add(price.0) {
 			return Err(reject("the voucher does not pay the price", Some(channel.accepted)));
 		}
-		if !voucher.verify(&self.genesis, &channel.info.signer_public) {
+		if !voucher.verify(&self.genesis, &info.signer_public) {
 			return Err(reject("invalid voucher signature", Some(channel.accepted)));
 		}
-		channel.accepted = voucher.amount;
-		let amount = voucher.amount;
-		channel.unclaimed = Some(voucher);
+
+		// Recorded before the request is served.
+		let (id, amount) = (voucher.channel, voucher.amount);
+		let previous = (channel.accepted, channel.unclaimed.replace(voucher));
+		channel.accepted = amount;
+		if self.persist(&channels).is_err() {
+			let channel = channels.get_mut(&id).expect("present above; qed");
+			(channel.accepted, channel.unclaimed) = previous;
+			return Err(reject("the service cannot record the voucher", None));
+		}
 		Ok(amount)
 	}
 
-	/// Claim the latest voucher of every channel, and close the channels whose payer requested
-	/// it. Returns the outcomes of the claims.
+	/// Claim the latest voucher of every channel. A voucher stays recorded until its claim
+	/// succeeds; vouchers of channels closed in the meantime, or already claimed, are dropped.
+	/// Returns the outcomes of the claims.
 	pub async fn claim_all(&self) -> Result<Vec<TxOutcome>> {
-		let pending: Vec<Voucher> = {
-			let mut channels = self.channels.lock().await;
-			channels.values_mut().filter_map(|c| c.unclaimed.take()).collect()
-		};
+		let pending: Vec<Voucher> =
+			self.channels.lock().await.values().filter_map(|c| c.unclaimed.clone()).collect();
 		let mut outcomes = Vec::new();
 		for voucher in pending {
-			match self.client.claim_channel(&self.key, &voucher).await {
-				Ok(outcome) => outcomes.push(outcome),
-				Err(error) => {
-					// Keep the voucher for the next attempt.
-					let mut channels = self.channels.lock().await;
-					if let Some(channel) = channels.get_mut(&voucher.channel) {
-						if channel.unclaimed.as_ref().is_none_or(|v| v.amount < voucher.amount) {
-							channel.unclaimed = Some(voucher);
-						}
-					}
-					return Err(error);
-				},
+			let info = self.client.channel(voucher.channel).await?;
+			let claimable = info.as_ref().is_some_and(|info| info.claimed < voucher.amount);
+			if claimable {
+				outcomes.push(self.client.claim_channel(&self.key, &voucher).await?);
 			}
+			let mut channels = self.channels.lock().await;
+			if info.is_none() {
+				// Closed: nothing can be claimed any more, and its vouchers are refused.
+				channels.remove(&voucher.channel);
+			} else if let Some(channel) = channels.get_mut(&voucher.channel) {
+				// A newer voucher may have arrived during the claim.
+				if channel.unclaimed.as_ref().is_some_and(|v| v.amount <= voucher.amount) {
+					channel.unclaimed = None;
+				}
+				if let Some((info, _)) = &mut channel.info {
+					info.claimed = info.claimed.max(voucher.amount);
+				}
+			}
+			self.persist(&channels)?;
 		}
 		Ok(outcomes)
 	}
@@ -500,7 +686,10 @@ impl ChannelReceiver {
 		Amount(
 			channels
 				.values()
-				.filter_map(|c| c.unclaimed.as_ref().map(|v| v.amount.0.saturating_sub(c.info.claimed.0)))
+				.filter_map(|c| {
+					let claimed = c.info.as_ref().map_or(0, |(info, _)| info.claimed.0);
+					c.unclaimed.as_ref().map(|v| v.amount.0.saturating_sub(claimed))
+				})
 				.sum(),
 		)
 	}

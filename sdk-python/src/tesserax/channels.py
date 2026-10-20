@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import threading
 import time
 import urllib.error
@@ -12,8 +13,9 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
+from . import _store
 from .amount import Amount
-from .errors import InvalidInput, TesseraxError
+from .errors import InvalidInput, StorageError, TesseraxError
 from .keys import Keypair, account_id, format_address, parse_address, verify
 
 if TYPE_CHECKING:
@@ -29,6 +31,8 @@ VOUCHER_HEADER = "Tesserax-Voucher"
 CLOSE_SAFETY_BLOCKS = 100
 
 _REFRESH_SECONDS = 60
+#: Version of the channel state files.
+_STATE_VERSION = 1
 
 
 def voucher_message(genesis: bytes, channel: int, amount: Amount) -> bytes:
@@ -60,6 +64,9 @@ class Voucher:
             {"channel": self.channel, "amount": str(self.amount), "signature": base64.b64encode(self.signature).decode()},
             separators=(",", ":"),
         )
+
+    def to_json(self) -> dict:
+        return json.loads(self.to_header())
 
     @classmethod
     def from_header(cls, value: str) -> "Voucher":
@@ -123,15 +130,75 @@ class PayerChannel:
     spent: Amount
 
 
+def _check_state(state: dict, kind: str, path: str, genesis: bytes, expected: dict[str, tuple[Optional[str], str]]) -> None:
+    """Refuse a state file of another kind, version or chain, or whose `field` differs from
+    `value`, for each `field: (value, what)` of `expected`."""
+    if not isinstance(state, dict) or state.get("version") != _STATE_VERSION or state.get("kind") != kind:
+        raise StorageError(f"{path} is not a {kind} state file of version {_STATE_VERSION}")
+    if state.get("genesis") != "0x" + genesis.hex():
+        raise StorageError(f"{path} was written for another chain")
+    for field_name, (value, what) in expected.items():
+        if state.get(field_name) != value:
+            raise StorageError(f"{path} was written for another {what}")
+
+
 class ChannelPayer:
     """Pays services over payment channels, one per payee, opened and topped up on demand. With
-    `owner`, channels are opened for the owner through the agent's delegation."""
+    `owner`, channels are opened for the owner through the agent's delegation.
 
-    def __init__(self, client: "Client", key: Keypair, deposit: Amount, max_price: Amount, owner: Optional[str] = None):
+    With `state_file`, every channel opened, every top-up and every voucher is written to disk
+    before the voucher is returned: after a restart the payer resumes its channels instead of
+    opening new ones, and never signs a voucher below one it already gave. A state file must be
+    used by one payer at a time; it is refused if written for another chain, key or owner."""
+
+    def __init__(
+        self,
+        client: "Client",
+        key: Keypair,
+        deposit: Amount,
+        max_price: Amount,
+        owner: Optional[str] = None,
+        state_file: Optional[str | os.PathLike] = None,
+    ):
         self.client, self.key, self.deposit, self.max_price, self.owner = client, key, deposit, max_price, owner
         self.channels: dict[str, PayerChannel] = {}
         self._lock = threading.Lock()
         self._genesis: Optional[bytes] = None
+        self._file = os.fspath(state_file) if state_file is not None else None
+        self._owner_address = format_address(parse_address(owner)) if owner else None
+        if self._file is not None:
+            self._genesis = client.genesis_hash()
+            state = _store.load(self._file)
+            if state is not None:
+                _check_state(
+                    state,
+                    "payer",
+                    self._file,
+                    self._genesis,
+                    {"signer": (key.address, "key"), "owner": (self._owner_address, "owner")},
+                )
+                self.channels = {
+                    payee: PayerChannel(c["id"], Amount.from_tess(c["deposit"]), Amount.from_tess(c["spent"]))
+                    for payee, c in state["channels"].items()
+                }
+
+    def _persist(self) -> None:
+        if self._file is None:
+            return
+        _store.save(
+            self._file,
+            {
+                "version": _STATE_VERSION,
+                "kind": "payer",
+                "genesis": "0x" + self._genesis.hex(),
+                "signer": self.key.address,
+                "owner": self._owner_address,
+                "channels": {
+                    payee: {"id": c.id, "deposit": str(c.deposit), "spent": str(c.spent)}
+                    for payee, c in self.channels.items()
+                },
+            },
+        )
 
     def pay(self, requirement: PaymentRequired, max_price: Optional[Amount] = None) -> Voucher:
         """A voucher paying `requirement`, opening or topping up the channel if needed."""
@@ -161,16 +228,25 @@ class ChannelPayer:
                 else:
                     channel_id = self.client.open_channel(self.key, payee, deposit)
                 channel = PayerChannel(channel_id, deposit, Amount(0))
+                self.channels[payee] = channel
+                self._persist()
 
             amount = channel.spent + requirement.price
             if channel.deposit < amount:
                 top_up = Amount(max(self.deposit.planck, amount.planck - channel.deposit.planck))
                 self.client.top_up_channel(self.key, channel.id, top_up, self.owner)
                 channel = PayerChannel(channel.id, channel.deposit + top_up, channel.spent)
+                self.channels[payee] = channel
+                self._persist()
 
-            voucher = Voucher.sign(self.key, self._genesis, channel.id, amount)
+            # Recorded before the voucher leaves the payer.
             self.channels[payee] = PayerChannel(channel.id, channel.deposit, amount)
-            return voucher
+            try:
+                self._persist()
+            except StorageError:
+                self.channels[payee] = channel
+                raise
+            return Voucher.sign(self.key, self._genesis, channel.id, amount)
 
     def request(
         self,
@@ -213,20 +289,55 @@ class Rejection:
 
 @dataclass
 class _Received:
-    info: ChannelInfo
+    #: State of the channel on chain, read at `fetched`; unknown after a restart.
+    info: Optional[ChannelInfo]
     fetched: float
     accepted: Amount
     unclaimed: Optional[Voucher] = None
 
 
 class ChannelReceiver:
-    """Verifies the vouchers paying a service and claims them."""
+    """Verifies the vouchers paying a service and claims them.
 
-    def __init__(self, client: "Client", key: Keypair):
+    With `state_file`, the amount accepted on each channel and the latest voucher not claimed yet
+    are written to disk before a voucher is accepted: after a restart the service still claims
+    what it was paid, and refuses vouchers it already accepted. A state file must be used by one
+    receiver at a time; it is refused if written for another chain or service."""
+
+    def __init__(self, client: "Client", key: Keypair, state_file: Optional[str | os.PathLike] = None):
         self.client, self.key = client, key
         self._channels: dict[int, _Received] = {}
         self._lock = threading.Lock()
         self._genesis: Optional[bytes] = None
+        self._file = os.fspath(state_file) if state_file is not None else None
+        if self._file is not None:
+            genesis = self._genesis_hash()
+            state = _store.load(self._file)
+            if state is not None:
+                _check_state(state, "receiver", self._file, genesis, {"payee": (key.address, "service")})
+                for channel_id, c in state["channels"].items():
+                    unclaimed = Voucher.from_header(json.dumps(c["unclaimed"])) if c.get("unclaimed") else None
+                    self._channels[int(channel_id)] = _Received(None, 0.0, Amount.from_tess(c["accepted"]), unclaimed)
+
+    def _persist(self) -> None:
+        if self._file is None:
+            return
+        _store.save(
+            self._file,
+            {
+                "version": _STATE_VERSION,
+                "kind": "receiver",
+                "genesis": "0x" + self._genesis_hash().hex(),
+                "payee": self.key.address,
+                "channels": {
+                    str(channel_id): {
+                        "accepted": str(c.accepted),
+                        "unclaimed": c.unclaimed.to_json() if c.unclaimed else None,
+                    }
+                    for channel_id, c in self._channels.items()
+                },
+            },
+        )
 
     def _genesis_hash(self) -> bytes:
         if self._genesis is None:
@@ -253,7 +364,12 @@ class ChannelReceiver:
             raise PaymentRejected(Rejection(str(error))) from None
         with self._lock:
             channel = self._channels.get(voucher.channel)
-            if channel is None or time.monotonic() - channel.fetched > _REFRESH_SECONDS or channel.info.deposit < voucher.amount:
+            if (
+                channel is None
+                or channel.info is None
+                or time.monotonic() - channel.fetched > _REFRESH_SECONDS
+                or channel.info.deposit < voucher.amount
+            ):
                 info = self.client.channel(voucher.channel)
                 if info is None:
                     raise PaymentRejected(Rejection("unknown channel"))
@@ -275,32 +391,49 @@ class ChannelReceiver:
                 raise reject("the voucher does not pay the price")
             if not voucher.verify(genesis, channel.info.signer_public):
                 raise reject("invalid voucher signature")
-            channel.accepted = voucher.amount
-            channel.unclaimed = voucher
+
+            # Recorded before the request is served.
+            previous = (channel.accepted, channel.unclaimed)
+            channel.accepted, channel.unclaimed = voucher.amount, voucher
+            try:
+                self._persist()
+            except StorageError:
+                channel.accepted, channel.unclaimed = previous
+                raise PaymentRejected(Rejection("the service cannot record the voucher")) from None
             return voucher.amount
 
     def claim_all(self) -> list["TxOutcome"]:
-        """Claim the latest voucher of every channel."""
+        """Claim the latest voucher of every channel. A voucher stays recorded until its claim
+        succeeds; vouchers of channels closed in the meantime, or already claimed, are dropped."""
         with self._lock:
-            pending = [(c, c.unclaimed) for c in self._channels.values() if c.unclaimed]
-            for channel, _ in pending:
-                channel.unclaimed = None
+            pending = [c.unclaimed for c in self._channels.values() if c.unclaimed]
         outcomes = []
-        for channel, voucher in pending:
-            try:
+        for voucher in pending:
+            info = self.client.channel(voucher.channel)
+            if info is not None and info.claimed < voucher.amount:
                 outcomes.append(self.client.claim_channel(self.key, voucher))
-            except TesseraxError:
-                with self._lock:
-                    if channel.unclaimed is None or channel.unclaimed.amount < voucher.amount:
-                        channel.unclaimed = voucher
-                raise
+            with self._lock:
+                if info is None:
+                    # Closed: nothing can be claimed any more, and its vouchers are refused.
+                    self._channels.pop(voucher.channel, None)
+                elif (channel := self._channels.get(voucher.channel)) is not None:
+                    # A newer voucher may have arrived during the claim.
+                    if channel.unclaimed is not None and not voucher.amount < channel.unclaimed.amount:
+                        channel.unclaimed = None
+                    if channel.info is not None and channel.info.claimed < voucher.amount:
+                        channel.info.claimed = voucher.amount
+                self._persist()
         return outcomes
 
     def unclaimed(self) -> Amount:
         """Amount accepted and not claimed yet."""
         with self._lock:
             return Amount(
-                sum(c.unclaimed.amount.planck - c.info.claimed.planck for c in self._channels.values() if c.unclaimed)
+                sum(
+                    c.unclaimed.amount.planck - (c.info.claimed.planck if c.info else 0)
+                    for c in self._channels.values()
+                    if c.unclaimed
+                )
             )
 
 

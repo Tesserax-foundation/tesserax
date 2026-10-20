@@ -20,6 +20,7 @@ pub mod amount;
 pub mod channels;
 pub mod client;
 pub mod keys;
+mod store;
 pub mod tasks;
 
 pub use amount::Amount;
@@ -71,6 +72,8 @@ pub enum Error {
 	Dispatch(String),
 	#[error("not found: {0}")]
 	NotFound(String),
+	#[error("state file: {0}")]
+	Storage(String),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
