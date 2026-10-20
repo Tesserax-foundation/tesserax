@@ -45,7 +45,7 @@ pub fn voucher_message(genesis: &[u8; 32], channel: u64, amount: u128) -> Vec<u8
 pub struct Voucher {
 	pub channel: u64,
 	pub amount: Amount,
-	/// Base64 ML-DSA-65 signature.
+	/// Base64 ML-DSA-87 signature.
 	#[serde(with = "base64_bytes")]
 	pub signature: Vec<u8>,
 }
@@ -71,7 +71,7 @@ impl Voucher {
 		Voucher { channel, amount, signature }
 	}
 
-	/// Whether the voucher is signed by the ML-DSA-65 public key `signer`.
+	/// Whether the voucher is signed by the ML-DSA-87 public key `signer`.
 	pub fn verify(&self, genesis: &[u8; 32], signer: &[u8]) -> bool {
 		tesserax_crypto::verify_with_context(
 			&self.signature,

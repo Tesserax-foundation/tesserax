@@ -36,11 +36,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 
-	/// Verification of the ML-DSA-65 voucher, then a transfer from the hold.
+	/// Verification of the ML-DSA-87 voucher, then a transfer from the hold.
 	/// Storage: `Channels::Channels`, `System::BlockHash`, `System::Account` (r:2 w:2), `Balances::Holds`
 	fn claim() -> Weight {
-		// Minimum execution time: 606_000_000 picoseconds.
-		Weight::from_parts(613_000_000, 6196)
+		// Minimum execution time: 908_000_000 picoseconds.
+		Weight::from_parts(914_000_000, 6198)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
@@ -70,7 +70,7 @@ impl WeightInfo for () {
 		Weight::from_parts(57_000_000, 5558)
 	}
 	fn claim() -> Weight {
-		Weight::from_parts(613_000_000, 6196)
+		Weight::from_parts(914_000_000, 6198)
 	}
 	fn close() -> Weight {
 		Weight::from_parts(48_000_000, 5558)

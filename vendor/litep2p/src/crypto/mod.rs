@@ -21,8 +21,8 @@
 
 //! Crypto-related code.
 //!
-//! Node identities are ML-DSA-65 keys and connections are secured with TLS 1.3 restricted to
-//! ML-KEM-768 key exchange and ML-DSA-65 authentication.
+//! Node identities are ML-DSA-87 keys and connections are secured with TLS 1.3 restricted to
+//! ML-KEM-768 key exchange and ML-DSA-87 authentication.
 
 use crate::{error::ParseError, peer_id::*};
 
@@ -36,7 +36,7 @@ pub(crate) mod keys_proto {
 /// A node public key.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PublicKey {
-    /// A public ML-DSA-65 key.
+    /// A public ML-DSA-87 key.
     MlDsa(ml_dsa::PublicKey),
 }
 
@@ -63,7 +63,7 @@ impl From<&PublicKey> for keys_proto::PublicKey {
     fn from(key: &PublicKey) -> Self {
         match key {
             PublicKey::MlDsa(key) => keys_proto::PublicKey {
-                r#type: keys_proto::KeyType::MlDsa65 as i32,
+                r#type: keys_proto::KeyType::MlDsa87 as i32,
                 data: key.to_bytes(),
             },
         }
@@ -78,7 +78,7 @@ impl TryFrom<keys_proto::PublicKey> for PublicKey {
             .map_err(|_| ParseError::UnknownKeyType(pubkey.r#type))?;
 
         match key_type {
-            keys_proto::KeyType::MlDsa65 =>
+            keys_proto::KeyType::MlDsa87 =>
                 ml_dsa::PublicKey::try_from_bytes(&pubkey.data).map(PublicKey::MlDsa),
         }
     }
@@ -93,7 +93,7 @@ impl From<ml_dsa::PublicKey> for PublicKey {
 /// The public key of a remote node.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RemotePublicKey {
-    /// A public ML-DSA-65 key.
+    /// A public ML-DSA-87 key.
     MlDsa(ml_dsa::PublicKey),
 }
 

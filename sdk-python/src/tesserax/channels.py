@@ -49,7 +49,7 @@ class Voucher:
         return cls(channel, amount, key.sign(voucher_message(genesis, channel, amount), VOUCHER_CONTEXT))
 
     def verify(self, genesis: bytes, signer: bytes) -> bool:
-        """Whether the voucher is signed by the ML-DSA-65 public key `signer`."""
+        """Whether the voucher is signed by the ML-DSA-87 public key `signer`."""
         try:
             return verify(signer, voucher_message(genesis, self.channel, self.amount), self.signature, VOUCHER_CONTEXT)
         except Exception:

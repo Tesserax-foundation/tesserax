@@ -18,7 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-//! ML-DSA-65 (FIPS 204) node identity keys.
+//! ML-DSA-87 (FIPS 204) node identity keys.
 
 use crate::{
     error::{Error, ParseError},
@@ -27,22 +27,22 @@ use crate::{
 
 use aws_lc_rs::{
     encoding::AsDer,
-    signature::{KeyPair as _, PqdsaKeyPair, UnparsedPublicKey, ML_DSA_65, ML_DSA_65_SIGNING},
+    signature::{KeyPair as _, PqdsaKeyPair, UnparsedPublicKey, ML_DSA_87, ML_DSA_87_SIGNING},
 };
 use zeroize::Zeroize;
 
 use std::{fmt, sync::Arc};
 
-/// Size of an encoded ML-DSA-65 public key.
-pub const PUBLIC_KEY_LENGTH: usize = 1952;
+/// Size of an encoded ML-DSA-87 public key.
+pub const PUBLIC_KEY_LENGTH: usize = 2592;
 
-/// Size of an ML-DSA-65 signature.
-pub const SIGNATURE_LENGTH: usize = 3309;
+/// Size of an ML-DSA-87 signature.
+pub const SIGNATURE_LENGTH: usize = 4627;
 
-/// Size of the seed an ML-DSA-65 key pair is generated from.
+/// Size of the seed an ML-DSA-87 key pair is generated from.
 pub const SECRET_KEY_LENGTH: usize = 32;
 
-/// An ML-DSA-65 key pair.
+/// An ML-DSA-87 key pair.
 #[derive(Clone)]
 pub struct Keypair {
     secret: SecretKey,
@@ -62,7 +62,7 @@ impl Keypair {
         let len = self
             .inner
             .sign(msg, &mut signature)
-            .expect("signature buffer has the ML-DSA-65 signature size; qed");
+            .expect("signature buffer has the ML-DSA-87 signature size; qed");
         signature.truncate(len);
         signature
     }
@@ -91,7 +91,7 @@ impl Keypair {
         self.inner
             .public_key()
             .as_der()
-            .expect("ML-DSA-65 public keys can be encoded; qed")
+            .expect("ML-DSA-87 public keys can be encoded; qed")
             .as_ref()
             .to_vec()
     }
@@ -111,8 +111,8 @@ impl From<Keypair> for SecretKey {
 
 impl From<SecretKey> for Keypair {
     fn from(secret: SecretKey) -> Keypair {
-        let inner = PqdsaKeyPair::from_seed(&ML_DSA_65_SIGNING, &secret.0)
-            .expect("seed has the ML-DSA-65 seed size; qed");
+        let inner = PqdsaKeyPair::from_seed(&ML_DSA_87_SIGNING, &secret.0)
+            .expect("seed has the ML-DSA-87 seed size; qed");
         let public = PublicKey(inner.public_key().as_ref().to_vec());
         debug_assert_eq!(public.0.len(), PUBLIC_KEY_LENGTH);
         Keypair {
@@ -123,13 +123,13 @@ impl From<SecretKey> for Keypair {
     }
 }
 
-/// An ML-DSA-65 public key.
+/// An ML-DSA-87 public key.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PublicKey(Vec<u8>);
 
 impl fmt::Debug for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("PublicKey(ml-dsa-65, ")?;
+        f.write_str("PublicKey(ml-dsa-87, ")?;
         for byte in &self.0[..8] {
             write!(f, "{byte:02x}")?;
         }
@@ -138,10 +138,10 @@ impl fmt::Debug for PublicKey {
 }
 
 impl PublicKey {
-    /// Verify an ML-DSA-65 signature for a message using this public key.
+    /// Verify an ML-DSA-87 signature for a message using this public key.
     #[must_use]
     pub fn verify(&self, msg: &[u8], sig: &[u8]) -> bool {
-        UnparsedPublicKey::new(&ML_DSA_65, &self.0).verify(msg, sig).is_ok()
+        UnparsedPublicKey::new(&ML_DSA_87, &self.0).verify(msg, sig).is_ok()
     }
 
     /// Encoded public key.
@@ -164,7 +164,7 @@ impl PublicKey {
 
     /// Decode a public key from a DER encoded `SubjectPublicKeyInfo`.
     ///
-    /// The structure of an ML-DSA-65 `SubjectPublicKeyInfo` is fixed: a constant header followed
+    /// The structure of an ML-DSA-87 `SubjectPublicKeyInfo` is fixed: a constant header followed
     /// by the encoded key. The header is checked byte for byte.
     pub fn try_from_spki_der(der: &[u8]) -> Result<PublicKey, ParseError> {
         let header = spki_header();
@@ -180,7 +180,7 @@ impl PublicKey {
     }
 }
 
-/// DER prefix of every ML-DSA-65 `SubjectPublicKeyInfo`.
+/// DER prefix of every ML-DSA-87 `SubjectPublicKeyInfo`.
 fn spki_header() -> &'static [u8] {
     static HEADER: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
     HEADER.get_or_init(|| {
@@ -189,7 +189,7 @@ fn spki_header() -> &'static [u8] {
     })
 }
 
-/// An ML-DSA-65 secret key: the 32 byte seed of FIPS 204 key generation.
+/// An ML-DSA-87 secret key: the 32 byte seed of FIPS 204 key generation.
 #[derive(Clone)]
 pub struct SecretKey([u8; SECRET_KEY_LENGTH]);
 

@@ -58,6 +58,7 @@ pallet-transaction-payment-rpc = { workspace = true, default-features = true }
 substrate-frame-rpc-system = { workspace = true, default-features = true }
 
 # benchmarking
+frame-benchmarking = { workspace = true, default-features = true }
 frame-benchmarking-cli = { workspace = true, default-features = true }
 
 # local
@@ -72,6 +73,7 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 default = ["std"]
 std = ["tesserax-runtime/std"]
 runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",

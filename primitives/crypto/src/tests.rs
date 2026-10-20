@@ -9,9 +9,9 @@ fn pair(seed: u8) -> Pair {
 #[test]
 fn sizes_match_ml_dsa_65() {
 	let pair = pair(1);
-	assert_eq!(pair.public().0.len(), 1952);
-	assert_eq!(TraitPair::sign(&pair, b"message").0.len(), 3309);
-	assert_eq!(AccountSignature::max_encoded_len(), 1952 + 3309);
+	assert_eq!(pair.public().0.len(), 2592);
+	assert_eq!(TraitPair::sign(&pair, b"message").0.len(), 4627);
+	assert_eq!(AccountSignature::max_encoded_len(), 2592 + 4627);
 }
 
 #[test]
@@ -48,7 +48,7 @@ fn matches_fips_204_verification() {
 	// Signatures verify with the reference `verify_with_context` and the Tesserax context.
 	let pair = pair(3);
 	let signature = TraitPair::sign(&pair, b"payload");
-	let decoded = ml_dsa::Signature::<MlDsa65>::try_from(&signature.0[..]).unwrap();
+	let decoded = ml_dsa::Signature::<MlDsa87>::try_from(&signature.0[..]).unwrap();
 	use ml_dsa::signature::Keypair;
 	assert!(pair.signing_key().verifying_key().verify_with_context(
 		b"payload",

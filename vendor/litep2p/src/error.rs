@@ -165,8 +165,8 @@ pub enum ParseError {
     /// The public key bytes are invalid and cannot be parsed.
     ///
     /// This error can happen when:
-    ///  - The received number of bytes is not the size of an ML-DSA-65 public key.
-    ///  - The bytes are not a valid ML-DSA-65 subject public key info.
+    ///  - The received number of bytes is not the size of an ML-DSA-87 public key.
+    ///  - The bytes are not a valid ML-DSA-87 subject public key info.
     #[error("Invalid public key")]
     InvalidPublicKey,
     /// The provided date has an invalid format.

@@ -324,7 +324,7 @@ impl NonReservedPeerMode {
 /// the evaluation of the node key configuration.
 #[derive(Clone, Debug)]
 pub enum NodeKeyConfig {
-	/// The seed of the node's ML-DSA-65 identity key.
+	/// The seed of the node's ML-DSA-87 identity key.
 	MlDsa(Secret<ml_dsa::SecretKey>),
 }
 
@@ -334,7 +334,7 @@ impl Default for NodeKeyConfig {
 	}
 }
 
-/// The options for obtaining an ML-DSA-65 secret key.
+/// The options for obtaining an ML-DSA-87 secret key.
 pub type MlDsaSecret = Secret<ml_dsa::SecretKey>;
 
 /// The configuration options for obtaining a secret key `K`.
@@ -346,7 +346,7 @@ pub enum Secret<K> {
 	/// it is created with a newly generated secret key `K`. The format
 	/// of the file is determined by `K`:
 	///
-	///   * `ml_dsa::SecretKey`: the 32 byte ML-DSA-65 seed, raw or hex encoded.
+	///   * `ml_dsa::SecretKey`: the 32 byte ML-DSA-87 seed, raw or hex encoded.
 	File(PathBuf),
 	/// Always generate a new secret key `K`.
 	New,

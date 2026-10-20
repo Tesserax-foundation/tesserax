@@ -1,4 +1,4 @@
-//! Generated with the Substrate benchmark CLI 62.0.0 on 2026-10-19 (Apple M1).
+//! Generated with the Substrate benchmark CLI 62.0.0 on 2026-10-20 (Apple M1), with ML-DSA-87 transaction signatures.
 //!
 //! SHORT-NAME: `block`, LONG-NAME: `BlockExecution`, RUNTIME: `Tesserax Development`
 //! WARMUPS: `10`, REPEAT: `100`
@@ -14,17 +14,17 @@ parameter_types! {
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 158_584, 347_000
-	///   Average:  171_791
-	///   Median:   166_458
-	///   Std-Dev:  21903.76
+	///   Min, Max: 530_250, 788_875
+	///   Average:  583_467
+	///   Median:   575_041
+	///   Std-Dev:  48112.46
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 238_750
-	///   95th: 203_292
-	///   75th: 171_791
+	///   99th: 784_584
+	///   95th: 687_625
+	///   75th: 591_417
 	pub const BlockExecutionWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(171_791), 0);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(583_467), 0);
 }
 
 #[cfg(test)]

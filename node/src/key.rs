@@ -1,6 +1,6 @@
 //! Account key utilities.
 //!
-//! Tesserax accounts are ML-DSA-65 keys. New keys come from a 24 word BIP39 phrase, i.e. 256 bits
+//! Tesserax accounts are ML-DSA-87 keys. New keys come from a 24 word BIP39 phrase, i.e. 256 bits
 //! of entropy, so that a quantum search over the phrase space stays out of reach.
 
 use sc_cli::{GenerateNodeKeyCmd, InspectNodeKeyCmd, SubstrateCli};
@@ -16,7 +16,7 @@ pub enum KeySubcommand {
 	/// Show the account of a secret phrase, seed or URI.
 	Inspect(InspectCmd),
 
-	/// Generate a random node key (ML-DSA-65 network identity) and print its peer id.
+	/// Generate a random node key (ML-DSA-87 network identity) and print its peer id.
 	GenerateNodeKey(GenerateNodeKeyCmd),
 
 	/// Print the peer id of a node key.
@@ -87,7 +87,7 @@ fn print_key(pair: &Pair, phrase: Option<&str>, seed: &[u8; 32], json: bool) {
 			"accountId": format!("0x{}", hex::encode(account.as_ref() as &[u8])),
 			"address": address,
 			"publicKey": format!("0x{}", hex::encode(pair.public().0)),
-			"scheme": "ML-DSA-65",
+			"scheme": "ML-DSA-87",
 		});
 		if let Some(phrase) = phrase {
 			value["secretPhrase"] = phrase.into();
@@ -99,7 +99,7 @@ fn print_key(pair: &Pair, phrase: Option<&str>, seed: &[u8; 32], json: bool) {
 		println!("Secret phrase:  {phrase}");
 	}
 	println!("Secret seed:    0x{}", hex::encode(seed));
-	println!("Scheme:         ML-DSA-65");
+	println!("Scheme:         ML-DSA-87");
 	println!("Account ID:     0x{}", hex::encode(account.as_ref() as &[u8]));
 	println!("Address:        {address}");
 }

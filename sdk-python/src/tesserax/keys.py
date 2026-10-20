@@ -1,4 +1,4 @@
-"""ML-DSA-65 keys and Tesserax addresses.
+"""ML-DSA-87 keys and Tesserax addresses.
 
 Keys follow the node and the Rust SDK exactly: the 32-byte seed of a 24-word phrase is the
 Substrate mini secret (PBKDF2-HMAC-SHA512 of the phrase entropy), hard derivation junctions
@@ -12,7 +12,7 @@ import hashlib
 import re
 
 from bip39 import bip39_generate, bip39_to_mini_secret
-from dilithium_py.ml_dsa import ML_DSA_65
+from dilithium_py.ml_dsa import ML_DSA_87
 from scalecodec.utils.ss58 import ss58_decode, ss58_encode
 
 from .errors import InvalidAddress, InvalidKey
@@ -23,8 +23,8 @@ SS58_PREFIX = 2261
 #: FIPS 204 context of transaction signatures.
 SIGNING_CONTEXT = b"tesserax"
 
-PUBLIC_KEY_SIZE = 1952
-SIGNATURE_SIZE = 3309
+PUBLIC_KEY_SIZE = 2592
+SIGNATURE_SIZE = 4627
 
 #: Phrase of the development keys (`//Alice`, `//Bob`, ...).
 DEV_PHRASE = "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
@@ -63,7 +63,7 @@ def _derive_hard(seed: bytes, junction: str) -> bytes:
 
 
 def account_id(public_key: bytes) -> bytes:
-    """Account of an ML-DSA-65 public key."""
+    """Account of an ML-DSA-87 public key."""
     return _blake2_256(public_key)
 
 
@@ -88,18 +88,18 @@ def parse_address(text: str) -> bytes:
 
 
 def verify(public_key: bytes, message: bytes, signature: bytes, context: bytes = SIGNING_CONTEXT) -> bool:
-    """Verify an ML-DSA-65 signature."""
-    return ML_DSA_65.verify(public_key, message, signature, ctx=context)
+    """Verify an ML-DSA-87 signature."""
+    return ML_DSA_87.verify(public_key, message, signature, ctx=context)
 
 
 class Keypair:
-    """An ML-DSA-65 key pair that signs transactions."""
+    """An ML-DSA-87 key pair that signs transactions."""
 
     def __init__(self, seed: bytes):
         if len(seed) != 32:
             raise InvalidKey("a seed is 32 bytes")
         self._seed = bytes(seed)
-        self.public_key, self._secret_key = ML_DSA_65.key_derive(self._seed)
+        self.public_key, self._secret_key = ML_DSA_87.key_derive(self._seed)
 
     @classmethod
     def from_uri(cls, uri: str) -> "Keypair":
@@ -144,8 +144,8 @@ class Keypair:
         return format_address(self.account_id)
 
     def sign(self, message: bytes, context: bytes = SIGNING_CONTEXT) -> bytes:
-        """Hedged ML-DSA-65 signature of `message`."""
-        return ML_DSA_65.sign(self._secret_key, message, ctx=context)
+        """Hedged ML-DSA-87 signature of `message`."""
+        return ML_DSA_87.sign(self._secret_key, message, ctx=context)
 
     def __repr__(self) -> str:
         return f"Keypair({self.address})"

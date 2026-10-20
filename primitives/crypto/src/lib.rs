@@ -1,6 +1,6 @@
 //! ML-DSA keys, signatures and accounts for Tesserax.
 //!
-//! Tesserax uses ML-DSA-65 (FIPS 204, NIST security category 3) for every signature: there is no
+//! Tesserax uses ML-DSA-87 (FIPS 204, NIST security category 3) for every signature: there is no
 //! sr25519, ed25519 or ECDSA account on the chain.
 //!
 //! An account is identified by the BLAKE2-256 hash of its ML-DSA public key. Since an account id
@@ -18,7 +18,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::fmt;
-use ml_dsa::{EncodedVerifyingKey, MlDsa65, SigningKey, VerifyingKey, B32};
+use ml_dsa::{EncodedVerifyingKey, MlDsa87, SigningKey, VerifyingKey, B32};
 use scale_info::TypeInfo;
 use sp_core::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction,
@@ -34,11 +34,11 @@ pub mod keyring;
 /// Identifier of the ML-DSA crypto type.
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"mlds");
 
-/// Size of an encoded ML-DSA-65 public key.
-pub const PUBLIC_KEY_SIZE: usize = 1952;
+/// Size of an encoded ML-DSA-87 public key.
+pub const PUBLIC_KEY_SIZE: usize = 2592;
 
-/// Size of an encoded ML-DSA-65 signature.
-pub const SIGNATURE_SIZE: usize = 3309;
+/// Size of an encoded ML-DSA-87 signature.
+pub const SIGNATURE_SIZE: usize = 4627;
 
 /// Size of the seed an ML-DSA key pair is generated from.
 pub const SEED_SIZE: usize = 32;
@@ -119,8 +119,8 @@ macro_rules! byte_array {
 	};
 }
 
-byte_array!(Public, PUBLIC_KEY_SIZE, "An ML-DSA-65 public key.");
-byte_array!(Signature, SIGNATURE_SIZE, "An ML-DSA-65 signature.");
+byte_array!(Public, PUBLIC_KEY_SIZE, "An ML-DSA-87 public key.");
+byte_array!(Signature, SIGNATURE_SIZE, "An ML-DSA-87 signature.");
 
 impl Derive for Public {}
 impl sp_core::crypto::Public for Public {}
@@ -146,17 +146,17 @@ pub fn verify(signature: &Signature, message: &[u8], public: &Public) -> bool {
 	verify_with_context(&signature.0, message, SIGNING_CONTEXT, &public.0)
 }
 
-/// Verify an encoded ML-DSA-65 signature over `message` with the FIPS 204 context `context`.
+/// Verify an encoded ML-DSA-87 signature over `message` with the FIPS 204 context `context`.
 ///
 /// Returns `false` for malformed keys or signatures and for contexts longer than 255 bytes.
 pub fn verify_with_context(signature: &[u8], message: &[u8], context: &[u8], public: &[u8]) -> bool {
-	let Ok(signature) = ml_dsa::Signature::<MlDsa65>::try_from(signature) else {
+	let Ok(signature) = ml_dsa::Signature::<MlDsa87>::try_from(signature) else {
 		return false;
 	};
-	let Ok(encoded) = EncodedVerifyingKey::<MlDsa65>::try_from(public) else {
+	let Ok(encoded) = EncodedVerifyingKey::<MlDsa87>::try_from(public) else {
 		return false;
 	};
-	VerifyingKey::<MlDsa65>::decode(&encoded).verify_with_context(message, context, &signature)
+	VerifyingKey::<MlDsa87>::decode(&encoded).verify_with_context(message, context, &signature)
 }
 
 /// Signature of a transaction: the signer's public key and its ML-DSA signature.
@@ -177,7 +177,7 @@ impl Verify for AccountSignature {
 	}
 }
 
-/// An ML-DSA-65 key pair.
+/// An ML-DSA-87 key pair.
 #[derive(Clone)]
 pub struct Pair {
 	seed: Seed,
@@ -222,7 +222,7 @@ impl Pair {
 	}
 
 	#[cfg(feature = "full_crypto")]
-	fn signing_key(&self) -> SigningKey<MlDsa65> {
+	fn signing_key(&self) -> SigningKey<MlDsa87> {
 		SigningKey::from_seed(&B32::from(self.seed))
 	}
 }
@@ -250,7 +250,7 @@ impl TraitPair for Pair {
 
 	fn from_seed_slice(seed: &[u8]) -> Result<Pair, SecretStringError> {
 		let seed: Seed = seed.try_into().map_err(|_| SecretStringError::InvalidSeedLength)?;
-		let signing_key = SigningKey::<MlDsa65>::from_seed(&B32::from(seed));
+		let signing_key = SigningKey::<MlDsa87>::from_seed(&B32::from(seed));
 		use ml_dsa::signature::Keypair;
 		let mut public = [0u8; PUBLIC_KEY_SIZE];
 		public.copy_from_slice(signing_key.verifying_key().encode().as_slice());

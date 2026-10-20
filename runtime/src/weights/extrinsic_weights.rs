@@ -1,4 +1,4 @@
-//! Generated with the Substrate benchmark CLI 62.0.0 on 2026-10-19 (Apple M1).
+//! Generated with the Substrate benchmark CLI 62.0.0 on 2026-10-20 (Apple M1), with ML-DSA-87 transaction signatures.
 //!
 //! SHORT-NAME: `extrinsic`, LONG-NAME: `ExtrinsicBase`, RUNTIME: `Tesserax Development`
 //! WARMUPS: `10`, REPEAT: `100`
@@ -14,17 +14,17 @@ parameter_types! {
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 645_334, 710_268
-	///   Average:  653_260
-	///   Median:   649_582
-	///   Std-Dev:  9854.64
+	///   Min, Max: 974_535, 1_631_954
+	///   Average:  993_376
+	///   Median:   979_726
+	///   Std-Dev:  68804.02
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 690_755
-	///   95th: 670_892
-	///   75th: 654_411
+	///   99th: 1_150_949
+	///   95th: 1_024_832
+	///   75th: 983_507
 	pub const ExtrinsicBaseWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(653_260), 0);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(993_376), 0);
 }
 
 #[cfg(test)]

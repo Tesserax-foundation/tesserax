@@ -2,9 +2,9 @@ syntax = "proto2";
 
 package keys_proto;
 
-// Tesserax nodes only use ML-DSA-65 identity keys.
+// Tesserax nodes only use ML-DSA-87 identity keys.
 enum KeyType {
-  MlDsa65 = 4;
+  MlDsa87 = 5;
 }
 
 message PublicKey {

@@ -1,4 +1,4 @@
-//! ML-DSA-65 keys and Tesserax addresses.
+//! ML-DSA-87 keys and Tesserax addresses.
 
 use crate::{Error, Result, TesseraxConfig};
 use sp_core::crypto::{Ss58AddressFormat, Ss58Codec};
@@ -7,7 +7,7 @@ use tesserax_crypto::Pair;
 /// SS58 prefix of Tesserax addresses: they start with `te`.
 pub const SS58_PREFIX: u16 = 2261;
 
-/// An account: the BLAKE2-256 hash of an ML-DSA-65 public key.
+/// An account: the BLAKE2-256 hash of an ML-DSA-87 public key.
 pub type AccountId = subxt::utils::AccountId32;
 
 /// Parse a Tesserax address (SS58 with prefix 2261) or a 32-byte hexadecimal account id.
@@ -43,7 +43,7 @@ pub(crate) fn hex_bytes(hex: &str) -> Option<Vec<u8>> {
 		.collect()
 }
 
-/// An ML-DSA-65 key pair that signs transactions.
+/// An ML-DSA-87 key pair that signs transactions.
 #[derive(Clone)]
 pub struct Keypair(Pair);
 
@@ -76,12 +76,12 @@ impl Keypair {
 		format_address(&self.account_id())
 	}
 
-	/// The ML-DSA-65 public key.
+	/// The ML-DSA-87 public key.
 	pub fn public_key(&self) -> [u8; tesserax_crypto::PUBLIC_KEY_SIZE] {
 		<Pair as sp_core::Pair>::public(&self.0).0
 	}
 
-	/// Hedged ML-DSA-65 signature of `message` with the FIPS 204 context `context`, for messages
+	/// Hedged ML-DSA-87 signature of `message` with the FIPS 204 context `context`, for messages
 	/// that are not transactions, such as vouchers.
 	pub fn sign_with_context(&self, message: &[u8], context: &[u8]) -> Vec<u8> {
 		self.0.sign_with_context(message, context).0.to_vec()
@@ -117,7 +117,7 @@ mod tests {
 		let hex = format!("0x{}", key.account_id().0.iter().map(|b| format!("{b:02x}")).collect::<String>());
 		assert_eq!(parse_address(&hex).unwrap(), key.account_id());
 		// The development key of the README.
-		assert_eq!(address, "tesCrqHdUnYBar3RrUCeRt865AjG3UXifLKYvGKvR7asQJpVX");
+		assert_eq!(address, "teqhTi5xkMrt7j8tAhU8wndjgz7rn4DfmY97Qbww7ar5KA1b5");
 	}
 
 	#[test]

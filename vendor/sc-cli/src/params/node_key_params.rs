@@ -38,7 +38,7 @@ pub struct NodeKeyParams {
 	/// The value is a string that is parsed according to the choice of
 	/// `--node-key-type` as follows:
 	///
-	///  - `ml-dsa`: the value is parsed as the hex-encoded 32 byte seed of the ML-DSA-65 identity
+	///  - `ml-dsa`: the value is parsed as the hex-encoded 32 byte seed of the ML-DSA-87 identity
 	///    key (64 hex chars)
 	///
 	/// The value of this option takes precedence over `--node-key-file`.
@@ -75,7 +75,7 @@ pub struct NodeKeyParams {
 	/// as follows:
 	///
 	/// - `ml-dsa`: the file must contain the unencoded or hex encoded 32 byte seed of the
-	///   ML-DSA-65 identity key.
+	///   ML-DSA-87 identity key.
 	///
 	/// If the file does not exist, it is created with a newly generated secret key of
 	/// the chosen type.

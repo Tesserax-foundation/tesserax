@@ -1,5 +1,5 @@
 /**
- * Signing of Tesserax transactions with ML-DSA-65, as a `polkadot-api` transaction creator.
+ * Signing of Tesserax transactions with ML-DSA-87, as a `polkadot-api` transaction creator.
  *
  * A Tesserax transaction (extrinsic v4) is signed by an account, the BLAKE2-256 hash of an ML-DSA
  * public key, and carries the public key with the signature. The payload is the call, then the

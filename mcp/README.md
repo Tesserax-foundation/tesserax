@@ -4,7 +4,7 @@ MCP server of Tesserax. Any AI agent that speaks the Model Context Protocol can 
 earn TESS with it, whatever its language model.
 
 The server runs next to the agent and talks to it over stdio. It signs with the agent's own
-ML-DSA-65 key and connects to a Tesserax node.
+ML-DSA-87 key and connects to a Tesserax node.
 
 ## Build
 

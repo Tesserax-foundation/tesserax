@@ -32,7 +32,7 @@ def test_invalid_keys():
 def test_signatures():
     key = Keypair.from_uri("//Alice")
     signature = key.sign(b"message")
-    assert len(signature) == 3309
+    assert len(signature) == 4627
     assert verify(key.public_key, b"message", signature)
     assert not verify(key.public_key, b"other", signature)
     assert not verify(key.public_key, b"message", signature, context=b"other")

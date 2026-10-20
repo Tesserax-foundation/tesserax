@@ -118,7 +118,7 @@ impl Into<sc_tracing::TracingReceiver> for TracingReceiver {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueEnum)]
 #[value(rename_all = "kebab-case")]
 pub enum NodeKeyType {
-	/// ML-DSA-65 (FIPS 204).
+	/// ML-DSA-87 (FIPS 204).
 	MlDsa,
 }
 

@@ -23,7 +23,7 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 | `pallets/emission/` | Block rewards: 0.85 TESS per block to the miner, halving every 7 000 000 blocks |
 | `pallets/shielded/` | Shielded pool: private transfers proven with zero-knowledge STARKs, see `docs/privacy.md` |
 | `consensus/pow/` | RandomTESS proof of work: seal verification, key schedule, miner, confirmation depth |
-| `primitives/crypto/` | ML-DSA-65 keys, signatures and accounts |
+| `primitives/crypto/` | ML-DSA-87 keys, signatures and accounts |
 | `primitives/shielded/` | Notes, note tree, note encryption and the STARK circuit of the shielded pool |
 | `vendor/` | Forks of Polkadot SDK crates for post-quantum networking and contracts, see `vendor/README.md` |
 | `crypto/randomtess/` | RandomTESS hash function (RandomX v2 sources with the Tesserax configuration) |
@@ -37,6 +37,20 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 - The difficulty is recomputed every block by the runtime from the last 120 solve times.
 - The heaviest chain wins. Blocks 60 deep in the best chain are finalized: deeper
   reorganizations are rejected.
+
+## Throughput
+
+Measured on an Apple M1 with the WebAssembly runtime:
+
+| | Per transaction | Per block (18 s) |
+|---|---|---|
+| Size of a transfer | about 7.3 kB: ML-DSA-87 public key (2 592 bytes) and signature (4 627 bytes) | 3.75 MiB for normal transactions: about 540 transfers |
+| Execution | about 1 ms, mostly the ML-DSA-87 verification | 1.5 s for normal transactions: about 1 500 transfers |
+
+Block size is the limit: about **30 transfers per second** on chain. Private transfers carry a
+STARK proof of about 180 kB: about 20 per block. Payments between agents mostly happen off chain
+as vouchers on payment channels (`docs/micropayments.md`), which the chain does not limit: one
+transaction opens a channel, one claims any number of payments.
 
 ## Emission
 
@@ -79,11 +93,11 @@ Tesserax through the MCP server (`mcp/`). See `docs/agents.md`.
 
 ## Accounts and signatures
 
-ML-DSA-65 is the only signature scheme of the chain: there are no sr25519, ed25519 or ECDSA
+ML-DSA-87 is the only signature scheme of the chain: there are no sr25519, ed25519 or ECDSA
 accounts.
 
-- An account id is the BLAKE2-256 hash of an ML-DSA-65 public key.
-- A transaction carries the signer's public key (1952 bytes) and an ML-DSA signature (3309 bytes)
+- An account id is the BLAKE2-256 hash of an ML-DSA-87 public key.
+- A transaction carries the signer's public key (2592 bytes) and an ML-DSA signature (4627 bytes)
   made with the FIPS 204 context string `tesserax`. It is valid when the key hashes to the sender
   and the signature verifies.
 - Addresses use the SS58 format 2261 and start with `te`.
@@ -105,11 +119,11 @@ Contracts are written in Solidity, compiled to PolkaVM (RISC-V) with
   (`revive.instantiate_with_code`, `revive.call`); Ethereum transactions are rejected;
 - precompiles based on elliptic curves (`ecrecover`, `bn128`, `p256` verification, KZG point
   evaluation) and the sr25519/ECDSA helpers of the contract API are disabled;
-- contracts can verify ML-DSA-65 signatures through the precompile at
+- contracts can verify ML-DSA-87 signatures through the precompile at
   `0x00000000000000000000000000000000d5a00000`:
 
 ```solidity
-interface IMlDsa65 {
+interface IMlDsa87 {
     function verify(
         bytes calldata publicKey,
         bytes calldata context,
@@ -147,7 +161,7 @@ cargo build --release
 ## Running a development chain
 
 ```bash
-./target/release/tesserax --dev --mine --author tesCrqHdUnYBar3RrUCeRt865AjG3UXifLKYvGKvR7asQJpVX
+./target/release/tesserax --dev --mine --author teqhTi5xkMrt7j8tAhU8wndjgz7rn4DfmY97Qbww7ar5KA1b5
 ```
 
 `--mine` starts the built-in CPU miner, `--author` is the account credited for mined blocks (here

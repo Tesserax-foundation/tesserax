@@ -1,7 +1,7 @@
 # Vendored forks
 
-Tesserax's peer-to-peer layer is post-quantum: node identities are ML-DSA-65 keys and every
-connection is secured with TLS 1.3 restricted to ML-KEM-768 key exchange and ML-DSA-65
+Tesserax's peer-to-peer layer is post-quantum: node identities are ML-DSA-87 keys and every
+connection is secured with TLS 1.3 restricted to ML-KEM-768 key exchange and ML-DSA-87
 authentication. The crates below are forks of the published Polkadot SDK crates, wired in through
 `[patch.crates-io]` in the workspace manifest.
 
@@ -16,13 +16,13 @@ authentication. The crates below are forks of the published Polkadot SDK crates,
 
 ## litep2p
 
-- Node identities are ML-DSA-65 keys (`crypto::ml_dsa`, backed by AWS-LC through `aws-lc-rs`).
+- Node identities are ML-DSA-87 keys (`crypto::ml_dsa`, backed by AWS-LC through `aws-lc-rs`).
   The `PeerId` is the SHA-256 multihash of the protobuf encoded public key. Ed25519 and RSA
   identities are removed.
 - The Noise handshake (X25519) is replaced by TLS 1.3 (`crypto::tls`, `rustls` with the
   `aws-lc-rs` provider), negotiated as `/tesserax/tls/1.0.0` on TCP and WebSocket connections:
   - key exchange: `MLKEM768` only, no elliptic curve or hybrid group;
-  - authentication: mutual, ML-DSA-65 raw public keys (RFC 7250), no X.509 certificates;
+  - authentication: mutual, ML-DSA-87 raw public keys (RFC 7250), no X.509 certificates;
   - cipher suites: `TLS13_AES_256_GCM_SHA384`, `TLS13_CHACHA20_POLY1305_SHA256`;
   - no session resumption, no early data, no TLS 1.2.
 - The QUIC and WebRTC transports are removed: both require elliptic curve cryptography.
@@ -35,7 +35,7 @@ authentication. The crates below are forks of the published Polkadot SDK crates,
 - The libp2p network backend is removed (swarm, Noise, Kademlia, mDNS, identify, ping,
   request-response and notification behaviours) together with the `libp2p` dependency. litep2p is
   the only backend.
-- `NodeKeyConfig` holds the 32 byte seed of the node's ML-DSA-65 identity key.
+- `NodeKeyConfig` holds the 32 byte seed of the node's ML-DSA-87 identity key.
 - WebRTC support is removed. Default `webrtc-direct` listen addresses are dropped and public
   `webrtc-direct` addresses are rejected.
 
@@ -43,7 +43,7 @@ authentication. The crates below are forks of the published Polkadot SDK crates,
 
 - `--node-key-type` only accepts `ml-dsa`. The node key file is `network/secret_ml_dsa` in the
   chain directory; `--node-key` and `--node-key-file` take the hex encoded 32 byte seed.
-- `generate-node-key` and `inspect-node-key` generate and inspect ML-DSA-65 node keys.
+- `generate-node-key` and `inspect-node-key` generate and inspect ML-DSA-87 node keys.
 - `--network-backend` only accepts `litep2p`; WebRTC listen addresses are no longer added by
   default and `--force-enable-webrtc` is removed.
 

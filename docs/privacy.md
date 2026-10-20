@@ -11,7 +11,7 @@ Every cryptographic component is post-quantum:
 | Validity proofs | STARK (Plonky3, FRI), hash based |
 | Commitments, nullifiers, note tree | Poseidon2 over the Goldilocks field, 256-bit digests |
 | Note encryption | ML-KEM-768 (FIPS 203) + ChaCha20-Poly1305 |
-| Transparent side | ML-DSA-65 transactions |
+| Transparent side | ML-DSA-87 transactions |
 
 There is no elliptic curve and no trusted setup.
 

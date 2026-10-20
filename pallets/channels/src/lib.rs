@@ -3,12 +3,12 @@
 //! Micropayments between a payer and a payee without a transaction per payment.
 //!
 //! The payer opens a channel to a payee with a deposit, held from its account, and names the
-//! ML-DSA-65 key that signs vouchers: its own key or the key of an agent spending for it. Each
+//! ML-DSA-87 key that signs vouchers: its own key or the key of an agent spending for it. Each
 //! payment is then a voucher signed off chain, carrying the cumulative amount owed on the
 //! channel. The payee checks vouchers off chain, serves, and claims the latest voucher whenever
 //! it wants: the chain pays it the difference with what it already claimed.
 //!
-//! A voucher is the ML-DSA-65 signature, with the FIPS 204 context [`VOUCHER_CONTEXT`], of the
+//! A voucher is the ML-DSA-87 signature, with the FIPS 204 context [`VOUCHER_CONTEXT`], of the
 //! SCALE encoding of `(genesis_hash, channel_id, amount)`: it is valid on one chain and one
 //! channel only, and an older voucher is worth less than a newer one.
 //!

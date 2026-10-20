@@ -13375,6 +13375,7 @@ version = "0.1.0"
 dependencies = [
  "bip39",
  "clap",
+ "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-metadata-hash-extension",
  "frame-system",

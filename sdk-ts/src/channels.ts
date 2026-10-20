@@ -39,7 +39,7 @@ export class Voucher {
     return new Voucher(channel, amount, key.sign(voucherMessage(genesis, channel, amount), VOUCHER_CONTEXT));
   }
 
-  /** Whether the voucher is signed by the ML-DSA-65 public key `signer`. */
+  /** Whether the voucher is signed by the ML-DSA-87 public key `signer`. */
   verify(genesis: Uint8Array, signer: Uint8Array): boolean {
     try {
       return verify(signer, voucherMessage(genesis, this.channel, this.amount), this.signature, VOUCHER_CONTEXT);

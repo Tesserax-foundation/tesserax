@@ -34,7 +34,7 @@ test("signatures", () => {
   const key = Keypair.fromUri("//Alice");
   const message = new TextEncoder().encode("message");
   const signature = key.sign(message);
-  assert.equal(signature.length, 3309);
+  assert.equal(signature.length, 4627);
   assert.ok(verify(key.publicKey, message, signature));
   assert.ok(!verify(key.publicKey, new TextEncoder().encode("other"), signature));
   assert.ok(!verify(key.publicKey, message, signature, new TextEncoder().encode("other")));

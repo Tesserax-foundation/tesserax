@@ -27,7 +27,7 @@ use sp_version::RuntimeVersion;
 
 use super::weights::{block_weights::BlockExecutionWeight, extrinsic_weights::ExtrinsicBaseWeight};
 use super::{
-	precompiles::MlDsa65Verify, AccountId, Balance, Balances, Block, BlockNumber, Hash, Nonce,
+	precompiles::MlDsa87Verify, AccountId, Balance, Balances, Block, BlockNumber, Hash, Nonce,
 	PalletInfo, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason,
 	AgentRegistry, RuntimeOrigin, RuntimeTask, System, Timestamp, Vesting, BLOCK_REWARD, DAYS, EXISTENTIAL_DEPOSIT, HALVING_INTERVAL,
 	HOURS, MILLI_SECS_PER_BLOCK, MILLI_UNIT, MINING_SUPPLY, SS58_PREFIX, UNIT, VERSION,
@@ -340,7 +340,7 @@ parameter_types! {
 	pub const ChannelClosePeriod: BlockNumber = 6 * HOURS;
 	pub const ChannelMinDeposit: Balance = 10 * MILLI_UNIT;
 	/// A channel stores the ML-DSA public key that signs its vouchers.
-	pub const ChannelStorageDeposit: Balance = deposit(1, 2_200);
+	pub const ChannelStorageDeposit: Balance = deposit(1, 2_900);
 }
 
 /// Micropayments: payment channels with vouchers signed off chain.
@@ -459,7 +459,7 @@ impl pallet_revive::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
-	type Precompiles = (MlDsa65Verify<Self>,);
+	type Precompiles = (MlDsa87Verify<Self>,);
 	type FindAuthor = PowAuthor;
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;

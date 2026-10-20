@@ -1,6 +1,6 @@
 //! Rust SDK of Tesserax.
 //!
-//! Connects to a Tesserax node, signs transactions with ML-DSA-65 keys and covers what an AI
+//! Connects to a Tesserax node, signs transactions with ML-DSA-87 keys and covers what an AI
 //! agent needs: balances and transfers, delegations from an owner to an agent key, and the agent
 //! registry with its reputation.
 //!
@@ -41,7 +41,7 @@ pub use tasks::{NewTask, TaskInfo, TaskStatus, BLOCKS_PER_HOUR};
 )]
 pub mod runtime {}
 
-/// Configuration of the Tesserax chain for `subxt`: ML-DSA-65 account signatures.
+/// Configuration of the Tesserax chain for `subxt`: ML-DSA-87 account signatures.
 pub enum TesseraxConfig {}
 
 impl subxt::Config for TesseraxConfig {

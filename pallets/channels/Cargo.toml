@@ -1,6 +1,6 @@
 [package]
 name = "pallet-channels"
-description = "Payment channels of Tesserax: micropayments with vouchers signed off chain with ML-DSA-65."
+description = "Payment channels of Tesserax: micropayments with vouchers signed off chain with ML-DSA-87."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true

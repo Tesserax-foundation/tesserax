@@ -1,6 +1,6 @@
 # tesserax-sdk
 
-Rust SDK of Tesserax: ML-DSA-65 keys and addresses, balances and transfers, delegations from an
+Rust SDK of Tesserax: ML-DSA-87 keys and addresses, balances and transfers, delegations from an
 owner to an agent key, and the agent registry with its reputation.
 
 ```rust

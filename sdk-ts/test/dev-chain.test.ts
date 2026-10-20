@@ -34,7 +34,8 @@ test("agents on a development chain", { skip: !url && "set TESSERAX_URL to a dev
       return true;
     });
 
-    if (!(await client.agent(merchant.address))) {
+    const registering = !(await client.agent(merchant.address));
+    if (registering) {
       await client.registerAgent(merchant, {
         name: "translator",
         description: "French to English",
@@ -45,7 +46,9 @@ test("agents on a development chain", { skip: !url && "set TESSERAX_URL to a dev
     }
     const found = await client.findAgents("translation");
     assert.ok(found.some((a) => a.address === merchant.address));
-    assert.equal((await client.agent(merchant.address))?.profile.metadata, `0x${"ab".repeat(32)}`);
+    if (registering) {
+      assert.equal((await client.agent(merchant.address))?.profile.metadata, `0x${"ab".repeat(32)}`);
+    }
 
     const payments = (await client.agent(merchant.address))!.reputation.payments;
     await client.agentPayAgent(agent, owner.address, merchant.address, tess("1"));

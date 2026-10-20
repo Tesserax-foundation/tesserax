@@ -23,11 +23,11 @@
 //! Connections are secured with TLS 1.3 (RFC 8446) restricted to post-quantum algorithms:
 //!
 //! - key exchange: ML-KEM-768 only (FIPS 203), no elliptic curve or hybrid group;
-//! - authentication: ML-DSA-65 only (FIPS 204), mutual;
+//! - authentication: ML-DSA-87 only (FIPS 204), mutual;
 //! - record protection: AES-256-GCM or ChaCha20-Poly1305.
 //!
 //! Peers authenticate with raw public keys (RFC 7250) instead of X.509 certificates: each side
-//! presents the `SubjectPublicKeyInfo` of its ML-DSA-65 node identity key and proves possession of
+//! presents the `SubjectPublicKeyInfo` of its ML-DSA-87 node identity key and proves possession of
 //! the private key in the TLS `CertificateVerify` message. The remote [`PeerId`] is derived from
 //! that key. Session resumption and early data are disabled.
 
@@ -69,10 +69,10 @@ const ALPN: &[u8] = b"tesserax";
 /// Server name sent by dialers. Peers are identified by their key, not by a name.
 const SERVER_NAME: &str = "tesserax";
 
-/// The only signature algorithm accepted: ML-DSA-65.
+/// The only signature algorithm accepted: ML-DSA-87.
 static SIGNATURE_ALGORITHMS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgorithms {
-    all: &[webpki::aws_lc_rs::ML_DSA_65],
-    mapping: &[(SignatureScheme::ML_DSA_65, &[webpki::aws_lc_rs::ML_DSA_65])],
+    all: &[webpki::aws_lc_rs::ML_DSA_87],
+    mapping: &[(SignatureScheme::ML_DSA_87, &[webpki::aws_lc_rs::ML_DSA_87])],
 };
 
 /// Crypto provider restricted to post-quantum key exchange and authentication.
@@ -99,7 +99,7 @@ fn certified_key(keypair: &Keypair) -> Result<Arc<CertifiedKey>, NegotiationErro
     )))
 }
 
-/// Accepts any ML-DSA-65 raw public key. The remote identity is checked against the expected
+/// Accepts any ML-DSA-87 raw public key. The remote identity is checked against the expected
 /// `PeerId` by the caller once the handshake is complete.
 #[derive(Debug)]
 struct PeerKeyVerifier;
@@ -116,7 +116,7 @@ impl PeerKeyVerifier {
         key: &CertificateDer<'_>,
         dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        if dss.scheme != SignatureScheme::ML_DSA_65 {
+        if dss.scheme != SignatureScheme::ML_DSA_87 {
             return Err(rustls::PeerMisbehaved::SignedHandshakeWithUnadvertisedSigScheme.into());
         }
         verify_tls13_signature_with_raw_key(
@@ -163,7 +163,7 @@ impl ServerCertVerifier for PeerKeyVerifier {
     }
 
     fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        vec![SignatureScheme::ML_DSA_65]
+        vec![SignatureScheme::ML_DSA_87]
     }
 
     fn requires_raw_public_keys(&self) -> bool {
@@ -216,7 +216,7 @@ impl ClientCertVerifier for PeerKeyVerifier {
     }
 
     fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        vec![SignatureScheme::ML_DSA_65]
+        vec![SignatureScheme::ML_DSA_87]
     }
 
     fn requires_raw_public_keys(&self) -> bool {

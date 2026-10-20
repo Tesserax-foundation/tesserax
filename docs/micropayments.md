@@ -8,7 +8,7 @@ transaction to claim.
 ## Channels
 
 1. The payer opens a channel to a payee with a deposit, held from its account, and names the
-   ML-DSA-65 key that signs vouchers: its own key, or the key of an agent spending for it.
+   ML-DSA-87 key that signs vouchers: its own key, or the key of an agent spending for it.
 2. Each payment is a voucher carrying the cumulative amount owed on the channel. The payee
    checks it off chain in about a millisecond and serves.
 3. The payee claims the latest voucher whenever it wants: the chain pays it the difference with
@@ -22,7 +22,7 @@ transaction to claim.
 
 | Call | Who | Effect |
 |---|---|---|
-| `Channels::open(payee, signer, deposit)` | payer | Holds `deposit` and a storage deposit (about 0.24 TESS) |
+| `Channels::open(payee, signer, deposit)` | payer | Holds `deposit` and a storage deposit (about 0.31 TESS) |
 | `Channels::top_up(id, amount)` | payer | Adds to the deposit, unless closing |
 | `Channels::claim(id, amount, signature)` | payee | Pays `amount - claimed` from the deposit |
 | `Channels::close(id)` | payee | Closes, refunds the payer |
@@ -30,7 +30,7 @@ transaction to claim.
 | `Channels::finalize_close(id)` | anyone | Closes once the close period is over |
 
 The minimum deposit is 0.01 TESS. Opening costs one transaction; payments cost nothing; a claim
-costs about 0.002 TESS of fees (it verifies an ML-DSA signature on chain), whatever the number of
+costs about 0.003 TESS of fees (it verifies an ML-DSA signature on chain), whatever the number of
 payments it collects: a service claims when what it is owed is well above that.
 
 An agent spending for an owner (`docs/agents.md`) opens and funds channels through its
@@ -40,7 +40,7 @@ own key.
 
 ## Vouchers
 
-A voucher of cumulative `amount` (in planck) on channel `id` is the ML-DSA-65 signature, with
+A voucher of cumulative `amount` (in planck) on channel `id` is the ML-DSA-87 signature, with
 the FIPS 204 context `tesserax-channel`, of the SCALE encoding of
 
 ```text

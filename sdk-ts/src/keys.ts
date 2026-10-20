@@ -1,5 +1,5 @@
 /**
- * ML-DSA-65 keys and Tesserax addresses.
+ * ML-DSA-87 keys and Tesserax addresses.
  *
  * Keys follow the node and the Rust SDK exactly: the 32-byte seed of a 24-word phrase is the
  * Substrate mini secret (PBKDF2-HMAC-SHA512 of the phrase entropy), hard derivation junctions
@@ -7,7 +7,7 @@
  * Transactions are signed with the FIPS 204 context "tesserax", with hedged randomness.
  */
 
-import { ml_dsa65 } from "@noble/post-quantum/ml-dsa.js";
+import { ml_dsa87 } from "@noble/post-quantum/ml-dsa.js";
 import { blake2b } from "@noble/hashes/blake2.js";
 import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
 import { sha512 } from "@noble/hashes/sha2.js";
@@ -21,8 +21,8 @@ import { compactLength } from "./scale.js";
 export const SS58_PREFIX = 2261;
 /** FIPS 204 context of transaction signatures. */
 export const SIGNING_CONTEXT = new TextEncoder().encode("tesserax");
-export const PUBLIC_KEY_SIZE = 1952;
-export const SIGNATURE_SIZE = 3309;
+export const PUBLIC_KEY_SIZE = 2592;
+export const SIGNATURE_SIZE = 4627;
 /** Phrase of the development keys (`//Alice`, `//Bob`, ...). */
 export const DEV_PHRASE = "bottom drive obey lake curtain smoke basket hold race lonely fit walk";
 
@@ -78,7 +78,7 @@ const miniSecret = (phrase: string, password: string) => {
   return pbkdf2(sha512, entropy, utf8.encode(`mnemonic${password}`), { c: 2048, dkLen: 64 }).slice(0, 32);
 };
 
-/** Account of an ML-DSA-65 public key. */
+/** Account of an ML-DSA-87 public key. */
 export const accountIdOf = (publicKey: Uint8Array) => blake2_256(publicKey);
 
 /** Tesserax address of a 32-byte account. */
@@ -100,15 +100,15 @@ export const parseAddress = (text: string): Uint8Array => {
   return account;
 };
 
-/** Verify an ML-DSA-65 signature. */
+/** Verify an ML-DSA-87 signature. */
 export const verify = (
   publicKey: Uint8Array,
   message: Uint8Array,
   signature: Uint8Array,
   context: Uint8Array = SIGNING_CONTEXT,
-) => ml_dsa65.verify(signature, message, publicKey, { context });
+) => ml_dsa87.verify(signature, message, publicKey, { context });
 
-/** An ML-DSA-65 key pair that signs transactions. */
+/** An ML-DSA-87 key pair that signs transactions. */
 export class Keypair {
   readonly publicKey: Uint8Array;
   readonly accountId: Uint8Array;
@@ -117,7 +117,7 @@ export class Keypair {
 
   constructor(seed: Uint8Array) {
     if (seed.length !== 32) throw new Error("a seed is 32 bytes");
-    const { publicKey, secretKey } = ml_dsa65.keygen(seed);
+    const { publicKey, secretKey } = ml_dsa87.keygen(seed);
     this.publicKey = publicKey;
     this.#secretKey = secretKey;
     this.accountId = accountIdOf(publicKey);
@@ -158,9 +158,9 @@ export class Keypair {
     return { keypair: Keypair.fromUri(phrase), phrase };
   }
 
-  /** Hedged ML-DSA-65 signature of `message`. */
+  /** Hedged ML-DSA-87 signature of `message`. */
   sign(message: Uint8Array, context: Uint8Array = SIGNING_CONTEXT): Uint8Array {
-    return ml_dsa65.sign(message, this.#secretKey, { context });
+    return ml_dsa87.sign(message, this.#secretKey, { context });
   }
 
   toString(): string {

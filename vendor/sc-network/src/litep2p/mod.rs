@@ -256,7 +256,7 @@ impl Litep2pNetworkBackend {
 }
 
 impl Litep2pNetworkBackend {
-	/// Get the `litep2p` ML-DSA-65 keypair from `NodeKeyConfig`.
+	/// Get the `litep2p` ML-DSA-87 keypair from `NodeKeyConfig`.
 	fn get_keypair(node_key: &NodeKeyConfig) -> Result<(Keypair, litep2p::PeerId), Error> {
 		let local_identity = node_key.clone().into_keypair()?;
 		let local_peer_id = local_identity.public().to_peer_id();

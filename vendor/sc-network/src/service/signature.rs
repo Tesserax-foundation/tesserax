@@ -46,12 +46,12 @@ impl PublicKey {
 
 /// Keypair.
 pub enum Keypair {
-	/// Litep2p ML-DSA-65 keypair.
+	/// Litep2p ML-DSA-87 keypair.
 	Litep2p(litep2p::crypto::ml_dsa::Keypair),
 }
 
 impl Keypair {
-	/// Generate an ML-DSA-65 keypair.
+	/// Generate an ML-DSA-87 keypair.
 	pub fn generate_ml_dsa() -> Self {
 		Keypair::Litep2p(litep2p::crypto::ml_dsa::Keypair::generate())
 	}

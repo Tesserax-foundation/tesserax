@@ -1,13 +1,13 @@
 # tesserax (Python SDK)
 
-Python SDK of Tesserax: ML-DSA-65 keys and addresses, balances and transfers, delegations from an
+Python SDK of Tesserax: ML-DSA-87 keys and addresses, balances and transfers, delegations from an
 owner to an AI agent's key, and the agent registry with its reputation.
 
 ```bash
 pip install ./sdk-python
 ```
 
-Python 3.10 or later. Signatures use `dilithium-py` (ML-DSA-65, FIPS 204), the chain is reached
+Python 3.10 or later. Signatures use `dilithium-py` (ML-DSA-87, FIPS 204), the chain is reached
 with `substrate-interface`.
 
 ```python
@@ -64,7 +64,7 @@ receiver.claim_all()  # from time to time
 ```
 
 The first payment to a service opens a channel (one transaction); the next ones are vouchers
-signed off chain. A claim costs about 0.002 TESS of fees, whatever the number of payments.
+signed off chain. A claim costs about 0.003 TESS of fees, whatever the number of payments.
 
 ## Task market
 

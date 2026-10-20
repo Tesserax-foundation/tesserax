@@ -7,9 +7,9 @@ use frame_support::weights::Weight;
 use pallet_revive::precompiles::{AddressMatcher, Error, Ext, Precompile};
 
 sol! {
-	/// ML-DSA-65 (FIPS 204) signature verification.
-	interface IMlDsa65 {
-		/// Whether `signature` is a valid ML-DSA-65 signature of `message` under `publicKey`
+	/// ML-DSA-87 (FIPS 204) signature verification.
+	interface IMlDsa87 {
+		/// Whether `signature` is a valid ML-DSA-87 signature of `message` under `publicKey`
 		/// with the FIPS 204 context string `context`.
 		///
 		/// Returns `false` for malformed inputs. The context `"tesserax"` is reserved for
@@ -24,23 +24,24 @@ sol! {
 	}
 }
 
-/// Address of the ML-DSA-65 verification precompile: `0x00000000000000000000000000000000d5a00000`.
-pub const ML_DSA_65_PRECOMPILE: u16 = 0xD5A0;
+/// Address of the ML-DSA-87 verification precompile: `0x00000000000000000000000000000000d5a00000`.
+pub const ML_DSA_87_PRECOMPILE: u16 = 0xD5A0;
 
-/// Base cost of one ML-DSA-65 verification, about twice the measured verification time.
-const VERIFY_BASE_WEIGHT: u64 = 1_000_000_000;
+/// Base cost of one ML-DSA-87 verification, about twice the measured verification time
+/// (0.86 ms in the WebAssembly runtime on an Apple M1).
+const VERIFY_BASE_WEIGHT: u64 = 1_750_000_000;
 
 /// Cost per message byte (SHAKE256 absorption).
 const VERIFY_WEIGHT_PER_BYTE: u64 = 10_000;
 
-/// ML-DSA-65 signature verification for contracts.
-pub struct MlDsa65Verify<T>(PhantomData<T>);
+/// ML-DSA-87 signature verification for contracts.
+pub struct MlDsa87Verify<T>(PhantomData<T>);
 
-impl<T: pallet_revive::Config> Precompile for MlDsa65Verify<T> {
+impl<T: pallet_revive::Config> Precompile for MlDsa87Verify<T> {
 	type T = T;
-	type Interface = IMlDsa65::IMlDsa65Calls;
+	type Interface = IMlDsa87::IMlDsa87Calls;
 	const MATCHER: AddressMatcher =
-		AddressMatcher::Fixed(NonZero::new(ML_DSA_65_PRECOMPILE).unwrap());
+		AddressMatcher::Fixed(NonZero::new(ML_DSA_87_PRECOMPILE).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
@@ -48,7 +49,7 @@ impl<T: pallet_revive::Config> Precompile for MlDsa65Verify<T> {
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		let IMlDsa65::IMlDsa65Calls::verify(call) = input;
+		let IMlDsa87::IMlDsa87Calls::verify(call) = input;
 		let message_len = call.message.len() as u64;
 		env.charge(Weight::from_parts(
 			VERIFY_BASE_WEIGHT.saturating_add(VERIFY_WEIGHT_PER_BYTE.saturating_mul(message_len)),

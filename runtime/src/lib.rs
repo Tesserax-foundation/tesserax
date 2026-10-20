@@ -120,7 +120,7 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-/// Signature of a transaction: an ML-DSA-65 signature and the signer's public key. ML-DSA is the
+/// Signature of a transaction: an ML-DSA-87 signature and the signer's public key. ML-DSA is the
 /// only signature scheme accepted on Tesserax.
 pub type Signature = tesserax_crypto::AccountSignature;
 
