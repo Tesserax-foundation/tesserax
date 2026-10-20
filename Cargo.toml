@@ -9,6 +9,7 @@ exclude = ["vendor"]
 members = [
 	"consensus/pow",
 	"crypto/randomtess",
+	"mcp",
 	"node",
 	"pallets/agent-registry",
 	"pallets/agents",
@@ -19,6 +20,7 @@ members = [
 	"primitives/crypto",
 	"primitives/shielded",
 	"runtime",
+	"sdk",
 ]
 
 [workspace.lints.rust]
@@ -52,6 +54,7 @@ tesserax-crypto = { path = "primitives/crypto", default-features = false }
 tesserax-pow = { path = "consensus/pow" }
 tesserax-shielded = { path = "primitives/shielded", default-features = false }
 tesserax-runtime = { path = "runtime", default-features = false }
+tesserax-sdk = { path = "sdk" }
 
 # Third party
 chacha20poly1305 = { version = "0.11.0", default-features = false }
@@ -90,6 +93,10 @@ parking_lot = { version = "0.12.1", default-features = false }
 scale-info = { version = "2.11.6", default-features = false }
 serde_json = { version = "1.0.132", default-features = false }
 thiserror = { version = "1.0.64" }
+subxt = { version = "0.44.3" }
+rmcp = { version = "3.6.0", default-features = false }
+serde = { version = "1.0.229", features = ["derive"] }
+tokio = { version = "1.53.3" }
 
 # Polkadot SDK stable2606
 frame-benchmarking = { version = "49.0.0", default-features = false }

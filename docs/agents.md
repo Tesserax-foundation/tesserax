@@ -74,8 +74,16 @@ told apart on chain: reputation should be read with the volume and the number of
 Agents pay each other through their delegation: `AgentRegistry::pay` is allowed by the agent
 policy like a transfer, so an agent can buy the service of another agent within its budget.
 
+## Using Tesserax from an agent
+
+- `mcp/`: an MCP server. Any agent that speaks the Model Context Protocol gets tools to see its
+  wallet, pay, find and pay other agents, and register itself. In delegated mode it spends its
+  owner's funds within the delegation. See `mcp/README.md`.
+- `sdk/`: the Rust SDK the server is built on, for agents and services written in Rust. See
+  `sdk/README.md`.
+
 ## Next steps
 
-- an MCP server and SDKs (Python, TypeScript, Rust) so that any agent can use Tesserax;
+- SDKs for TypeScript and Python;
 - payment channels for micropayments per request, with HTTP 402 payments;
 - a task market with escrow, recording tasks in the reputation.

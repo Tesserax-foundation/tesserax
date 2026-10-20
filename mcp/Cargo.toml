@@ -1,0 +1,25 @@
+[package]
+name = "tesserax-mcp"
+description = "MCP server of Tesserax: lets any AI agent hold, spend and earn TESS, within limits enforced by the chain."
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "tesserax-mcp"
+path = "src/main.rs"
+
+[dependencies]
+rmcp = { workspace = true, features = ["server", "macros", "schemars", "transport-io"] }
+serde = { workspace = true }
+serde_json = { workspace = true, default-features = true }
+tesserax-sdk = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "io-std"] }
+
+[dev-dependencies]
+rmcp = { workspace = true, features = ["client", "transport-child-process"] }
