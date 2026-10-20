@@ -62,7 +62,14 @@ Every block mined through the server credits `--author`. The login of a rig is i
 or the address of the author; the server refuses another address, so that a rig never mines to a
 node believing that the rewards go elsewhere.
 
-Build the `rx/tess` miner from the `tesserax-miner` repository, a fork of XMRig 6.26.0:
+Download the `rx/tess` miner, a fork of XMRig 6.26.0, from the
+[releases of `tesserax-miner`](https://github.com/Wayleyy/tesserax-miner/releases): static binaries
+for Linux (x64, arm64), macOS (Apple Silicon, Intel) and Windows (x64), with their SHA-256 in
+`SHA256SUMS`. Every binary is checked against the reference RandomTESS implementation, in light and
+fast mode, before it is published. On macOS, allow it once with
+`xattr -d com.apple.quarantine xmrig`.
+
+Or build it:
 
 ```bash
 git clone https://github.com/Wayleyy/tesserax-miner.git
