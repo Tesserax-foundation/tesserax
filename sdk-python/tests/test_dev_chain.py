@@ -5,6 +5,7 @@
 """
 
 import os
+import socket
 
 import pytest
 
@@ -56,3 +57,16 @@ def test_agents_on_a_development_chain():
 
         client.revoke_agent(owner, agent.address)
         assert client.delegation(owner.address, agent.address) is None
+
+
+def test_the_client_reconnects_when_the_node_drops_the_connection():
+    with Client(URL) as client:
+        best = client.chain_info().best_block
+        # A connection closed under the client: sends fail with a broken pipe.
+        client.substrate.websocket.sock.shutdown(socket.SHUT_RDWR)
+        assert client.chain_info().best_block >= best
+        # A connection idle for long, which the node may have closed, is replaced before use.
+        first = client.substrate.websocket
+        first._active -= first.IDLE_SECONDS + 1
+        assert client.chain_info().best_block >= best
+        assert client.substrate.websocket is not first

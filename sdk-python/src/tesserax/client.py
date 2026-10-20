@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from substrateinterface import SubstrateInterface
 from substrateinterface.exceptions import SubstrateRequestException
+from websocket import WebSocket, WebSocketConnectionClosedException
 
 from .amount import DECIMALS, Amount
 from .errors import InvalidInput, TransactionFailed
@@ -14,6 +16,41 @@ from .keys import SS58_PREFIX, Keypair, format_address, parse_address
 
 #: Blocks a transaction stays valid, counted from the best block: about 19 minutes.
 MORTALITY = 64
+
+
+class _WebSocket(WebSocket):
+    """A websocket that reconnects instead of sending on a connection the node may have closed.
+
+    A node closes a connection whose client does not answer its pings, which a client only does
+    while it reads: a connection left idle for a minute or two is closed. Before sending on a
+    connection idle for longer than `IDLE_SECONDS`, and when a send fails, this websocket reports
+    itself closed: `substrate-interface` then opens a new connection and sends the request on it.
+    The request had not left, so it is never sent twice."""
+
+    IDLE_SECONDS = 50
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._active = time.monotonic()
+
+    def send(self, *args, **kwargs):
+        if time.monotonic() - self._active > self.IDLE_SECONDS:
+            try:
+                self.close(timeout=1)
+            except Exception:
+                pass
+            raise WebSocketConnectionClosedException("the connection was idle")
+        try:
+            sent = super().send(*args, **kwargs)
+        except ConnectionError as error:
+            raise WebSocketConnectionClosedException(str(error)) from error
+        self._active = time.monotonic()
+        return sent
+
+    def recv(self, *args, **kwargs):
+        data = super().recv(*args, **kwargs)
+        self._active = time.monotonic()
+        return data
 
 
 @dataclass
@@ -143,7 +180,7 @@ class Client:
     """
 
     def __init__(self, url: str = "ws://127.0.0.1:9944"):
-        self.substrate = SubstrateInterface(url=url, ss58_format=SS58_PREFIX)
+        self.substrate = SubstrateInterface(url=url, ss58_format=SS58_PREFIX, ws_options={"class_": _WebSocket})
 
     def close(self) -> None:
         self.substrate.close()
