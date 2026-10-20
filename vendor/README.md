@@ -26,6 +26,9 @@ authentication. The crates below are forks of the published Polkadot SDK crates,
   - cipher suites: `TLS13_AES_256_GCM_SHA384`, `TLS13_CHACHA20_POLY1305_SHA256`;
   - no session resumption, no early data, no TLS 1.2.
 - The QUIC and WebRTC transports are removed: both require elliptic curve cryptography.
+- A system DNS configuration with name servers the resolver cannot parse (scoped IPv6 link-local
+  addresses such as `fe80::1%en0`, advertised by some routers) no longer prevents the node from
+  starting: the valid name servers of `/etc/resolv.conf` are used, or the default resolver.
 
 ## sc-network
 

@@ -151,6 +151,59 @@ pub struct Litep2p {
     bandwidth_sink: BandwidthSink,
 }
 
+/// The DNS configuration of the system.
+///
+/// The system configuration can hold name servers the resolver cannot parse, such as scoped IPv6
+/// link-local addresses (`fe80::1%en0`), which some routers advertise. Rather than failing to
+/// start, keep the name servers of `/etc/resolv.conf` that parse, and fall back to the default
+/// resolver if none does.
+fn system_dns_config() -> crate::Result<(ResolverConfig, ResolverOpts)> {
+    let error = match hickory_resolver::system_conf::read_system_conf() {
+        Ok(config) => return Ok(config),
+        Err(error) => error,
+    };
+
+    #[cfg(unix)]
+    if let Ok(resolv_conf) = std::fs::read_to_string("/etc/resolv.conf") {
+        let name_servers = parse_name_servers(&resolv_conf);
+        if !name_servers.is_empty() {
+            tracing::warn!(
+                target: LOG_TARGET,
+                ?error,
+                ?name_servers,
+                "system DNS configuration has invalid name servers, using the valid ones",
+            );
+            let name_servers = name_servers
+                .into_iter()
+                .map(hickory_resolver::config::NameServerConfig::udp_and_tcp)
+                .collect();
+            return Ok((
+                ResolverConfig::from_name_servers(name_servers),
+                ResolverOpts::default(),
+            ));
+        }
+    }
+
+    tracing::warn!(
+        target: LOG_TARGET,
+        ?error,
+        "cannot read the system DNS configuration, using the default resolver",
+    );
+    Ok((ResolverConfig::udp_and_tcp(&GOOGLE), ResolverOpts::default()))
+}
+
+/// Addresses of the `nameserver` lines of a `resolv.conf` file that are valid IP addresses.
+#[cfg(unix)]
+fn parse_name_servers(resolv_conf: &str) -> Vec<std::net::IpAddr> {
+    resolv_conf
+        .lines()
+        .filter_map(|line| {
+            let mut words = line.split_whitespace();
+            (words.next() == Some("nameserver")).then(|| words.next()?.parse().ok())?
+        })
+        .collect()
+}
+
 impl Litep2p {
     /// Create new [`Litep2p`].
     pub fn new(mut litep2p_config: Litep2pConfig) -> crate::Result<Litep2p> {
@@ -159,8 +212,7 @@ impl Litep2p {
         let mut listen_addresses = vec![];
 
         let (resolver_config, mut resolver_opts) = if litep2p_config.use_system_dns_config {
-            hickory_resolver::system_conf::read_system_conf()
-                .map_err(|error| Error::CannotReadSystemDnsConfig(DnsInitError::new(error)))?
+            system_dns_config()?
         } else {
             (
                 ResolverConfig::udp_and_tcp(&GOOGLE),
@@ -509,6 +561,20 @@ mod tests {
     };
     use multiaddr::{Multiaddr, Protocol};
     use std::net::Ipv4Addr;
+
+    #[cfg(unix)]
+    #[test]
+    fn scoped_name_servers_are_skipped() {
+        let resolv_conf = "# comment\nsearch home\nnameserver 2a01:cb19::1\n\
+            nameserver fe80::2ef2:a5ff:fec0:8f0%en0\nnameserver 192.168.1.1\nnameserver\n";
+        assert_eq!(
+            crate::parse_name_servers(resolv_conf),
+            vec![
+                "2a01:cb19::1".parse::<std::net::IpAddr>().unwrap(),
+                "192.168.1.1".parse().unwrap()
+            ],
+        );
+    }
 
     #[tokio::test]
     async fn initialize_litep2p() {
