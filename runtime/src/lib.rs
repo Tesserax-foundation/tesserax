@@ -93,6 +93,27 @@ pub const BLOCK_REWARD: Balance = 850 * MILLI_UNIT;
 /// Number of blocks between two halvings of the block reward, about four years.
 pub const HALVING_INTERVAL: BlockNumber = 7_000_000;
 
+/// Blocks in a month: 30.4375 days of 18 s blocks.
+pub const MONTH: BlockNumber = 146_100;
+
+/// Team allocation: 10% of the supply, 1 400 000 TESS.
+pub const TEAM_ALLOCATION: Balance = 1_400_000 * UNIT;
+
+/// Nothing of the team allocation is released before six months.
+pub const TEAM_CLIFF: BlockNumber = 6 * MONTH;
+
+/// The team allocation is fully released after 48 months, cliff included.
+pub const TEAM_VESTING: BlockNumber = 48 * MONTH;
+
+/// Foundation allocation: 5% of the supply, 700 000 TESS.
+pub const FOUNDATION_ALLOCATION: Balance = 700_000 * UNIT;
+
+/// Part of the foundation allocation spendable from genesis.
+pub const FOUNDATION_LIQUID: Balance = 140_000 * UNIT;
+
+/// The rest of the foundation allocation is released linearly over 36 months, without cliff.
+pub const FOUNDATION_VESTING: BlockNumber = 36 * MONTH;
+
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
@@ -210,4 +231,13 @@ mod runtime {
 
 	#[runtime::pallet_index(8)]
 	pub type Emission = pallet_emission;
+
+	#[runtime::pallet_index(9)]
+	pub type Vesting = pallet_vesting;
+
+	#[runtime::pallet_index(10)]
+	pub type Multisig = pallet_multisig;
+
+	#[runtime::pallet_index(11)]
+	pub type Allocations = pallet_allocations;
 }

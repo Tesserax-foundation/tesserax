@@ -7008,6 +7008,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-allocations"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-vesting",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-asset-conversion"
 version = "31.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7175,6 +7189,18 @@ dependencies = [
  "polkadot-sdk-frame",
  "scale-info",
  "sp-mmr-primitives",
+]
+
+[[package]]
+name = "pallet-multisig"
+version = "49.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75395445591c3e350b096d40e9114e8f8e6704617f437a0b879c7e34a125f88c"
+dependencies = [
+ "log",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
 ]
 
 [[package]]
@@ -7432,6 +7458,21 @@ dependencies = [
  "sp-api",
  "sp-runtime",
  "sp-weights",
+]
+
+[[package]]
+name = "pallet-vesting"
+version = "49.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad9be238772084ba76e1c87558b50a8018ce5f138acd507373625abc19b127c2"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -13086,15 +13127,18 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "pallet-allocations",
  "pallet-balances",
  "pallet-difficulty",
  "pallet-emission",
+ "pallet-multisig",
  "pallet-revive",
  "pallet-shielded",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-vesting",
  "parity-scale-codec",
  "scale-info",
  "serde_json",

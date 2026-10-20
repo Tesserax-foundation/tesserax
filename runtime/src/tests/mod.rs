@@ -1,5 +1,6 @@
 //! Runtime tests: ML-DSA transactions, block rewards, smart contracts and private transfers.
 
+mod allocations;
 mod contracts;
 mod emission;
 mod shielded;

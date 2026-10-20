@@ -10,6 +10,7 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 |---|---|
 | `node/` | The `tessera` node: networking, block import, built-in miner, RPC |
 | `runtime/` | The on-chain logic, compiled to WebAssembly |
+| `pallets/allocations/` | Genesis team and foundation allocations, released by vesting schedules |
 | `pallets/difficulty/` | Difficulty adjustment (LWMA over 120 blocks, 18 s target) |
 | `pallets/emission/` | Block rewards: 0.85 TESS per block to the miner, halving every 7 000 000 blocks |
 | `pallets/shielded/` | Shielded pool: private transfers proven with zero-knowledge STARKs, see `docs/privacy.md` |
@@ -36,11 +37,15 @@ The supply is 14 000 000 TESS (12 decimals):
 | Share | Amount | Release |
 |---|---|---|
 | Mining, 85% | 11 900 000 TESS | Block rewards (`pallets/emission`) |
-| Team, 10% | 1 400 000 TESS | Linear vesting over 48 months, no cliff |
-| Foundation, 5% | 700 000 TESS | 140 000 at genesis, 560 000 linearly over 36 months |
+| Team, 10% | 1 400 000 TESS | Nothing for 6 months, then 12.5% at once and linear until 48 months |
+| Foundation, 5% | 700 000 TESS | 140 000 at genesis, 560 000 linearly over 36 months, no cliff |
 
-The team and foundation allocations are part of the genesis of the public network. Development
-chains endow test accounts instead.
+The team and foundation allocations are created at genesis by `pallets/allocations` and locked by
+vesting schedules (`pallet-vesting`), counted in blocks: a month is 146 100 blocks of 18 s. Locked
+funds cannot be moved, not even to pay fees; `vest` (or `vest_other`, from any account) releases
+what has vested. The foundation account is a multisig (`pallet-multisig`) derived from its
+signatories and threshold. Development chains give the team allocation to Dave and Eve and the
+foundation allocation to a 2-of-3 multisig of Alice, Bob and Charlie.
 
 - Each block mints 0.85 TESS to its miner, the account in the proof-of-work pre-runtime digest,
   which the seal covers. The genesis block has no reward.

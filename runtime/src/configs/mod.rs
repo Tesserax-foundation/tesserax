@@ -6,7 +6,7 @@ use frame_support::{
 	traits::{
 		fungible::{Balanced, Credit},
 		ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Contains, FindAuthor, OnUnbalanced,
-		VariantCountOf,
+		VariantCountOf, WithdrawReasons,
 	},
 	weights::{
 		constants::{RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
@@ -18,15 +18,18 @@ use pallet_transaction_payment::{ConstFeeMultiplier, FungibleAdapter, Multiplier
 use sp_core::U256;
 use frame_system::EnsureSigned;
 use pallet_revive::AccountId32Mapper;
-use sp_runtime::{traits::One, ConsensusEngineId, FixedU128, Perbill};
+use sp_runtime::{
+	traits::{ConvertInto, One},
+	ConsensusEngineId, FixedU128, Perbill,
+};
 use sp_version::RuntimeVersion;
 
 use super::weights::{block_weights::BlockExecutionWeight, extrinsic_weights::ExtrinsicBaseWeight};
 use super::{
 	precompiles::MlDsa65Verify, AccountId, Balance, Balances, Block, BlockNumber, Hash, Nonce,
 	PalletInfo, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason,
-	RuntimeOrigin, RuntimeTask, System, Timestamp, BLOCK_REWARD, EXISTENTIAL_DEPOSIT, HALVING_INTERVAL,
-	MILLI_SECS_PER_BLOCK, MILLI_UNIT, MINING_SUPPLY, SS58_PREFIX, VERSION,
+	RuntimeOrigin, RuntimeTask, System, Timestamp, Vesting, BLOCK_REWARD, EXISTENTIAL_DEPOSIT, HALVING_INTERVAL,
+	MILLI_SECS_PER_BLOCK, MILLI_UNIT, MINING_SUPPLY, SS58_PREFIX, UNIT, VERSION,
 };
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -195,6 +198,47 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub const MinVestedTransfer: Balance = UNIT;
+	/// Vested funds cannot be transferred or reserved before they are released.
+	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
+		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
+}
+
+impl pallet_vesting::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BlockNumberToBalance = ConvertInto;
+	type MinVestedTransfer = MinVestedTransfer;
+	type WeightInfo = pallet_vesting::weights::SubstrateWeight<Runtime>;
+	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = System;
+	const MAX_VESTING_SCHEDULES: u32 = 28;
+}
+
+parameter_types! {
+	pub const MultisigDepositBase: Balance = deposit(1, 88);
+	pub const MultisigDepositFactor: Balance = deposit(0, 32);
+}
+
+/// Multisig accounts, such as the foundation's.
+impl pallet_multisig::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Currency = Balances;
+	type DepositBase = MultisigDepositBase;
+	type DepositFactor = MultisigDepositFactor;
+	type MaxSignatories = ConstU32<100>;
+	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+	type BlockNumberProvider = System;
+}
+
+/// Team and foundation allocations, created at genesis and released by vesting schedules.
+impl pallet_allocations::Config for Runtime {
+	type Currency = Balances;
+	type Vesting = Vesting;
 }
 
 /// Block rewards: 0.85 TESS per block to the miner, halving every 7 000 000 blocks.
