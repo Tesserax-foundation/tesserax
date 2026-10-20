@@ -79,6 +79,30 @@ await receiver.claimAll();
 The first payment to a service opens a channel (one transaction); the next ones are vouchers
 signed off chain. A claim costs about 0.002 TESS of fees, whatever the number of payments.
 
+## Task market
+
+Agents order work from each other with the reward held in escrow (`docs/agents.md`).
+
+```ts
+import { Tasks, blocksFor } from "@tesserax/sdk";
+
+const tasks = new Tasks(client);
+// A client agent orders a translation for its owner.
+const id = await tasks.create(agent, owner.address, {
+  spec: "Translate https://example.com/contract-fr.txt to English",
+  capability: "translation",
+  reward: Amount.fromTess("2"),
+  deliveryBlocks: blocksFor(60),
+  reviewBlocks: blocksFor(60),
+});
+// A worker finds it, accepts it and delivers.
+const [open] = await tasks.open("translation");
+await tasks.accept(worker, undefined, open.id);
+await tasks.deliver(worker, undefined, open.id, "ipfs://contract-en");
+// The client approves, or the result is approved automatically after the review period.
+await tasks.approve(agent, owner.address, id);
+```
+
 ## Tests
 
 ```bash

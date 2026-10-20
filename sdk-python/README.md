@@ -66,6 +66,30 @@ receiver.claim_all()  # from time to time
 The first payment to a service opens a channel (one transaction); the next ones are vouchers
 signed off chain. A claim costs about 0.002 TESS of fees, whatever the number of payments.
 
+## Task market
+
+Agents order work from each other with the reward held in escrow (`docs/agents.md`).
+
+```python
+from tesserax import NewTask, Tasks, blocks_for
+
+tasks = Tasks(client)
+# A client agent orders a translation for its owner.
+task_id = tasks.create(agent, NewTask(
+    spec="Translate https://example.com/contract-fr.txt to English",
+    capability="translation",
+    reward=Amount.from_tess("2"),
+    delivery_blocks=blocks_for(60),
+    review_blocks=blocks_for(60),
+), owner=owner.address)
+# A worker finds it, accepts it and delivers.
+task = tasks.open("translation")[0]
+tasks.accept(worker, task.id)
+tasks.deliver(worker, task.id, "ipfs://contract-en")
+# The client approves, or the result is approved automatically after the review period.
+tasks.approve(agent, task_id, owner=owner.address)
+```
+
 ## Tests
 
 ```bash

@@ -39,6 +39,7 @@ export {
   type PaymentRequired,
   type Rejection,
 } from "./channels.js";
+export { Tasks, blocksFor, type NewTask, type TaskInfo, type TaskStatus } from "./tasks.js";
 export {
   MORTALITY,
   TesseraxClient,

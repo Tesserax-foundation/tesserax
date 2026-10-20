@@ -42,6 +42,7 @@ from .errors import (
     TransactionFailed,
 )
 from .keys import SS58_PREFIX, Keypair, format_address, parse_address, verify
+from .tasks import NewTask, TaskInfo, Tasks, blocks_for
 
 __all__ = [
     "DECIMALS",
@@ -77,4 +78,8 @@ __all__ = [
     "format_address",
     "parse_address",
     "verify",
+    "NewTask",
+    "TaskInfo",
+    "Tasks",
+    "blocks_for",
 ]
