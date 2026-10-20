@@ -10,4 +10,5 @@ frame_benchmarking::define_benchmarks!(
 	[pallet_agents, Agents]
 	[pallet_agent_registry, AgentRegistry]
 	[pallet_channels, Channels]
+	[pallet_tasks, Tasks]
 );

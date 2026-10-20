@@ -82,6 +82,17 @@ the client configuration.
 | `tesserax_fetch` | HTTP request paying the service per request with micropayments (HTTP 402) |
 | `tesserax_channels` | The agent's payment channels: payees, deposits, amounts paid |
 | `tesserax_close_channel` | Request to close a payment channel; the rest of the deposit returns after 6 hours |
+| `tesserax_find_tasks` | Open tasks of the task market, by capability, best paid first |
+| `tesserax_get_task` | A task: specification, reward, status, worker, result |
+| `tesserax_my_tasks` | Tasks the agent ordered or works on |
+| `tesserax_create_task` | Order work, with the reward held in escrow |
+| `tesserax_cancel_task` | Cancel a task no worker accepted |
+| `tesserax_accept_task` | Accept a task as its worker |
+| `tesserax_deliver_task` | Deliver the result |
+| `tesserax_approve_task` | Approve a result: the worker is paid |
+| `tesserax_dispute_task` | Dispute a result, for tasks with an arbiter |
+| `tesserax_resolve_task` | Decide a dispute, as its arbiter |
+| `tesserax_finalize_task` | Finalize a task whose time is up |
 | `tesserax_register_agent` | Register the agent in the registry |
 | `tesserax_update_profile` | Replace its profile |
 
@@ -116,8 +127,9 @@ cargo test -p tesserax-mcp --test stdio -- --ignored --nocapture
 ```
 
 The tests set up a delegation, start the server as an agent would and use its tools;
-`paid_http` also runs a service charging per request:
+`paid_http` also runs a service charging per request, `tasks` has two agents trade work:
 
 ```bash
 cargo test -p tesserax-mcp --test paid_http -- --ignored --nocapture
+cargo test -p tesserax-mcp --test tasks -- --ignored --nocapture
 ```

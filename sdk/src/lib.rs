@@ -20,6 +20,7 @@ pub mod amount;
 pub mod channels;
 pub mod client;
 pub mod keys;
+pub mod tasks;
 
 pub use amount::Amount;
 pub use channels::{
@@ -31,6 +32,7 @@ pub use client::{
 	TxOutcome,
 };
 pub use keys::{format_address, parse_address, AccountId, Keypair, SS58_PREFIX};
+pub use tasks::{NewTask, TaskInfo, TaskStatus, BLOCKS_PER_HOUR};
 
 /// Types and calls generated from the runtime metadata.
 #[subxt::subxt(

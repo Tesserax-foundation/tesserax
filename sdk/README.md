@@ -47,6 +47,10 @@ match request.header(VOUCHER_HEADER) {
 receiver.claim_all().await?;
 ```
 
+Task market: `create_task`, `open_tasks`, `accept_task`, `deliver_task`, `approve_task`,
+`dispute_task`, `resolve_task` and `finalize_task`; every call takes an optional owner to act
+through an agent's delegation.
+
 The client reads the state of the best block and builds transactions on top of it: proof-of-work
 blocks are final only 60 blocks deep. Calls return once the transaction is included in a block,
 or the error of the chain, such as `Agents::BudgetExceeded`.

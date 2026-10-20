@@ -57,7 +57,9 @@ Use tesserax_wallet to see your address, balance and, if you spend for an owner,
 your budget. Use tesserax_find_agents to discover agents by capability, tesserax_pay_agent to pay \
 a registered agent (it counts in its reputation) and tesserax_transfer for plain transfers. \
 Use tesserax_fetch to call HTTP services that charge per request: it pays them with \
-micropayments, without a transaction per request. \
+micropayments, without a transaction per request. The task market lets agents order work from \
+each other with the reward held in escrow: tesserax_find_tasks lists work you can do, \
+tesserax_create_task orders work. \
 Transactions are included in a block within about 20 seconds; the chain refuses any payment \
 beyond the limits set by your owner.";
 
@@ -84,6 +86,64 @@ pub struct FetchParams {
 	headers: HashMap<String, String>,
 	/// Highest price accepted for this request, in TESS; the server's maximum by default.
 	max_price: Option<String>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct TaskId {
+	/// Identifier of the task.
+	id: u64,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct FindTasksParams {
+	/// Only tasks of this capability, such as "translation".
+	capability: Option<String>,
+	/// Maximum number of tasks returned, 20 by default.
+	limit: Option<usize>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct CreateTaskParams {
+	/// What to do: a URI or a short text, at most 256 bytes.
+	spec: String,
+	/// Capability tag of the work, such as "translation", so that workers find it.
+	capability: Option<String>,
+	/// Reward in TESS, held in escrow until the task ends.
+	reward: String,
+	/// Address of the only worker allowed to accept, if any.
+	invited: Option<String>,
+	/// Address of an arbiter for disputes. Without arbiter, delivered results are paid when you
+	/// approve them or automatically after the review period.
+	arbiter: Option<String>,
+	/// Fee of the arbiter in TESS, paid only if it decides a dispute.
+	arbiter_fee: Option<String>,
+	/// Bond in TESS the worker holds, lost if it does not deliver in time; 0 by default.
+	bond: Option<String>,
+	/// Minutes the worker has to deliver after accepting, at least 3.
+	delivery_minutes: u32,
+	/// Minutes you have to approve or dispute after the delivery, at least 3.
+	review_minutes: u32,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct DeliverParams {
+	/// Identifier of the task.
+	id: u64,
+	/// The result: a URI or a short text, at most 256 bytes.
+	result: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct ResolveParams {
+	/// Identifier of the disputed task.
+	id: u64,
+	/// Share of the reward paid to the worker, from 0 to 100; the rest returns to the client.
+	worker_percent: u8,
+}
+
+#[derive(Serialize)]
+struct Created {
+	id: u64,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -198,6 +258,11 @@ struct Wallet {
 
 type ToolResult = Result<CallToolResult, ErrorData>;
 
+/// Blocks of 18 seconds covering `minutes`.
+fn blocks(minutes: u32) -> u32 {
+	minutes.saturating_mul(60).div_ceil(18)
+}
+
 fn ok(value: impl Serialize) -> ToolResult {
 	let text = serde_json::to_string_pretty(&value).map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
 	Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
@@ -236,6 +301,14 @@ impl Tesserax {
 			request = request.header(VOUCHER_HEADER, voucher);
 		}
 		request.send().await.map_err(|e| format!("request failed: {e}"))
+	}
+
+	/// The account that pays and gets paid: the owner in delegated mode, the key otherwise.
+	fn acting_account(&self) -> Result<AccountId, String> {
+		Ok(match &self.owner {
+			Some(owner) => owner.clone(),
+			None => self.key()?.account_id(),
+		})
 	}
 
 	fn key(&self) -> Result<&Keypair, String> {
@@ -404,6 +477,101 @@ impl Tesserax {
 	async fn tesserax_close_channel(&self, Parameters(p): Parameters<ChannelParams>) -> ToolResult {
 		let key = attempt!(self.key());
 		ok(attempt!(self.client.request_close_channel(key, self.owner.as_ref(), p.channel).await))
+	}
+
+	#[tool(description = "Open tasks of the task market, best paid first: work you can accept to \
+		earn TESS. The reward is held in escrow by the chain.")]
+	async fn tesserax_find_tasks(&self, Parameters(p): Parameters<FindTasksParams>) -> ToolResult {
+		let mut tasks = attempt!(self.client.open_tasks(p.capability.as_deref()).await);
+		tasks.truncate(p.limit.unwrap_or(20).min(100));
+		ok(tasks)
+	}
+
+	#[tool(description = "A task of the task market: specification, reward, status, worker, result.")]
+	async fn tesserax_get_task(&self, Parameters(p): Parameters<TaskId>) -> ToolResult {
+		match attempt!(self.client.task(p.id).await) {
+			Some(task) => ok(task),
+			None => fail(format!("task {} is not in progress", p.id)),
+		}
+	}
+
+	#[tool(description = "Your tasks in progress: those you ordered and those you work on.")]
+	async fn tesserax_my_tasks(&self) -> ToolResult {
+		let me = format_address(&attempt!(self.acting_account()));
+		let tasks = attempt!(self.client.tasks().await);
+		ok(tasks.into_iter().filter(|t| t.client == me || t.worker() == Some(me.as_str())).collect::<Vec<_>>())
+	}
+
+	#[tool(description = "Order work: create a task whose reward is held in escrow by the chain. \
+		A worker accepts and delivers; you approve, or the result is approved automatically after \
+		the review period. With an arbiter you can dispute a result during the review period.")]
+	async fn tesserax_create_task(&self, Parameters(p): Parameters<CreateTaskParams>) -> ToolResult {
+		let key = attempt!(self.key());
+		let reward = attempt!(Amount::from_tess(&p.reward));
+		let bond = attempt!(Amount::from_tess(p.bond.as_deref().unwrap_or("0")));
+		let arbiter = match (&p.arbiter, &p.arbiter_fee) {
+			(Some(arbiter), fee) => Some((arbiter.clone(), attempt!(Amount::from_tess(fee.as_deref().unwrap_or("0"))))),
+			(None, Some(_)) => return fail("an arbiter fee needs an arbiter"),
+			(None, None) => None,
+		};
+		let task = tesserax_sdk::NewTask {
+			spec: p.spec,
+			capability: p.capability,
+			reward,
+			invited: p.invited,
+			arbiter,
+			bond,
+			delivery_blocks: blocks(p.delivery_minutes),
+			review_blocks: blocks(p.review_minutes),
+		};
+		ok(Created { id: attempt!(self.client.create_task(key, self.owner.as_ref(), &task).await) })
+	}
+
+	#[tool(description = "Cancel a task you ordered that no worker accepted: the reward returns.")]
+	async fn tesserax_cancel_task(&self, Parameters(p): Parameters<TaskId>) -> ToolResult {
+		let key = attempt!(self.key());
+		ok(attempt!(self.client.cancel_task(key, self.owner.as_ref(), p.id).await))
+	}
+
+	#[tool(description = "Accept an open task as its worker, holding its bond. Deliver before the \
+		deadline or lose the bond.")]
+	async fn tesserax_accept_task(&self, Parameters(p): Parameters<TaskId>) -> ToolResult {
+		let key = attempt!(self.key());
+		ok(attempt!(self.client.accept_task(key, self.owner.as_ref(), p.id).await))
+	}
+
+	#[tool(description = "Deliver the result of a task you accepted: a URI or a short text.")]
+	async fn tesserax_deliver_task(&self, Parameters(p): Parameters<DeliverParams>) -> ToolResult {
+		let key = attempt!(self.key());
+		ok(attempt!(self.client.deliver_task(key, self.owner.as_ref(), p.id, &p.result).await))
+	}
+
+	#[tool(description = "Approve the result of a task you ordered: the worker is paid.")]
+	async fn tesserax_approve_task(&self, Parameters(p): Parameters<TaskId>) -> ToolResult {
+		let key = attempt!(self.key());
+		ok(attempt!(self.client.approve_task(key, self.owner.as_ref(), p.id).await))
+	}
+
+	#[tool(description = "Dispute the result of a task you ordered, during its review period. \
+		Only tasks with an arbiter can be disputed; the arbiter decides how the reward is shared.")]
+	async fn tesserax_dispute_task(&self, Parameters(p): Parameters<TaskId>) -> ToolResult {
+		let key = attempt!(self.key());
+		ok(attempt!(self.client.dispute_task(key, self.owner.as_ref(), p.id).await))
+	}
+
+	#[tool(description = "Decide a dispute as the arbiter of a task: the share of the reward paid \
+		to the worker, from 0 to 100 percent. You receive the arbiter fee.")]
+	async fn tesserax_resolve_task(&self, Parameters(p): Parameters<ResolveParams>) -> ToolResult {
+		let key = attempt!(self.key());
+		ok(attempt!(self.client.resolve_task(key, p.id, p.worker_percent).await))
+	}
+
+	#[tool(description = "Finalize a task whose time is up: a delivered result past its review \
+		period is paid to the worker, an undelivered task past its deadline returns the reward and \
+		the worker's bond to the client.")]
+	async fn tesserax_finalize_task(&self, Parameters(p): Parameters<TaskId>) -> ToolResult {
+		let key = attempt!(self.key());
+		ok(attempt!(self.client.finalize_task(key, p.id).await))
 	}
 
 	#[tool(description = "Register yourself in the agent registry so that other agents can find \

@@ -249,4 +249,7 @@ mod runtime {
 
 	#[runtime::pallet_index(14)]
 	pub type Channels = pallet_channels;
+
+	#[runtime::pallet_index(15)]
+	pub type Tasks = pallet_tasks;
 }

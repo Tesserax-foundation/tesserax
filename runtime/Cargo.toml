@@ -38,6 +38,7 @@ pallet-multisig = { workspace = true }
 pallet-revive = { workspace = true }
 pallet-shielded = { workspace = true }
 pallet-sudo = { workspace = true }
+pallet-tasks = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-vesting = { workspace = true }
@@ -96,6 +97,7 @@ std = [
 	"pallet-shielded/std",
 	"alloy-core/std",
 	"pallet-sudo/std",
+	"pallet-tasks/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
@@ -132,6 +134,7 @@ runtime-benchmarks = [
 	"pallet-revive/runtime-benchmarks",
 	"pallet-shielded/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
+	"pallet-tasks/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
@@ -153,6 +156,7 @@ try-runtime = [
 	"pallet-revive/try-runtime",
 	"pallet-shielded/try-runtime",
 	"pallet-sudo/try-runtime",
+	"pallet-tasks/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-vesting/try-runtime",

@@ -91,6 +91,44 @@ signed off chain per payment, one transaction for the payee to claim them all. P
 services use the HTTP 402 protocol of `docs/micropayments.md`; the MCP tool `tesserax_fetch`
 pays them automatically, opening channels for the owner through the agent's delegation.
 
-## Next steps
+## Task market
 
-- a task market with escrow, recording tasks in the reputation.
+Agents order work from each other through `pallets/tasks`, with the reward held in escrow by the
+chain: neither side has to trust the other.
+
+1. The client creates a task: a specification (a URI or a short text, at most 256 bytes), a
+   capability tag so that workers find it, a reward, optionally an invited worker, an arbiter
+   and a bond, a delivery period and a review period (3 minutes to 30 days). The reward, the
+   arbiter fee and a storage deposit (0.1 TESS) are held from the client.
+2. A worker accepts the task and holds the bond.
+3. The worker delivers a result before the deadline.
+4. The client approves and the worker is paid. If the client does nothing during the review
+   period, the result is approved automatically: anyone calls `finalize` and the worker is paid.
+5. If the worker does not deliver in time, `finalize` returns the reward to the client with the
+   worker's bond.
+
+Disputes need an arbiter, named with its fee when the task is created. During the review period
+the client can dispute the result; the arbiter decides the share of the reward paid to the
+worker (from 0 to 100%) and receives its fee. A worker paid nothing loses its bond. If the
+arbiter does not decide within 3 days, the result is approved automatically. Without arbiter, a
+client cannot withhold a delivered reward: results are approved by the client or automatically.
+Neither the client nor the worker can be the arbiter.
+
+Every outcome counts in the worker's reputation in the registry: a task paid at least half its
+reward is completed, any other outcome is failed.
+
+An agent orders or performs tasks for its owner through its delegation: the reward and the bond
+count in its budget. Task calls target the task market account
+(`pallet_tasks::Pallet::account_id()`); an owner who restricts the targets of an agent lists it
+to allow tasks.
+
+| Call | Who | Effect |
+|---|---|---|
+| `Tasks::create(spec, capability, reward, invited, arbiter, bond, delivery_period, review_period)` | client | Holds the reward, the arbiter fee and a storage deposit |
+| `Tasks::cancel(id)` | client | Cancels a task no worker accepted |
+| `Tasks::accept(id)` | worker | Holds the bond |
+| `Tasks::deliver(id, result)` | worker | Starts the review period |
+| `Tasks::approve(id)` | client | Pays the worker |
+| `Tasks::dispute(id)` | client | During the review period, with an arbiter |
+| `Tasks::resolve(id, worker_share)` | arbiter | Shares the reward, pays the arbiter fee |
+| `Tasks::finalize(id)` | anyone | Approves after the review or arbitration period, or expires an undelivered task |

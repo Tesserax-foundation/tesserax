@@ -8,6 +8,7 @@ mod contracts;
 mod emission;
 mod shielded;
 mod signatures;
+mod tasks;
 
 pub(super) use crate::*;
 pub(super) use codec::Encode;

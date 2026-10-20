@@ -8,6 +8,7 @@ use frame_support::{
 		ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Contains, FindAuthor, OnUnbalanced,
 		VariantCountOf, WithdrawReasons,
 	},
+	PalletId,
 	weights::{
 		constants::{RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
 		IdentityFee, Weight,
@@ -28,7 +29,7 @@ use super::weights::{block_weights::BlockExecutionWeight, extrinsic_weights::Ext
 use super::{
 	precompiles::MlDsa65Verify, AccountId, Balance, Balances, Block, BlockNumber, Hash, Nonce,
 	PalletInfo, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason,
-	RuntimeOrigin, RuntimeTask, System, Timestamp, Vesting, BLOCK_REWARD, EXISTENTIAL_DEPOSIT, HALVING_INTERVAL,
+	AgentRegistry, RuntimeOrigin, RuntimeTask, System, Timestamp, Vesting, BLOCK_REWARD, DAYS, EXISTENTIAL_DEPOSIT, HALVING_INTERVAL,
 	HOURS, MILLI_SECS_PER_BLOCK, MILLI_UNIT, MINING_SUPPLY, SS58_PREFIX, UNIT, VERSION,
 };
 
@@ -242,7 +243,7 @@ impl pallet_allocations::Config for Runtime {
 }
 
 /// What agents may do for their owners: transfers, payments to registered agents, payment
-/// channels and calls of contracts. Every other call is refused, including the management of delegations, multisig,
+/// channels, tasks and calls of contracts. Every other call is refused, including the management of delegations, multisig,
 /// vesting and sudo.
 pub struct AgentCalls;
 
@@ -280,6 +281,9 @@ impl pallet_agents::ClassifyCall<RuntimeCall, AccountId> for AgentCalls {
 				Some(channel) => CallKind::Transfer { to: channel.payer },
 				None => CallKind::Forbidden,
 			},
+			// The task market stands for every task call: an owner allows tasks by listing its
+			// account in the targets, and the budget bounds rewards and bonds.
+			RuntimeCall::Tasks(_) => CallKind::Transfer { to: pallet_tasks::Pallet::<Runtime>::account_id() },
 			_ => CallKind::Forbidden,
 		}
 	}
@@ -348,6 +352,39 @@ impl pallet_channels::Config for Runtime {
 	type MinDeposit = ChannelMinDeposit;
 	type StorageDeposit = ChannelStorageDeposit;
 	type WeightInfo = pallet_channels::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub const TasksPalletId: PalletId = PalletId(*b"tess/tsk");
+	pub const TaskMinReward: Balance = 10 * MILLI_UNIT;
+	pub const TaskStorageDeposit: Balance = deposit(1, 800);
+	pub const TaskMinPeriod: BlockNumber = 10;
+	pub const TaskMaxPeriod: BlockNumber = 30 * DAYS;
+	pub const TaskArbitrationPeriod: BlockNumber = 3 * DAYS;
+}
+
+/// Outcomes of tasks go to the reputation of workers in the agent registry.
+pub struct TaskReputation;
+
+impl pallet_tasks::ReputationRecorder<AccountId> for TaskReputation {
+	fn record_task(worker: &AccountId, completed: bool) {
+		<AgentRegistry as pallet_agent_registry::ReputationRecorder<AccountId>>::record_task(worker, completed)
+	}
+}
+
+/// Task market: work ordered between agents, with the reward held in escrow.
+impl pallet_tasks::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Currency = Balances;
+	type Reputation = TaskReputation;
+	type PalletId = TasksPalletId;
+	type MinReward = TaskMinReward;
+	type StorageDeposit = TaskStorageDeposit;
+	type MinPeriod = TaskMinPeriod;
+	type MaxPeriod = TaskMaxPeriod;
+	type ArbitrationPeriod = TaskArbitrationPeriod;
+	type WeightInfo = pallet_tasks::weights::SubstrateWeight<Runtime>;
 }
 
 /// Block rewards: 0.85 TESS per block to the miner, halving every 7 000 000 blocks.
