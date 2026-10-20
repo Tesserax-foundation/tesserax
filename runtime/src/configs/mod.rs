@@ -3,7 +3,11 @@ use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
 	parameter_types,
-	traits::{ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Contains, FindAuthor, VariantCountOf},
+	traits::{
+		fungible::{Balanced, Credit},
+		ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Contains, FindAuthor, OnUnbalanced,
+		VariantCountOf,
+	},
 	weights::{
 		constants::{RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
 		IdentityFee, Weight,
@@ -117,6 +121,24 @@ impl FindAuthor<AccountId> for PowAuthor {
 	}
 }
 
+/// Sends value that would otherwise be burned to the miner of the current block: transaction fees
+/// and tips, the dust of accounts removed below the existential deposit, and the rounding of
+/// contract gas. Nothing is burned.
+pub struct ToAuthor;
+
+impl OnUnbalanced<Credit<AccountId, Balances>> for ToAuthor {
+	fn on_nonzero_unbalanced(amount: Credit<AccountId, Balances>) {
+		let digest = System::digest();
+		let author =
+			PowAuthor::find_author(digest.logs.iter().filter_map(|item| item.as_pre_runtime()));
+		if let Some(author) = author {
+			// The block reward, minted before any transaction, has created the account of the
+			// miner: this can only fail for an amount it cannot hold, which is then dropped.
+			let _ = <Balances as Balanced<AccountId>>::resolve(&author, amount);
+		}
+	}
+}
+
 impl pallet_timestamp::Config for Runtime {
 	/// Milliseconds since the unix epoch.
 	type Moment = u64;
@@ -144,7 +166,7 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
 	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
+	type DustRemoval = ToAuthor;
 	type ExistentialDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
@@ -161,7 +183,7 @@ parameter_types! {
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = FungibleAdapter<Balances, ()>;
+	type OnChargeTransaction = FungibleAdapter<Balances, ToAuthor>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = IdentityFee<Balance>;
@@ -241,7 +263,7 @@ impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
 	type Balance = Balance;
 	type Currency = Balances;
-	type OnBurn = ();
+	type OnBurn = ToAuthor;
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeOrigin = RuntimeOrigin;

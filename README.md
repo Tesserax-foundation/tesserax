@@ -47,6 +47,9 @@ chains endow test accounts instead.
 - The reward halves every 7 000 000 blocks (about four years): 0.425 TESS from block 7 000 001,
   0.2125 TESS from block 14 000 001, and so on. The halvings mint at most 11 900 000 TESS; the
   runtime also caps the total minted at that amount.
+- Nothing is burned. The miner of a block also receives the fees and tips of its transactions,
+  the dust of accounts removed below the existential deposit (0.001 TESS) and the rounding of
+  contract gas.
 - Value in the shielded pool is not counted in the total issuance of the balances pallet: the
   total supply is the total issuance plus the pool balance (see `docs/privacy.md`).
 
