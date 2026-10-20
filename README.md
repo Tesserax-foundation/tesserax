@@ -10,6 +10,7 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 |---|---|
 | `node/` | The `tesserax` node: networking, block import, built-in miner, RPC |
 | `runtime/` | The on-chain logic, compiled to WebAssembly |
+| `wallet/` | Command line wallet: encrypted ML-DSA-87 accounts, transfers, agents, channels and tasks |
 | `sdk/` | Rust SDK: ML-DSA keys, transfers, agent delegations and registry |
 | `sdk-python/` | Python SDK, same scope |
 | `sdk-ts/` | TypeScript SDK, same scope |
