@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tesserax"
+version = "0.1.0"
+description = "Python SDK of Tesserax: ML-DSA accounts, transfers, AI agent delegations and the agent registry."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "substrate-interface>=1.8.1,<2",
+    "dilithium-py>=1.5.1,<2",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tesserax"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["chain: needs a running development chain (set TESSERAX_URL)"]

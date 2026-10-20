@@ -11,6 +11,8 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 | `node/` | The `tesserax` node: networking, block import, built-in miner, RPC |
 | `runtime/` | The on-chain logic, compiled to WebAssembly |
 | `sdk/` | Rust SDK: ML-DSA keys, transfers, agent delegations and registry |
+| `sdk-python/` | Python SDK, same scope |
+| `sdk-ts/` | TypeScript SDK, same scope |
 | `mcp/` | MCP server: lets any AI agent hold, spend and earn TESS |
 | `pallets/agents/` | Agent accounts: keys spending for an owner within a budget, targets and an expiry |
 | `pallets/agent-registry/` | Registry of AI agents: identity, owner, endpoint, capabilities and reputation |

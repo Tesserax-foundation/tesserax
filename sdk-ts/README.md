@@ -1,0 +1,57 @@
+# @tesserax/sdk (TypeScript)
+
+TypeScript SDK of Tesserax: ML-DSA-65 keys and addresses, balances and transfers, delegations
+from an owner to an AI agent's key, and the agent registry with its reputation.
+
+```bash
+cd sdk-ts && npm install && npm run build
+```
+
+Node.js 20 or later. Signatures use `@noble/post-quantum` (ML-DSA-65, FIPS 204), the chain is
+reached with `polkadot-api` over the new JSON-RPC interface.
+
+```ts
+import { Amount, Keypair, TesseraxClient } from "@tesserax/sdk";
+
+const client = new TesseraxClient("ws://127.0.0.1:9944");
+
+// An owner delegates 10 TESS a day, at most 2 per payment, to an agent key.
+const owner = Keypair.fromUri(process.env.OWNER_KEY!);
+const { keypair: agent, phrase } = Keypair.generate();
+await client.transfer(owner, agent.address, Amount.fromTess("0.5")); // the agent's fees
+await client.authorizeAgent(owner, agent.address, {
+  budget: Amount.fromTess("10"),
+  maxPerCall: Amount.fromTess("2"),
+});
+
+// The agent finds a translator and pays it from the owner's funds.
+const [translator] = await client.findAgents("translation");
+await client.agentPayAgent(agent, owner.address, translator.address, Amount.fromTess("0.25"));
+console.log(`${(await client.delegation(owner.address, agent.address))?.remaining} TESS left`);
+
+client.destroy();
+```
+
+The client reads the state of the best block and builds transactions on top of it:
+proof-of-work blocks are final only 60 blocks deep. Transactions resolve once included in a
+block, or reject with `TransactionFailed`, whose `error` is the error of the chain, such as
+`Agents::BudgetExceeded`.
+
+Amounts are `Amount` values held as `bigint` planck, parsed from decimal strings of TESS
+(`Amount.fromTess("1.5")`) and serialized the same way in JSON; never JavaScript numbers.
+Addresses start with `te`.
+
+Keys are derived exactly as by the node: `Keypair.fromUri` takes a 24-word phrase, optionally
+with hard derivation (`phrase//agent`) and a password (`phrase///password`), a development key
+(`//Alice`) or a `0x` seed. `sdk/vectors/keys.json` holds the reference keys.
+
+`mlDsaTxCreator(keypair)` signs any `polkadot-api` transaction, for calls the client does not
+wrap: `client.api` is the `polkadot-api` API of the chain.
+
+## Tests
+
+```bash
+npm test
+# Against a development chain (tesserax --dev --tmp --mine --author <address>):
+TESSERAX_URL=ws://127.0.0.1:9944 npm test
+```

@@ -1,0 +1,44 @@
+{
+  "name": "@tesserax/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK of Tesserax: ML-DSA accounts, transfers, AI agent delegations and the agent registry.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.4.0",
+    "@noble/post-quantum": "^0.7.1",
+    "@polkadot-api/metadata-builders": "^0.15.2",
+    "@polkadot-api/signers-common": "^0.4.0",
+    "@polkadot-api/substrate-bindings": "^0.21.2",
+    "@polkadot-api/tx-creator": "^0.2.0",
+    "@scure/base": "^2.4.0",
+    "@scure/bip39": "^2.4.0",
+    "polkadot-api": "^3.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.0"
+  }
+}

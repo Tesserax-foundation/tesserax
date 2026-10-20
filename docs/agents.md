@@ -79,11 +79,12 @@ policy like a transfer, so an agent can buy the service of another agent within 
 - `mcp/`: an MCP server. Any agent that speaks the Model Context Protocol gets tools to see its
   wallet, pay, find and pay other agents, and register itself. In delegated mode it spends its
   owner's funds within the delegation. See `mcp/README.md`.
-- `sdk/`: the Rust SDK the server is built on, for agents and services written in Rust. See
-  `sdk/README.md`.
+- SDKs for agents and services: Rust (`sdk/`, which the MCP server is built on), Python
+  (`sdk-python/`) and TypeScript (`sdk-ts/`). They cover the same operations, derive keys exactly
+  as the node (checked against `sdk/vectors/keys.json`) and are tested against a development
+  chain.
 
 ## Next steps
 
-- SDKs for TypeScript and Python;
 - payment channels for micropayments per request, with HTTP 402 payments;
 - a task market with escrow, recording tasks in the reputation.
