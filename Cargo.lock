@@ -7008,6 +7008,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-agent-registry"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-agents"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-allocations"
 version = "0.1.0"
 dependencies = [
@@ -13127,6 +13155,8 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "pallet-agent-registry",
+ "pallet-agents",
  "pallet-allocations",
  "pallet-balances",
  "pallet-difficulty",

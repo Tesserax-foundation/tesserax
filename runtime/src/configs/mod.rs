@@ -17,7 +17,7 @@ use frame_system::limits::{BlockLength, BlockWeights};
 use pallet_transaction_payment::{ConstFeeMultiplier, FungibleAdapter, Multiplier};
 use sp_core::U256;
 use frame_system::EnsureSigned;
-use pallet_revive::AccountId32Mapper;
+use pallet_revive::{AccountId32Mapper, AddressMapper};
 use sp_runtime::{
 	traits::{ConvertInto, One},
 	ConsensusEngineId, FixedU128, Perbill,
@@ -239,6 +239,79 @@ impl pallet_multisig::Config for Runtime {
 impl pallet_allocations::Config for Runtime {
 	type Currency = Balances;
 	type Vesting = Vesting;
+}
+
+/// What agents may do for their owners: transfers, payments to registered agents and calls of
+/// contracts. Every other call is refused, including the management of delegations, multisig,
+/// vesting and sudo.
+pub struct AgentCalls;
+
+impl pallet_agents::ClassifyCall<RuntimeCall, AccountId> for AgentCalls {
+	fn classify(call: &RuntimeCall) -> pallet_agents::CallKind<AccountId> {
+		use pallet_agents::CallKind;
+		use sp_runtime::traits::StaticLookup;
+		match call {
+			RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { dest, .. }) |
+			RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { dest, .. }) =>
+				match <Runtime as frame_system::Config>::Lookup::lookup(dest.clone()) {
+					Ok(to) => CallKind::Transfer { to },
+					Err(_) => CallKind::Forbidden,
+				},
+			RuntimeCall::AgentRegistry(pallet_agent_registry::Call::pay { agent, .. }) =>
+				CallKind::Transfer { to: agent.clone() },
+			RuntimeCall::Revive(pallet_revive::Call::call { dest, .. }) => CallKind::Contract {
+				to: <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(dest),
+			},
+			_ => CallKind::Forbidden,
+		}
+	}
+}
+
+parameter_types! {
+	pub const AgentDepositBase: Balance = deposit(1, 160);
+	pub const AgentDepositPerTarget: Balance = deposit(0, 32);
+}
+
+/// Agent accounts: keys acting for an owner within a budget, targets and an expiry.
+impl pallet_agents::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Currency = Balances;
+	type CallClassifier = AgentCalls;
+	type MaxTargets = ConstU32<32>;
+	type DepositBase = AgentDepositBase;
+	type DepositPerTarget = AgentDepositPerTarget;
+	type WeightInfo = pallet_agents::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AgentBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct AgentBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_agents::BenchmarkHelper<RuntimeCall, AccountId> for AgentBenchmarkHelper {
+	fn transfer(to: AccountId) -> RuntimeCall {
+		RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { dest: to.into(), value: UNIT })
+	}
+}
+
+parameter_types! {
+	pub const AgentRegistrationDeposit: Balance = deposit(1, 100);
+	pub const AgentDepositPerByte: Balance = deposit(0, 1);
+	pub const MinAgentPayment: Balance = 10 * MILLI_UNIT;
+}
+
+/// Registry of agents: identity, owner, endpoint, capabilities and reputation.
+impl pallet_agent_registry::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Currency = Balances;
+	type DepositBase = AgentRegistrationDeposit;
+	type DepositPerByte = AgentDepositPerByte;
+	type MinPayment = MinAgentPayment;
+	type WeightInfo = pallet_agent_registry::weights::SubstrateWeight<Runtime>;
 }
 
 /// Block rewards: 0.85 TESS per block to the miner, halving every 7 000 000 blocks.

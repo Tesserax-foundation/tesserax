@@ -240,4 +240,10 @@ mod runtime {
 
 	#[runtime::pallet_index(11)]
 	pub type Allocations = pallet_allocations;
+
+	#[runtime::pallet_index(12)]
+	pub type Agents = pallet_agents;
+
+	#[runtime::pallet_index(13)]
+	pub type AgentRegistry = pallet_agent_registry;
 }

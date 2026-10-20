@@ -7,4 +7,6 @@ frame_benchmarking::define_benchmarks!(
 	[pallet_sudo, Sudo]
 	[pallet_shielded, Shielded]
 	[pallet_emission, Emission]
+	[pallet_agents, Agents]
+	[pallet_agent_registry, AgentRegistry]
 );

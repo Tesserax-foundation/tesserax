@@ -10,6 +10,8 @@ members = [
 	"consensus/pow",
 	"crypto/randomtess",
 	"node",
+	"pallets/agent-registry",
+	"pallets/agents",
 	"pallets/allocations",
 	"pallets/difficulty",
 	"pallets/emission",
@@ -39,6 +41,8 @@ erasing_op = { level = "allow", priority = 2 }
 
 [workspace.dependencies]
 # Local crates
+pallet-agent-registry = { path = "pallets/agent-registry", default-features = false }
+pallet-agents = { path = "pallets/agents", default-features = false }
 pallet-allocations = { path = "pallets/allocations", default-features = false }
 pallet-difficulty = { path = "pallets/difficulty", default-features = false }
 pallet-emission = { path = "pallets/emission", default-features = false }

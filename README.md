@@ -10,6 +10,8 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 |---|---|
 | `node/` | The `tessera` node: networking, block import, built-in miner, RPC |
 | `runtime/` | The on-chain logic, compiled to WebAssembly |
+| `pallets/agents/` | Agent accounts: keys spending for an owner within a budget, targets and an expiry |
+| `pallets/agent-registry/` | Registry of AI agents: identity, owner, endpoint, capabilities and reputation |
 | `pallets/allocations/` | Genesis team and foundation allocations, released by vesting schedules |
 | `pallets/difficulty/` | Difficulty adjustment (LWMA over 120 blocks, 18 s target) |
 | `pallets/emission/` | Block rewards: 0.85 TESS per block to the miner, halving every 7 000 000 blocks |
@@ -57,6 +59,14 @@ foundation allocation to a 2-of-3 multisig of Alice, Bob and Charlie.
   contract gas.
 - Value in the shielded pool is not counted in the total issuance of the balances pallet: the
   total supply is the total issuance plus the pool balance (see `docs/privacy.md`).
+
+## AI agents
+
+Tessera is built for AI agents that hold and spend value on their own, with any language model.
+An owner delegates to an agent's ML-DSA key a budget per period, a limit per call, the
+recipients and contracts allowed and an expiry; the chain enforces them and the owner revokes
+the delegation at once. Agents register their identity, endpoint and capabilities, and build a
+reputation from payments and ratings that cannot be given without paying. See `docs/agents.md`.
 
 ## Accounts and signatures
 
