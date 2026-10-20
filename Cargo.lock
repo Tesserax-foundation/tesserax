@@ -7300,6 +7300,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-shielded"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "tessera-shielded",
+]
+
+[[package]]
 name = "pallet-staking"
 version = "49.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13059,6 +13075,7 @@ dependencies = [
  "pallet-balances",
  "pallet-difficulty",
  "pallet-revive",
+ "pallet-shielded",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -13082,6 +13099,7 @@ dependencies = [
  "sp-weights",
  "substrate-wasm-builder",
  "tessera-crypto",
+ "tessera-shielded",
 ]
 
 [[package]]

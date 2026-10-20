@@ -3,7 +3,7 @@
 use crate::{
 	hash::Digest,
 	keys::{decapsulate, Address, SpendingKey},
-	note::{Note, RANDOMNESS_LEN},
+	note::Note,
 };
 use chacha20poly1305::{
 	aead::{Aead, KeyInit},
@@ -12,14 +12,7 @@ use chacha20poly1305::{
 use ml_kem::array::Array;
 use sha3::{Digest as _, Sha3_256};
 
-/// Size of an ML-KEM-768 ciphertext.
-pub const KEM_CIPHERTEXT_SIZE: usize = 1088;
-
-/// Size of an encrypted note plaintext: value, rho and randomness.
-pub const PLAINTEXT_SIZE: usize = 8 + 32 + 8 * RANDOMNESS_LEN;
-
-/// Size of an encrypted note.
-pub const ENCRYPTED_NOTE_SIZE: usize = KEM_CIPHERTEXT_SIZE + PLAINTEXT_SIZE + 16;
+pub use crate::{ENCRYPTED_NOTE_SIZE, KEM_CIPHERTEXT_SIZE, PLAINTEXT_SIZE};
 
 fn symmetric_key(shared: &[u8; 32]) -> Key {
 	let mut hasher = Sha3_256::new();

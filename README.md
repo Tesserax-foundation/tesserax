@@ -11,8 +11,10 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 | `node/` | The `tessera` node: networking, block import, built-in miner, RPC |
 | `runtime/` | The on-chain logic, compiled to WebAssembly |
 | `pallets/difficulty/` | Difficulty adjustment (LWMA over 120 blocks, 18 s target) |
+| `pallets/shielded/` | Shielded pool: private transfers proven with zero-knowledge STARKs, see `docs/privacy.md` |
 | `consensus/pow/` | RandomTESS proof of work: seal verification, key schedule, miner, confirmation depth |
 | `primitives/crypto/` | ML-DSA-65 keys, signatures and accounts |
+| `primitives/shielded/` | Notes, note tree, note encryption and the STARK circuit of the shielded pool |
 | `vendor/` | Forks of Polkadot SDK crates for post-quantum networking and contracts, see `vendor/README.md` |
 | `crypto/randomtess/` | RandomTESS hash function (RandomX v2 sources with the Tessera configuration) |
 

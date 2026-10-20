@@ -175,6 +175,42 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
+parameter_types! {
+	/// Fees of private transactions are paid from the shielded pool, without signer: they must
+	/// pay at least what a signed transaction of the same weight and length pays.
+	pub ShieldedMinimumFee: u64 = shielded_minimum_fee();
+}
+
+/// Encoded length of a typical private transaction: proof, two encrypted notes, public inputs.
+const SHIELDED_TRANSACTION_LENGTH: u64 = 190_000;
+
+fn shielded_minimum_fee() -> u64 {
+	use frame_support::weights::WeightToFee;
+	use pallet_shielded::WeightInfo;
+	type Weights = pallet_shielded::weights::SubstrateWeight<Runtime>;
+	let weight = ExtrinsicBaseWeight::get()
+		.saturating_add(Weights::authorize_transact())
+		.saturating_add(Weights::transact());
+	let fee = IdentityFee::<Balance>::weight_to_fee(&weight)
+		.saturating_add(IdentityFee::<Balance>::weight_to_fee(&Weight::from_parts(
+			SHIELDED_TRANSACTION_LENGTH,
+			0,
+		)));
+	fee.try_into().unwrap_or(u64::MAX)
+}
+
+/// Private transfers: notes proven with zero-knowledge STARKs. See `docs/privacy.md`.
+impl pallet_shielded::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type FindAuthor = PowAuthor;
+	/// Anchors stay valid for the last 100 blocks that changed the note tree.
+	type RootHistory = ConstU32<100>;
+	type MinimumFee = ShieldedMinimumFee;
+	type Longevity = ConstU64<64>;
+	type WeightInfo = pallet_shielded::weights::SubstrateWeight<Runtime>;
+}
+
 /// Storage deposit for `items` storage items using `bytes` bytes.
 const fn deposit(items: u32, bytes: u32) -> Balance {
 	items as Balance * 20 * MILLI_UNIT + (bytes as Balance) * (MILLI_UNIT / 10)

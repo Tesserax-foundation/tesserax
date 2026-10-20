@@ -61,5 +61,6 @@ authentication. The crates below are forks of the published Polkadot SDK crates,
   `bn128` add, mul and pairing, `p256_verify` (secp256r1) and KZG `point_eval`.
 - The contract API helpers `sr25519_verify`, `ecdsa_recover` and `ecdsa_to_eth_address` always
   fail.
+- The benchmarks of the removed precompiles and of `ecdsa_to_eth_address` are removed.
 - EVM bytecode and Ethereum transactions are disabled by the runtime configuration
   (`AllowEVMBytecode = false`, Ethereum calls filtered).

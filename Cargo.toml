@@ -11,6 +11,7 @@ members = [
 	"crypto/randomtess",
 	"node",
 	"pallets/difficulty",
+	"pallets/shielded",
 	"primitives/crypto",
 	"primitives/shielded",
 	"runtime",
@@ -37,6 +38,7 @@ erasing_op = { level = "allow", priority = 2 }
 [workspace.dependencies]
 # Local crates
 pallet-difficulty = { path = "pallets/difficulty", default-features = false }
+pallet-shielded = { path = "pallets/shielded", default-features = false }
 randomtess = { path = "crypto/randomtess" }
 tessera-crypto = { path = "primitives/crypto", default-features = false }
 tessera-pow = { path = "consensus/pow" }

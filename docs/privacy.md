@@ -107,7 +107,9 @@ Proofs use Plonky3 `uni-stark` over Goldilocks, with challenges in its quadratic
   security;
 - the prover draws fresh randomness for every proof; two proofs of the same transaction differ.
 
-A proof is about 180 kB. Proving takes about 0.1 s and verifying about 13 ms on an Apple M1.
+A proof is about 180 kB. On an Apple M1, proving takes about 0.1 s; verifying takes about 13 ms,
+natively as in the WebAssembly runtime. Block length, not compute, bounds the number of private
+transactions per block: about 20 with 5 MiB blocks.
 
 ## Note encryption
 
@@ -118,10 +120,37 @@ key and check the decrypted note against its commitment.
 
 ## Chain rules
 
+The rules are implemented by `pallet-shielded` (`pallets/shielded`).
+
 - Nullifiers are stored; a transaction spending a known nullifier, or the same nullifier twice,
   is rejected.
-- The anchor must be one of the last 100 roots.
+- The anchor must be one of the last 100 roots. The chain records one root per block that
+  changes the tree, the root at the end of the block, so that several transactions of a block
+  can use the same anchor.
 - Turnstile: the chain tracks the total value in the pool. `value_in` adds to it, `value_out` and
   `fee` are taken from it, and it can never become negative. A flaw in the proof system could not
   create TESS outside the pool.
-- Public amounts and fees must be below `2^60`.
+- Public amounts and fees must be below `2^60` planck, as note values: a single note holds at
+  most 1 152 921 TESS.
+
+Two calls:
+
+- `shield`, signed by the account paying `value_in`. The binding hash covers the signer, so that
+  the proof cannot be replayed from another account. The signer pays the usual transaction fee.
+- `transact`, submitted without signer (a general transaction authorised by its proof), so that
+  it is linked to no account. `value_in` must be zero. Its `fee` is paid from the pool to the
+  block author and must be at least what a signed transaction of the same weight and length pays.
+  The proof and every other rule are checked when the transaction enters the pool and again when
+  the block is imported; once authorised, the call cannot fail, so that every included
+  transaction pays its fee. The transaction pool rejects conflicting transactions through their
+  nullifiers.
+
+Value moved into the pool is burned from the transparent supply and value moved out is minted:
+the total supply is the total issuance of the balances pallet plus the pool balance.
+
+The binding hash is `blake2_256("tessera-shielded-binding" || source || recipient || notes)`
+(SCALE encoded), reduced to a digest. Wallets compute it before proving.
+
+Each applied transaction emits `Transacted` with the nullifiers, the commitments, the position of
+the first new note and both encrypted notes: wallets rebuild the note tree from these events and
+try to decrypt every note.

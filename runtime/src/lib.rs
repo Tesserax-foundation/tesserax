@@ -192,4 +192,7 @@ mod runtime {
 
 	#[runtime::pallet_index(6)]
 	pub type Revive = pallet_revive;
+
+	#[runtime::pallet_index(7)]
+	pub type Shielded = pallet_shielded;
 }

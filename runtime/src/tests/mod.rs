@@ -1,6 +1,7 @@
-//! Runtime tests: ML-DSA transactions and smart contracts.
+//! Runtime tests: ML-DSA transactions, smart contracts and private transfers.
 
 mod contracts;
+mod shielded;
 mod signatures;
 
 pub(super) use crate::*;

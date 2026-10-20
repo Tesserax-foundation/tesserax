@@ -30,6 +30,7 @@ tessera-crypto = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-difficulty = { workspace = true }
 pallet-revive = { workspace = true }
+pallet-shielded = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
@@ -59,6 +60,7 @@ frame-system-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true, default-features = true }
+tessera-shielded = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -78,6 +80,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-difficulty/std",
 	"pallet-revive/std",
+	"pallet-shielded/std",
 	"alloy-core/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
@@ -108,6 +111,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
+	"pallet-shielded/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
@@ -121,6 +125,7 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-difficulty/try-runtime",
 	"pallet-revive/try-runtime",
+	"pallet-shielded/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
