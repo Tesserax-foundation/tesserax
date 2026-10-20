@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #f7f8fb;
+  --surface-3: #eef1f6;
+  --border: #e2e6ee;
+  --border-strong: #cbd2de;
+  --text: #0b0e14;
+  --muted: #5a6478;
+  --faint: #8a93a6;
+  --accent: #1f5eff;
+  --accent-strong: #1747c9;
+  --accent-soft: #e7eeff;
+  --success: #0f9d63;
+  --success-soft: #e3f6ee;
+  --danger: #d93a3a;
+  --danger-soft: #fdeaea;
+  --warning: #b7791f;
+  --warning-soft: #fdf3e1;
+  --glow: rgba(31, 94, 255, 0.10);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #07090d;
+  --surface: #0d1016;
+  --surface-2: #11151d;
+  --surface-3: #171c26;
+  --border: #1d2330;
+  --border-strong: #2a3242;
+  --text: #e8ebf2;
+  --muted: #8d96aa;
+  --faint: #5f687c;
+  --accent: #4d86ff;
+  --accent-strong: #7aa5ff;
+  --accent-soft: rgba(77, 134, 255, 0.12);
+  --success: #2fc98a;
+  --success-soft: rgba(47, 201, 138, 0.12);
+  --danger: #ff6b6b;
+  --danger-soft: rgba(255, 107, 107, 0.12);
+  --warning: #f2b544;
+  --warning-soft: rgba(242, 181, 68, 0.12);
+  --glow: rgba(77, 134, 255, 0.16);
+  color-scheme: dark;
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-fg: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+
+body {
+  min-height: 100dvh;
+}
+
+::selection {
+  background: var(--accent);
+  color: white;
+}
+
+/* The mosaic of the header and the hero: tesserae, as in the name. */
+.mosaic {
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(ellipse at 50% 0%, black 20%, transparent 75%);
+}
+
+.glow {
+  background: radial-gradient(ellipse 60% 70% at 50% 0%, var(--glow), transparent 70%);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes pulse-in {
+  from {
+    background: var(--accent-soft);
+  }
+}
+
+.fresh {
+  animation: pulse-in 1.6s ease-out;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

@@ -1,0 +1,16 @@
+{
+  "name": "tesserax-explorer",
+  "private": true,
+  "description": "Tesserax Explorer: the indexer, the Supabase schema and the web application.",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "indexer",
+    "web"
+  ],
+  "scripts": {
+    "indexer": "npm run start -w indexer",
+    "dev": "npm run dev -w web",
+    "build": "npm run build -w indexer && npm run build -w web",
+    "test": "npm test -w indexer && npm test -w web"
+  }
+}

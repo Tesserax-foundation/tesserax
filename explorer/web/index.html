@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tesserax Explorer</title>
+    <meta name="description" content="Blocks, transactions, accounts, miners and AI agents of Tesserax, the post-quantum proof-of-work chain for AI agents." />
+    <meta name="theme-color" content="#0a0c10" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:title" content="Tesserax Explorer" />
+    <meta property="og:description" content="The post-quantum proof-of-work chain for AI agents." />
+    <meta property="og:image" content="/logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <script>
+      try {
+        const theme = localStorage.getItem("theme");
+        const dark = theme ? theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.classList.toggle("dark", dark);
+      } catch {
+        document.documentElement.classList.add("dark");
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
