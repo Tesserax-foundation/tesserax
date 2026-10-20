@@ -29,7 +29,7 @@ use super::{
 	precompiles::MlDsa65Verify, AccountId, Balance, Balances, Block, BlockNumber, Hash, Nonce,
 	PalletInfo, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason,
 	RuntimeOrigin, RuntimeTask, System, Timestamp, Vesting, BLOCK_REWARD, EXISTENTIAL_DEPOSIT, HALVING_INTERVAL,
-	MILLI_SECS_PER_BLOCK, MILLI_UNIT, MINING_SUPPLY, SS58_PREFIX, UNIT, VERSION,
+	HOURS, MILLI_SECS_PER_BLOCK, MILLI_UNIT, MINING_SUPPLY, SS58_PREFIX, UNIT, VERSION,
 };
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -241,8 +241,8 @@ impl pallet_allocations::Config for Runtime {
 	type Vesting = Vesting;
 }
 
-/// What agents may do for their owners: transfers, payments to registered agents and calls of
-/// contracts. Every other call is refused, including the management of delegations, multisig,
+/// What agents may do for their owners: transfers, payments to registered agents, payment
+/// channels and calls of contracts. Every other call is refused, including the management of delegations, multisig,
 /// vesting and sudo.
 pub struct AgentCalls;
 
@@ -261,6 +261,24 @@ impl pallet_agents::ClassifyCall<RuntimeCall, AccountId> for AgentCalls {
 				CallKind::Transfer { to: agent.clone() },
 			RuntimeCall::Revive(pallet_revive::Call::call { dest, .. }) => CallKind::Contract {
 				to: <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(dest),
+			},
+			// Opening and funding a channel pay its payee; the deposit counts in the budget.
+			RuntimeCall::Channels(pallet_channels::Call::open { payee, .. }) =>
+				CallKind::Transfer { to: payee.clone() },
+			RuntimeCall::Channels(
+				pallet_channels::Call::top_up { id, .. } |
+				pallet_channels::Call::request_close { id } |
+				pallet_channels::Call::finalize_close { id },
+			) => match pallet_channels::Channels::<Runtime>::get(id) {
+				Some(channel) => CallKind::Transfer { to: channel.payee },
+				None => CallKind::Forbidden,
+			},
+			// Claiming and closing as the payee only bring funds to the owner.
+			RuntimeCall::Channels(
+				pallet_channels::Call::claim { id, .. } | pallet_channels::Call::close { id },
+			) => match pallet_channels::Channels::<Runtime>::get(id) {
+				Some(channel) => CallKind::Transfer { to: channel.payer },
+				None => CallKind::Forbidden,
 			},
 			_ => CallKind::Forbidden,
 		}
@@ -312,6 +330,24 @@ impl pallet_agent_registry::Config for Runtime {
 	type DepositPerByte = AgentDepositPerByte;
 	type MinPayment = MinAgentPayment;
 	type WeightInfo = pallet_agent_registry::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub const ChannelClosePeriod: BlockNumber = 6 * HOURS;
+	pub const ChannelMinDeposit: Balance = 10 * MILLI_UNIT;
+	/// A channel stores the ML-DSA public key that signs its vouchers.
+	pub const ChannelStorageDeposit: Balance = deposit(1, 2_200);
+}
+
+/// Micropayments: payment channels with vouchers signed off chain.
+impl pallet_channels::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Currency = Balances;
+	type ClosePeriod = ChannelClosePeriod;
+	type MinDeposit = ChannelMinDeposit;
+	type StorageDeposit = ChannelStorageDeposit;
+	type WeightInfo = pallet_channels::weights::SubstrateWeight<Runtime>;
 }
 
 /// Block rewards: 0.85 TESS per block to the miner, halving every 7 000 000 blocks.

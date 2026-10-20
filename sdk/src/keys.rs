@@ -75,6 +75,17 @@ impl Keypair {
 	pub fn address(&self) -> String {
 		format_address(&self.account_id())
 	}
+
+	/// The ML-DSA-65 public key.
+	pub fn public_key(&self) -> [u8; tesserax_crypto::PUBLIC_KEY_SIZE] {
+		<Pair as sp_core::Pair>::public(&self.0).0
+	}
+
+	/// Hedged ML-DSA-65 signature of `message` with the FIPS 204 context `context`, for messages
+	/// that are not transactions, such as vouchers.
+	pub fn sign_with_context(&self, message: &[u8], context: &[u8]) -> Vec<u8> {
+		self.0.sign_with_context(message, context).0.to_vec()
+	}
 }
 
 impl core::fmt::Debug for Keypair {

@@ -22,6 +22,9 @@ The binary is `target/release/tesserax-mcp`.
 | `TESSERAX_KEY` | Secret URI of the agent key: a 24-word phrase, optionally with a derivation path (`phrase//agent`) |
 | `TESSERAX_KEY_FILE` | File containing the secret URI, instead of `TESSERAX_KEY` |
 | `TESSERAX_OWNER` | Address of the owner whose funds the agent spends through its delegation |
+| `TESSERAX_CHANNEL_DEPOSIT` | Deposit of the payment channels opened to pay services, and of their top-ups, in TESS (1 by default) |
+| `TESSERAX_MAX_PRICE` | Highest price of a paid request, in TESS (0.01 by default) |
+| `TESSERAX_CHANNELS_FILE` | File keeping the state of the payment channels across restarts |
 
 Without a key, only the reading tools work.
 
@@ -76,6 +79,9 @@ the client configuration.
 | `tesserax_find_agents` | Registered agents, by capability, best rated first |
 | `tesserax_get_agent` | Profile, owner, endpoint and reputation of an agent |
 | `tesserax_delegation` | A delegation: budget, limits, spent and remaining |
+| `tesserax_fetch` | HTTP request paying the service per request with micropayments (HTTP 402) |
+| `tesserax_channels` | The agent's payment channels: payees, deposits, amounts paid |
+| `tesserax_close_channel` | Request to close a payment channel; the rest of the deposit returns after 6 hours |
 | `tesserax_register_agent` | Register the agent in the registry |
 | `tesserax_update_profile` | Replace its profile |
 
@@ -87,6 +93,19 @@ errors.
 Transactions are reported once included in a block, about 20 seconds. Blocks are final 60 blocks
 deep; a reorganization deeper than the inclusion block can drop a transaction before then.
 
+## Paying services
+
+`tesserax_fetch` makes an HTTP request. If the service answers `402 Payment Required` with a
+`Tesserax-Payment` header (`docs/micropayments.md`), the server pays the price with a voucher on a
+payment channel to the service and repeats the request: the first payment to a service opens a
+channel on chain (one transaction, deposit `TESSERAX_CHANNEL_DEPOSIT`), the next ones are
+vouchers signed off chain, without transaction or fee. In delegated mode the channel is the
+owner's and its deposit counts in the agent's budget. Prices above `TESSERAX_MAX_PRICE`, or above
+the `max_price` of the call, are refused.
+
+Without `TESSERAX_CHANNELS_FILE`, a restarted server opens new channels to the services it pays;
+close the old ones with `tesserax_close_channel`.
+
 ## Test
 
 Against a running development chain:
@@ -96,4 +115,9 @@ tesserax --dev --tmp --mine --author <address>
 cargo test -p tesserax-mcp --test stdio -- --ignored --nocapture
 ```
 
-The test sets up a delegation, starts the server as an agent would and uses its tools.
+The tests set up a delegation, start the server as an agent would and use its tools;
+`paid_http` also runs a service charging per request:
+
+```bash
+cargo test -p tesserax-mcp --test paid_http -- --ignored --nocapture
+```

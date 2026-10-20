@@ -7,13 +7,57 @@ use rmcp::{
 	tool, tool_handler, tool_router, ErrorData, ServerHandler,
 };
 use serde::{Deserialize, Serialize};
-use tesserax_sdk::{format_address, parse_address, AccountId, Amount, Client, Keypair, Profile};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use tesserax_sdk::{
+	format_address, parse_address, AccountId, Amount, ChannelPayer, Client, Keypair, PayerChannel,
+	PaymentRequired, Profile, PAYMENT_HEADER, VOUCHER_HEADER,
+};
+
+/// Largest response body returned to the agent, in bytes.
+const MAX_BODY: usize = 100_000;
+
+/// Payments of HTTP services over payment channels.
+pub struct Payments {
+	payer: Option<ChannelPayer>,
+	max_price: Amount,
+	file: Option<PathBuf>,
+	http: reqwest::Client,
+}
+
+impl Payments {
+	pub async fn new(
+		client: &Client,
+		key: Option<&Keypair>,
+		owner: Option<AccountId>,
+		deposit: Amount,
+		max_price: Amount,
+		file: Option<PathBuf>,
+	) -> Result<Self, Box<dyn std::error::Error>> {
+		let payer = key.map(|key| ChannelPayer::new(client.clone(), key.clone(), owner, deposit));
+		if let (Some(payer), Some(path)) = (&payer, &file) {
+			if path.exists() {
+				let saved: HashMap<String, PayerChannel> = serde_json::from_slice(&std::fs::read(path)?)?;
+				payer.restore(saved).await;
+			}
+		}
+		let http = reqwest::Client::builder().user_agent("tesserax-mcp").build()?;
+		Ok(Payments { payer, max_price, file, http })
+	}
+
+	async fn save(&self) -> Result<(), String> {
+		let (Some(payer), Some(path)) = (&self.payer, &self.file) else { return Ok(()) };
+		let state = serde_json::to_vec_pretty(&payer.channels().await).map_err(|e| e.to_string())?;
+		std::fs::write(path, state).map_err(|e| format!("cannot save {}: {e}", path.display()))
+	}
+}
 
 const INSTRUCTIONS: &str = "Tesserax is a post-quantum blockchain for AI agents. Its token is TESS \
 (12 decimals). Amounts are decimal strings of TESS such as \"0.5\"; addresses start with \"te\". \
 Use tesserax_wallet to see your address, balance and, if you spend for an owner, what is left of \
 your budget. Use tesserax_find_agents to discover agents by capability, tesserax_pay_agent to pay \
 a registered agent (it counts in its reputation) and tesserax_transfer for plain transfers. \
+Use tesserax_fetch to call HTTP services that charge per request: it pays them with \
+micropayments, without a transaction per request. \
 Transactions are included in a block within about 20 seconds; the chain refuses any payment \
 beyond the limits set by your owner.";
 
@@ -23,7 +67,47 @@ pub struct Tesserax {
 	client: Client,
 	key: Option<Keypair>,
 	owner: Option<AccountId>,
+	payments: Arc<Payments>,
 	tool_router: ToolRouter<Self>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct FetchParams {
+	/// URL of the request.
+	url: String,
+	/// HTTP method, GET by default.
+	method: Option<String>,
+	/// Request body, if any.
+	body: Option<String>,
+	/// Request headers.
+	#[serde(default)]
+	headers: HashMap<String, String>,
+	/// Highest price accepted for this request, in TESS; the server's maximum by default.
+	max_price: Option<String>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct ChannelParams {
+	/// Identifier of the channel.
+	channel: u64,
+}
+
+#[derive(Serialize)]
+struct FetchResult {
+	status: u16,
+	content_type: Option<String>,
+	body: String,
+	truncated: bool,
+	payment: Option<Payment>,
+}
+
+#[derive(Serialize)]
+struct Payment {
+	payee: String,
+	channel: u64,
+	price: Amount,
+	/// Cumulative amount paid on the channel.
+	total: Amount,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -134,8 +218,24 @@ macro_rules! attempt {
 }
 
 impl Tesserax {
-	pub fn new(client: Client, key: Option<Keypair>, owner: Option<AccountId>) -> Self {
-		Tesserax { client, key, owner, tool_router: Self::tool_router() }
+	pub fn new(client: Client, key: Option<Keypair>, owner: Option<AccountId>, payments: Payments) -> Self {
+		Tesserax { client, key, owner, payments: Arc::new(payments), tool_router: Self::tool_router() }
+	}
+
+	async fn send(&self, p: &FetchParams, voucher: Option<String>) -> Result<reqwest::Response, String> {
+		let method = reqwest::Method::from_bytes(p.method.as_deref().unwrap_or("GET").to_uppercase().as_bytes())
+			.map_err(|_| "invalid HTTP method".to_string())?;
+		let mut request = self.payments.http.request(method, &p.url);
+		for (name, value) in &p.headers {
+			request = request.header(name, value);
+		}
+		if let Some(body) = &p.body {
+			request = request.body(body.clone());
+		}
+		if let Some(voucher) = voucher {
+			request = request.header(VOUCHER_HEADER, voucher);
+		}
+		request.send().await.map_err(|e| format!("request failed: {e}"))
 	}
 
 	fn key(&self) -> Result<&Keypair, String> {
@@ -240,6 +340,70 @@ impl Tesserax {
 			Some(d) => ok(d),
 			None => fail("no delegation from this owner to this agent"),
 		}
+	}
+
+	#[tool(description = "Make an HTTP request, paying the service in TESS if it asks for it: on a \
+		402 answer with a Tesserax-Payment header, pays the price with a voucher on a payment channel \
+		to the service (opened or topped up on chain when needed) and repeats the request. Refuses \
+		prices above max_price.")]
+	async fn tesserax_fetch(&self, Parameters(p): Parameters<FetchParams>) -> ToolResult {
+		let max_price = match &p.max_price {
+			Some(text) => attempt!(Amount::from_tess(text)).min(self.payments.max_price),
+			None => self.payments.max_price,
+		};
+		let mut response = attempt!(self.send(&p, None).await);
+		let mut payment = None;
+		if response.status() == reqwest::StatusCode::PAYMENT_REQUIRED {
+			let Some(header) = response.headers().get(PAYMENT_HEADER).and_then(|v| v.to_str().ok()) else {
+				return fail("the service asks for a payment without a Tesserax-Payment header");
+			};
+			let requirement = attempt!(PaymentRequired::from_header(header));
+			let Some(payer) = &self.payments.payer else {
+				return fail("no key configured: set TESSERAX_KEY to pay services");
+			};
+			let voucher = attempt!(payer.pay(&requirement, max_price).await);
+			attempt!(self.payments.save().await);
+			payment = Some(Payment {
+				payee: requirement.payee.clone(),
+				channel: voucher.channel,
+				price: requirement.price,
+				total: voucher.amount,
+			});
+			response = attempt!(self.send(&p, Some(voucher.to_header())).await);
+			if response.status() == reqwest::StatusCode::PAYMENT_REQUIRED {
+				let reason = response
+					.headers()
+					.get(PAYMENT_HEADER)
+					.and_then(|v| v.to_str().ok())
+					.and_then(|v| PaymentRequired::from_header(v).ok())
+					.and_then(|r| r.error)
+					.unwrap_or_else(|| "no reason given".into());
+				return fail(format!("the service refused the payment: {reason}"));
+			}
+		}
+		let status = response.status().as_u16();
+		let content_type =
+			response.headers().get(reqwest::header::CONTENT_TYPE).and_then(|v| v.to_str().ok()).map(String::from);
+		let bytes = attempt!(response.bytes().await.map_err(|e| format!("cannot read the response: {e}")));
+		let truncated = bytes.len() > MAX_BODY;
+		let body = String::from_utf8_lossy(&bytes[..bytes.len().min(MAX_BODY)]).into_owned();
+		ok(FetchResult { status, content_type, body, truncated, payment })
+	}
+
+	#[tool(description = "Your payment channels: the services you pay, deposits and amounts paid.")]
+	async fn tesserax_channels(&self) -> ToolResult {
+		let key = attempt!(self.key());
+		let payer = self.owner.clone().unwrap_or_else(|| key.account_id());
+		let mut channels = attempt!(self.client.channels_of(&payer).await);
+		channels.retain(|c| c.signer == key.address());
+		ok(channels)
+	}
+
+	#[tool(description = "Request to close one of your payment channels: after 6 hours, during \
+		which the service can claim what it was paid, the rest of the deposit returns.")]
+	async fn tesserax_close_channel(&self, Parameters(p): Parameters<ChannelParams>) -> ToolResult {
+		let key = attempt!(self.key());
+		ok(attempt!(self.client.request_close_channel(key, self.owner.as_ref(), p.channel).await))
 	}
 
 	#[tool(description = "Register yourself in the agent registry so that other agents can find \

@@ -16,6 +16,7 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 | `mcp/` | MCP server: lets any AI agent hold, spend and earn TESS |
 | `pallets/agents/` | Agent accounts: keys spending for an owner within a budget, targets and an expiry |
 | `pallets/agent-registry/` | Registry of AI agents: identity, owner, endpoint, capabilities and reputation |
+| `pallets/channels/` | Payment channels: micropayments with vouchers signed off chain, see `docs/micropayments.md` |
 | `pallets/allocations/` | Genesis team and foundation allocations, released by vesting schedules |
 | `pallets/difficulty/` | Difficulty adjustment (LWMA over 120 blocks, 18 s target) |
 | `pallets/emission/` | Block rewards: 0.85 TESS per block to the miner, halving every 7 000 000 blocks |
@@ -70,8 +71,10 @@ Tesserax is built for AI agents that hold and spend value on their own, with any
 An owner delegates to an agent's ML-DSA key a budget per period, a limit per call, the
 recipients and contracts allowed and an expiry; the chain enforces them and the owner revokes
 the delegation at once. Agents register their identity, endpoint and capabilities, and build a
-reputation from payments and ratings that cannot be given without paying. Any agent that speaks
-the Model Context Protocol uses Tesserax through the MCP server (`mcp/`). See `docs/agents.md`.
+reputation from payments and ratings that cannot be given without paying. Agents pay per request with
+payment channels: vouchers signed off chain, one transaction to claim many payments, and HTTP 402
+for paid services (`docs/micropayments.md`). Any agent that speaks the Model Context Protocol uses
+Tesserax through the MCP server (`mcp/`). See `docs/agents.md`.
 
 ## Accounts and signatures
 

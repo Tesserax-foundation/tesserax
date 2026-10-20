@@ -84,7 +84,13 @@ policy like a transfer, so an agent can buy the service of another agent within 
   as the node (checked against `sdk/vectors/keys.json`) and are tested against a development
   chain.
 
+## Micropayments
+
+Agents pay per request with payment channels: one transaction to open a channel, a voucher
+signed off chain per payment, one transaction for the payee to claim them all. Paid HTTP
+services use the HTTP 402 protocol of `docs/micropayments.md`; the MCP tool `tesserax_fetch`
+pays them automatically, opening channels for the owner through the agent's delegation.
+
 ## Next steps
 
-- payment channels for micropayments per request, with HTTP 402 payments;
 - a task market with escrow, recording tasks in the reputation.

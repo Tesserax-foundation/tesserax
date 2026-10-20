@@ -14,6 +14,7 @@ members = [
 	"pallets/agent-registry",
 	"pallets/agents",
 	"pallets/allocations",
+	"pallets/channels",
 	"pallets/difficulty",
 	"pallets/emission",
 	"pallets/shielded",
@@ -46,6 +47,7 @@ erasing_op = { level = "allow", priority = 2 }
 pallet-agent-registry = { path = "pallets/agent-registry", default-features = false }
 pallet-agents = { path = "pallets/agents", default-features = false }
 pallet-allocations = { path = "pallets/allocations", default-features = false }
+pallet-channels = { path = "pallets/channels", default-features = false }
 pallet-difficulty = { path = "pallets/difficulty", default-features = false }
 pallet-emission = { path = "pallets/emission", default-features = false }
 pallet-shielded = { path = "pallets/shielded", default-features = false }
@@ -78,6 +80,7 @@ rand = { version = "0.10.1", default-features = false, features = ["std_rng"] }
 sha3 = { version = "0.12.0", default-features = false }
 alloy-core = { version = "1.2.1", default-features = false }
 async-trait = { version = "0.1.88" }
+base64 = { version = "0.22.1" }
 bip39 = { version = "2.2.2", default-features = false, features = ["std"] }
 clap = { version = "4.5.13" }
 cmake = { version = "0.1.54" }
@@ -95,6 +98,7 @@ serde_json = { version = "1.0.132", default-features = false }
 thiserror = { version = "1.0.64" }
 subxt = { version = "0.44.3" }
 rmcp = { version = "3.6.0", default-features = false }
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] }
 serde = { version = "1.0.229", features = ["derive"] }
 tokio = { version = "1.53.3" }
 

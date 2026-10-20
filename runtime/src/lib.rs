@@ -246,4 +246,7 @@ mod runtime {
 
 	#[runtime::pallet_index(13)]
 	pub type AgentRegistry = pallet_agent_registry;
+
+	#[runtime::pallet_index(14)]
+	pub type Channels = pallet_channels;
 }

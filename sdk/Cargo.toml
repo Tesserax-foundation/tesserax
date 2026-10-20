@@ -11,14 +11,17 @@ publish = false
 workspace = true
 
 [dependencies]
+base64 = { workspace = true }
 bip39 = { workspace = true }
 codec = { workspace = true, default-features = true, features = ["derive"] }
 getrandom = { workspace = true, default-features = true }
 serde = { workspace = true }
+serde_json = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 subxt = { workspace = true }
 tesserax-crypto = { workspace = true, default-features = true }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
 tesserax-runtime = { workspace = true, default-features = true }

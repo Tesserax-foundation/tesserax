@@ -279,7 +279,12 @@ impl Client {
 		Ok(self.best().await?.1)
 	}
 
-	async fn storage(
+	/// Number of the best block.
+	pub async fn best_block_number(&self) -> Result<u32> {
+		self.best_block().await
+	}
+
+	pub(crate) async fn storage(
 		&self,
 	) -> Result<subxt::storage::Storage<TesseraxConfig, OnlineClient<TesseraxConfig>>> {
 		let (hash, _) = self.best().await?;
@@ -301,6 +306,15 @@ impl Client {
 
 	/// Sign `call` with `signer`, submit it and wait until a block includes it successfully.
 	pub async fn submit<Call: Payload>(&self, call: &Call, signer: &Keypair) -> Result<TxOutcome> {
+		Ok(self.submit_events(call, signer).await?.0)
+	}
+
+	/// Like [`Client::submit`], also returning the events of the transaction.
+	pub async fn submit_events<Call: Payload>(
+		&self,
+		call: &Call,
+		signer: &Keypair,
+	) -> Result<(TxOutcome, subxt::blocks::ExtrinsicEvents<TesseraxConfig>)> {
 		let nonce = self
 			.rpc
 			.system_account_next_index(&signer.account_id())
@@ -324,11 +338,13 @@ impl Client {
 		};
 		let block_hash = in_block.block_hash();
 		let extrinsic_hash = in_block.extrinsic_hash();
-		in_block.wait_for_success().await.map_err(|e| match e {
+		let events = in_block.wait_for_success().await.map_err(|e| match e {
 			subxt::Error::Runtime(error) => Error::Dispatch(error.to_string()),
 			other => Error::Node(other),
 		})?;
-		Ok(TxOutcome { block_hash: hex(block_hash.as_ref()), extrinsic_hash: hex(extrinsic_hash.as_ref()) })
+		let outcome =
+			TxOutcome { block_hash: hex(block_hash.as_ref()), extrinsic_hash: hex(extrinsic_hash.as_ref()) };
+		Ok((outcome, events))
 	}
 
 	/// Transfer `amount` from `signer` to `to`, keeping the signer's account alive.

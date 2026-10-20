@@ -3,6 +3,7 @@
 
 mod agents;
 mod allocations;
+mod channels;
 mod contracts;
 mod emission;
 mod shielded;

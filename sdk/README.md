@@ -29,6 +29,24 @@ let payee = tesserax_sdk::parse_address(&translators[0].address)?;
 client.agent_pay_agent(&agent, &owner.account_id(), &payee, Amount::from_tess("0.25")?).await?;
 ```
 
+Micropayments (`docs/micropayments.md`): `ChannelPayer` pays HTTP 402 services with vouchers on
+payment channels it opens and tops up on demand, `ChannelReceiver` verifies the vouchers paying a
+service and claims them.
+
+```rust
+// A service charging 0.001 TESS per request.
+let receiver = ChannelReceiver::new(client.clone(), service_key);
+match request.header(VOUCHER_HEADER) {
+	Some(voucher) => match receiver.verify(voucher, price).await {
+		Ok(_) => serve(),
+		Err(rejection) => respond_402(receiver.payment_required(price, Some(&rejection))),
+	},
+	None => respond_402(receiver.payment_required(price, None)),
+}
+// From time to time:
+receiver.claim_all().await?;
+```
+
 The client reads the state of the best block and builds transactions on top of it: proof-of-work
 blocks are final only 60 blocks deep. Calls return once the transaction is included in a block,
 or the error of the chain, such as `Agents::BudgetExceeded`.

@@ -13,12 +13,16 @@
 //! - `TESSERAX_OWNER`: address of the owner whose funds the agent spends through its delegation.
 //!   Recommended: the chain then enforces the budget, the limit per call, the allowed recipients
 //!   and the expiry set by the owner, and the owner can revoke the agent at once. Without it, the
-//!   agent spends the funds of its own key.
+//!   agent spends the funds of its own key;
+//! - `TESSERAX_CHANNEL_DEPOSIT`: deposit of the payment channels opened to pay services, and
+//!   amount of their top-ups, in TESS (1 by default);
+//! - `TESSERAX_MAX_PRICE`: highest price of a paid request, in TESS (0.01 by default);
+//! - `TESSERAX_CHANNELS_FILE`: file keeping the state of the payment channels across restarts.
 
 mod server;
 
 use rmcp::{transport::stdio, ServiceExt};
-use tesserax_sdk::{parse_address, Client, Keypair};
+use tesserax_sdk::{parse_address, Amount, Client, Keypair};
 
 fn env(name: &str) -> Option<String> {
 	std::env::var(name).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
@@ -54,7 +58,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 	);
 
-	let service = server::Tesserax::new(client, key, owner).serve(stdio()).await?;
+	let deposit = Amount::from_tess(&env("TESSERAX_CHANNEL_DEPOSIT").unwrap_or_else(|| "1".into()))?;
+	let max_price = Amount::from_tess(&env("TESSERAX_MAX_PRICE").unwrap_or_else(|| "0.01".into()))?;
+	let channels_file = env("TESSERAX_CHANNELS_FILE").map(std::path::PathBuf::from);
+	let payments = server::Payments::new(&client, key.as_ref(), owner.clone(), deposit, max_price, channels_file).await?;
+
+	let service = server::Tesserax::new(client, key, owner, payments).serve(stdio()).await?;
 	service.waiting().await?;
 	Ok(())
 }

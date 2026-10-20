@@ -17,10 +17,15 @@
 //! ```
 
 pub mod amount;
+pub mod channels;
 pub mod client;
 pub mod keys;
 
 pub use amount::Amount;
+pub use channels::{
+	ChannelInfo, ChannelPayer, ChannelReceiver, PaymentRequired, PayerChannel, Rejection, Voucher,
+	PAYMENT_HEADER, VOUCHER_HEADER,
+};
 pub use client::{
 	AgentRecord, Balance, ChainInfo, Client, Delegation, Permissions, Policy, Profile, Reputation,
 	TxOutcome,

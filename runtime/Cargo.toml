@@ -31,6 +31,7 @@ pallet-agent-registry = { workspace = true }
 pallet-agents = { workspace = true }
 pallet-allocations = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-channels = { workspace = true }
 pallet-difficulty = { workspace = true }
 pallet-emission = { workspace = true }
 pallet-multisig = { workspace = true }
@@ -87,6 +88,7 @@ std = [
 	"pallet-agents/std",
 	"pallet-allocations/std",
 	"pallet-balances/std",
+	"pallet-channels/std",
 	"pallet-difficulty/std",
 	"pallet-emission/std",
 	"pallet-multisig/std",
@@ -124,6 +126,7 @@ runtime-benchmarks = [
 	"pallet-agent-registry/runtime-benchmarks",
 	"pallet-agents/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-channels/runtime-benchmarks",
 	"pallet-emission/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
@@ -143,6 +146,7 @@ try-runtime = [
 	"pallet-agents/try-runtime",
 	"pallet-allocations/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-channels/try-runtime",
 	"pallet-difficulty/try-runtime",
 	"pallet-emission/try-runtime",
 	"pallet-multisig/try-runtime",
