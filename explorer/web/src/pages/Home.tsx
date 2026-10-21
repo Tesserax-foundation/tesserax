@@ -8,7 +8,7 @@ import { SearchBar } from "../components/Search";
 import { signedCount } from "./Blocks";
 import { Badge, Card, CardHeader, CardLink, ErrorState, SkeletonRows, StatCard } from "../components/ui";
 import { useChainState, useDailyStats, useLatestBlocks, useLatestExtrinsics, useOverview, type Block } from "../lib/api";
-import { callLabel, formatCompact, formatDuration, formatHashrate, formatNumber, formatTess, shortAddress, TARGET_BLOCK_SECONDS, tessNumber } from "../lib/format";
+import { callLabel, plural, formatCompact, formatDuration, formatHashrate, formatNumber, formatTess, shortAddress, TARGET_BLOCK_SECONDS, tessNumber } from "../lib/format";
 
 function Hero() {
   return (
@@ -37,7 +37,7 @@ function Stats() {
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
       <StatCard label="Block height" icon={<Blocks size={16} />} loading={loading} value={o?.best != null ? `#${formatNumber(o.best)}` : "—"} sub={o?.finalized != null ? `Final up to #${formatNumber(o.finalized)}` : undefined} />
-      <StatCard label="Hashrate" icon={<Pickaxe size={16} />} loading={loading} value={formatHashrate(o?.hashrate)} sub={`${formatNumber(o?.miners_24h ?? 0)} miners in 24 h`} />
+      <StatCard label="Hashrate" icon={<Pickaxe size={16} />} loading={loading} value={formatHashrate(o?.hashrate)} sub={`${plural(o?.miners_24h, "miner")} in 24 h`} />
       <StatCard label="Difficulty" icon={<Gauge size={16} />} loading={loading} value={formatCompact(o?.difficulty)} sub="LWMA over 120 blocks" />
       <StatCard label="Block time" icon={<Clock size={16} />} loading={loading} value={formatDuration(o?.block_time)} sub={`Target ${TARGET_BLOCK_SECONDS} s`} />
       <StatCard
@@ -48,21 +48,21 @@ function Stats() {
         sub={supply ? <Progress value={minedShare} className="mt-1.5" /> : undefined}
       />
       <StatCard label="Block reward" icon={<Zap size={16} />} loading={state.isLoading} value={supply ? `${formatTess(supply.block_reward)} TESS` : "—"} sub={supply ? `Halving at #${formatNumber(supply.next_halving)}` : undefined} />
-      <StatCard label="Transactions, 24 h" icon={<ScrollText size={16} />} loading={loading} value={formatNumber(o?.extrinsics_24h ?? 0)} sub={o ? `${formatNumber(o.transfers_24h)} transfers · ${formatTess(o.volume_24h, 0)} TESS` : undefined} />
-      <StatCard label="AI agents" icon={<Bot size={16} />} loading={loading} value={formatNumber(o?.agents ?? 0)} sub={o ? `${formatNumber(o.open_tasks)} open tasks · ${formatNumber(o.open_channels)} channels` : undefined} />
+      <StatCard label="Transactions, 24 h" icon={<ScrollText size={16} />} loading={loading} value={formatNumber(o?.extrinsics_24h ?? 0)} sub={o ? `${plural(o.transfers_24h, "transfer")} · ${formatTess(o.volume_24h, 0)} TESS` : undefined} />
+      <StatCard label="AI agents" icon={<Bot size={16} />} loading={loading} value={formatNumber(o?.agents ?? 0)} sub={o ? `${plural(o.open_tasks, "open task")} · ${plural(o.open_channels, "channel")}` : undefined} />
     </div>
   );
 }
 
 function Charts() {
   const { data } = useDailyStats(30);
-  const days = (data ?? []).map((d) => ({ ...d, label: new Date(d.day).toLocaleDateString(undefined, { month: "short", day: "numeric" }) }));
+  const days = (data ?? []).map((d) => ({ ...d, label: new Date(d.day).toLocaleDateString("en-US", { month: "short", day: "numeric" }) }));
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader title="Transactions per day" icon={<Activity size={16} />} />
         <div className="p-3 sm:p-4">
-          <BarChart points={days.map((d) => ({ label: d.label, value: Number(d.extrinsics), display: `${formatNumber(d.extrinsics)} transactions, ${formatNumber(d.transfers)} transfers` }))} />
+          <BarChart points={days.map((d) => ({ label: d.label, value: Number(d.extrinsics), display: `${plural(d.extrinsics, "transaction")}, ${plural(d.transfers, "transfer")}` }))} />
         </div>
       </Card>
       <Card>
@@ -117,7 +117,7 @@ function LatestBlocks() {
                   <Amount planck={(BigInt(b.reward) + BigInt(b.fees)).toString()} decimals={3} />
                 </div>
                 <div className="mt-0.5 text-xs text-muted">
-                  {signedCount(b)} tx · <TimeAgo date={b.timestamp} />
+                  {plural(signedCount(b), "tx", "txs")} · <TimeAgo date={b.timestamp} />
                 </div>
               </div>
             </li>

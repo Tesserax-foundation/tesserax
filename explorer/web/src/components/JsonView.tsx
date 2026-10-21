@@ -41,7 +41,7 @@ function Leaf({ value }: { value: unknown }) {
 }
 
 function Node({ value, depth }: { value: unknown; depth: number }) {
-  const [open, setOpen] = useState(depth < 3);
+  const [open, setOpen] = useState(depth < 5);
   if (value === null || typeof value !== "object") return <Leaf value={value} />;
   const object = value as Record<string, unknown>;
   // Summarized blobs: { bytes, blake2 }.

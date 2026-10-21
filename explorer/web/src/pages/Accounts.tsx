@@ -6,7 +6,7 @@ import { AddressLink, Amount, BlockLink, CopyButton, Identicon, TimeAgo } from "
 import { Table } from "../components/Table";
 import { Badge, Card, CardHeader, CardLink, EmptyState, ErrorState, Field, Fields, Filters, PageHeader, Pagination, StatCard, Tabs } from "../components/ui";
 import { useAccount, useBlocks, useChainState, useChannels, useExtrinsics, useOwnedAgents, useRichList, useTasks, useTopMiners, useTransfers, type Delegation } from "../lib/api";
-import { blocksDuration, formatCompact, formatNumber, formatTess, isAddress, shortAddress } from "../lib/format";
+import { blocksDuration, formatCompact, formatNumber, formatTess, isAddress, plural, shortAddress } from "../lib/format";
 import { pageIndex } from "../lib/hooks";
 import { AgentsTable } from "./Agents";
 import { ChannelsTable } from "./Channels";
@@ -108,7 +108,7 @@ export function AccountPage() {
         <StatCard label="Total balance" icon={<Wallet size={16} />} loading={isLoading} value={<>{formatTess(total.toString(), 4)} <span className="text-sm font-medium text-muted">TESS</span></>} />
         <StatCard label="Transferable" icon={<Coins size={16} />} loading={isLoading} value={formatTess((transferable > 0n ? transferable : 0n).toString(), 4)} sub={account && account.frozen !== "0" ? <>Frozen <Amount planck={account.frozen} decimals={2} /></> : undefined} />
         <StatCard label="Reserved" icon={<Lock size={16} />} loading={isLoading} value={formatTess(account?.reserved ?? "0", 4)} sub="Deposits of agents, channels and tasks" />
-        <StatCard label="Activity" icon={<KeyRound size={16} />} loading={isLoading} value={formatNumber(data?.extrinsicCount ?? 0)} sub={`Nonce ${account?.nonce ?? 0} · ${formatNumber(data?.minedCount ?? 0)} blocks mined`} />
+        <StatCard label="Activity" icon={<KeyRound size={16} />} loading={isLoading} value={formatNumber(data?.extrinsicCount ?? 0)} sub={`Nonce ${account?.nonce ?? 0} · ${plural(data?.minedCount, "block")} mined`} />
       </div>
 
       {!isLoading && !account && (
@@ -124,7 +124,7 @@ export function AccountPage() {
             <Field label="Name">{data.agent.name}</Field>
             {data.agent.description && <Field label="Description">{data.agent.description}</Field>}
             <Field label="Capabilities"><span className="flex flex-wrap gap-1">{data.agent.capabilities.map((c) => <Badge key={c} tone="accent">{c}</Badge>)}</span></Field>
-            <Field label="Reputation">{formatNumber(data.agent.payments)} payments from {formatNumber(data.agent.payers)} payers · {formatNumber(data.agent.positive)} positive, {formatNumber(data.agent.negative)} negative ratings</Field>
+            <Field label="Reputation">{plural(data.agent.payments, "payment")} from {plural(data.agent.payers, "payer")} · {formatNumber(data.agent.positive)} positive, {formatNumber(data.agent.negative)} negative</Field>
           </Fields>
         </Card>
       )}

@@ -28,8 +28,9 @@ from a node: it holds nothing that is not on chain.
 - Keeps accounts, agents, delegations, channels and tasks as their state on chain, read again
   after each block that touches them, and the head, supply, emission, shielded pool, constants
   and genesis allocations in `chain_state`.
-- Writes each block in one transaction; byte strings over 512 bytes (shielded proofs) are stored
-  as their length and Blake2 hash.
+- Writes a batch of blocks in one transaction, its statements pipelined: catching up costs a
+  round trip to the database per batch, not per statement. Byte strings over 512 bytes (shielded
+  proofs) are stored as their length and Blake2 hash.
 
 The node must keep the state of every block it indexes: run it as an archive node
 (`--state-pruning archive`) to index a chain from genesis.

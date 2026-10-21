@@ -12,5 +12,5 @@
     "types": ["vite/client"],
     "allowImportingTsExtensions": false
   },
-  "include": ["src", "test"]
+  "include": ["src"]
 }

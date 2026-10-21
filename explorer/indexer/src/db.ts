@@ -4,12 +4,14 @@ import postgres from "postgres";
 
 export type Sql = postgres.Sql<{}>;
 
-export function connect(url: string): Sql {
+export function connect(url: string, options: { prepare?: boolean } = {}): Sql {
   return postgres(url, {
     max: 4,
     onnotice: () => {},
-    // Supabase poolers in transaction mode do not support prepared statements.
-    prepare: false,
+    // Prepared statements let queries with parameters be pipelined: without them every query
+    // waits for the types of its parameters. The session pooler of Supabase (port 5432) supports
+    // them; the transaction pooler (port 6543) does not, set DATABASE_PREPARE=false for it.
+    prepare: options.prepare ?? true,
   });
 }
 
@@ -110,83 +112,98 @@ export async function orphanAbove(sql: Sql, number: number): Promise<{ hashes: s
 /** Insert `block` as the canonical block at its height, with its extrinsics, events and
  * transfers, in one transaction. */
 export async function saveBlock(sql: Sql, block: BlockRow): Promise<void> {
-  const timestamp = block.timestamp;
-  await sql.begin(async (tx) => {
-    // A block indexed before and orphaned since may become canonical again.
-    await tx`delete from extrinsics where block_hash = ${block.hash}`;
-    await tx`delete from events where block_hash = ${block.hash}`;
-    await tx`delete from transfers where block_hash = ${block.hash}`;
-    await tx`
-      insert into blocks (hash, number, parent_hash, state_root, extrinsics_root, author, timestamp,
-        difficulty, pow_nonce, pow_hash, extrinsic_count, event_count, transfer_count, reward, fees,
-        size, spec_version, canonical, finalized)
-      values (${block.hash}, ${block.number}, ${block.parentHash}, ${block.stateRoot},
-        ${block.extrinsicsRoot}, ${block.author}, ${timestamp}, ${num(block.difficulty)},
-        ${block.powNonce}, ${block.powHash}, ${block.extrinsics.length}, ${block.events.length},
-        ${block.transfers.length}, ${num(block.reward)}, ${num(block.fees)}, ${block.size},
-        ${block.specVersion}, true, false)
-      on conflict (hash) do update set canonical = true, extrinsic_count = excluded.extrinsic_count,
-        event_count = excluded.event_count, transfer_count = excluded.transfer_count,
-        reward = excluded.reward, fees = excluded.fees, indexed_at = now()`;
-    await insertChunks(
-      tx,
-      "extrinsics",
-      block.extrinsics.map((x) => ({
-        block_hash: block.hash,
-        block_number: block.number,
-        index: x.index,
-        hash: x.hash,
-        signer: x.signer,
-        pallet: x.pallet,
-        call: x.call,
-        args: tx.json(x.args as postgres.JSONValue),
-        nonce: x.nonce,
-        tip: num(x.tip),
-        fee: num(x.fee),
-        success: x.success,
-        error: x.error,
-        size: x.size,
-        timestamp,
-      })),
-    );
-    await insertChunks(
-      tx,
-      "events",
-      block.events.map((e) => ({
-        block_hash: block.hash,
-        block_number: block.number,
-        index: e.index,
-        extrinsic_index: e.extrinsicIndex,
-        pallet: e.pallet,
-        name: e.name,
-        data: tx.json(e.data as postgres.JSONValue),
-        timestamp,
-      })),
-    );
-    await insertChunks(
-      tx,
-      "transfers",
-      block.transfers.map((t) => ({
-        block_hash: block.hash,
-        block_number: block.number,
-        event_index: t.eventIndex,
-        extrinsic_index: t.extrinsicIndex,
-        extrinsic_hash: t.extrinsicHash,
-        from_address: t.from,
-        to_address: t.to,
-        amount: num(t.amount),
-        timestamp,
-      })),
-    );
+  await saveBlocks(sql, [block]);
+}
+
+/** Insert consecutive `blocks` in one transaction. The statements are pipelined: a remote
+ * database costs one round trip, not one per statement. */
+export async function saveBlocks(sql: Sql, blocks: BlockRow[]): Promise<void> {
+  if (blocks.length === 0) return;
+  await sql.begin((tx) => {
+    const statements: Array<PromiseLike<unknown>> = [];
+    for (const block of blocks) {
+      const timestamp = block.timestamp;
+      // A block indexed before and orphaned since may become canonical again.
+      statements.push(tx`delete from extrinsics where block_hash = ${block.hash}`);
+      statements.push(tx`delete from events where block_hash = ${block.hash}`);
+      statements.push(tx`delete from transfers where block_hash = ${block.hash}`);
+      statements.push(tx`
+        insert into blocks (hash, number, parent_hash, state_root, extrinsics_root, author, timestamp,
+          difficulty, pow_nonce, pow_hash, extrinsic_count, event_count, transfer_count, reward, fees,
+          size, spec_version, canonical, finalized)
+        values (${block.hash}, ${block.number}, ${block.parentHash}, ${block.stateRoot},
+          ${block.extrinsicsRoot}, ${block.author}, ${timestamp}, ${num(block.difficulty)},
+          ${block.powNonce}, ${block.powHash}, ${block.extrinsics.length}, ${block.events.length},
+          ${block.transfers.length}, ${num(block.reward)}, ${num(block.fees)}, ${block.size},
+          ${block.specVersion}, true, false)
+        on conflict (hash) do update set canonical = true, extrinsic_count = excluded.extrinsic_count,
+          event_count = excluded.event_count, transfer_count = excluded.transfer_count,
+          reward = excluded.reward, fees = excluded.fees, indexed_at = now()`);
+      statements.push(
+        ...insertChunks(
+          tx,
+          "extrinsics",
+          block.extrinsics.map((x) => ({
+            block_hash: block.hash,
+            block_number: block.number,
+            index: x.index,
+            hash: x.hash,
+            signer: x.signer,
+            pallet: x.pallet,
+            call: x.call,
+            args: tx.json(x.args as postgres.JSONValue),
+            nonce: x.nonce,
+            tip: num(x.tip),
+            fee: num(x.fee),
+            success: x.success,
+            error: x.error,
+            size: x.size,
+            timestamp,
+          })),
+        ),
+        ...insertChunks(
+          tx,
+          "events",
+          block.events.map((e) => ({
+            block_hash: block.hash,
+            block_number: block.number,
+            index: e.index,
+            extrinsic_index: e.extrinsicIndex,
+            pallet: e.pallet,
+            name: e.name,
+            data: tx.json(e.data as postgres.JSONValue),
+            timestamp,
+          })),
+        ),
+        ...insertChunks(
+          tx,
+          "transfers",
+          block.transfers.map((t) => ({
+            block_hash: block.hash,
+            block_number: block.number,
+            event_index: t.eventIndex,
+            extrinsic_index: t.extrinsicIndex,
+            extrinsic_hash: t.extrinsicHash,
+            from_address: t.from,
+            to_address: t.to,
+            amount: num(t.amount),
+            timestamp,
+          })),
+        ),
+      );
+    }
+    // Sent in order on the connection of the transaction, answered together.
+    return Promise.all(statements);
   });
 }
 
-/** Insert `rows` into `table`, a statement per 1000 rows (Postgres takes 65535 parameters). */
-async function insertChunks(sql: postgres.TransactionSql, table: string, rows: Record<string, unknown>[]) {
+/** Statements inserting `rows` into `table`, one per 1000 rows (Postgres takes 65535 parameters). */
+function insertChunks(sql: postgres.TransactionSql, table: string, rows: Record<string, unknown>[]): Array<PromiseLike<unknown>> {
+  const statements: Array<PromiseLike<unknown>> = [];
   for (let i = 0; i < rows.length; i += 1000) {
-    const chunk = rows.slice(i, i + 1000);
-    await sql`insert into ${sql(table)} ${sql(chunk as any)}`;
+    statements.push(sql`insert into ${sql(table)} ${sql(rows.slice(i, i + 1000) as any)}`);
   }
+  return statements;
 }
 
 /** Mark the canonical blocks up to `number` as finalized. */
@@ -209,10 +226,18 @@ export interface AccountRow {
 }
 
 export async function upsertAccounts(sql: Sql, rows: AccountRow[], block: number): Promise<void> {
-  for (const a of rows) {
+  for (let i = 0; i < rows.length; i += 1000) {
+    const chunk = rows.slice(i, i + 1000).map((a) => ({
+      address: a.address,
+      free: num(a.free),
+      reserved: num(a.reserved),
+      frozen: num(a.frozen),
+      nonce: a.nonce,
+      first_seen_block: block,
+      updated_block: block,
+    }));
     await sql`
-      insert into accounts (address, free, reserved, frozen, nonce, first_seen_block, updated_block)
-      values (${a.address}, ${num(a.free)}, ${num(a.reserved)}, ${num(a.frozen)}, ${a.nonce}, ${block}, ${block})
+      insert into accounts ${sql(chunk as any)}
       on conflict (address) do update set free = excluded.free, reserved = excluded.reserved,
         frozen = excluded.frozen, nonce = excluded.nonce, updated_block = excluded.updated_block`;
   }
@@ -365,6 +390,21 @@ export async function upsertTask(sql: Sql, t: TaskRow, block: number): Promise<v
       deadline = excluded.deadline, result = excluded.result, review_until = excluded.review_until,
       reward = excluded.reward, created_block = excluded.created_block, paid = null, refunded = null,
       updated_block = excluded.updated_block`;
+}
+
+/** Whether `table` has a row with this id. */
+export async function exists(sql: Sql, table: "tasks" | "channels", id: number): Promise<boolean> {
+  const [row] = await sql`select 1 from ${sql(table)} where id = ${id}`;
+  return Boolean(row);
+}
+
+/** The block of the last canonical event `names` of `pallet` about id `id`. */
+export async function lastEvent(sql: Sql, pallet: string, names: string[], id: number): Promise<{ hash: string; number: number } | null> {
+  const [row] = await sql`
+    select block_hash, block_number from events
+    where pallet = ${pallet} and name in ${sql(names)} and (data->>'id')::bigint = ${id}
+    order by block_number desc, index desc limit 1`;
+  return row ? { hash: row.block_hash, number: Number(row.block_number) } : null;
 }
 
 /** A task no longer in storage: its final state comes from its last canonical event. */

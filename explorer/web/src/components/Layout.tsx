@@ -1,6 +1,6 @@
 import { Blocks, Bot, ChevronDown, Coins, Cpu, Menu, Moon, Network, Pickaxe, ScrollText, Shield, Sun, Users, Wallet, X, Zap } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, NavLink, Outlet, ScrollRestoration, useLocation } from "react-router";
+import { Link, Outlet, ScrollRestoration, useLocation } from "react-router";
 import { useChainState } from "../lib/api";
 import { timeAgo } from "../lib/format";
 import { useNow, useRealtime, useTheme } from "../lib/hooks";
@@ -109,7 +109,17 @@ function NetworkBadge() {
   );
 }
 
+/** Whether `to` is the current page: "/blocks" and "/blocks?orphaned=1" are different pages. */
+function isCurrent(to: string, location: { pathname: string; search: string }): boolean {
+  const [path, query] = to.split("?");
+  if (location.pathname !== path) return false;
+  if (query) return location.search === `?${query}`;
+  const others = groups.flatMap((g) => g.items).filter((i) => i.to.startsWith(`${path}?`));
+  return !others.some((i) => location.search === `?${i.to.split("?")[1]}`);
+}
+
 function MobileMenu({ onClose }: { onClose: () => void }) {
+  const location = useLocation();
   return (
     <div className="fixed inset-0 z-50 lg:hidden">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -125,15 +135,15 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
           <div key={group.label} className="mb-4">
             <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-faint">{group.label}</div>
             {group.items.map((item) => (
-              <NavLink
+              <Link
                 key={item.to}
                 to={item.to}
                 onClick={onClose}
-                className={({ isActive }) => cx("flex items-center gap-3 rounded-xl px-2 py-2.5 text-sm font-medium", isActive ? "bg-accent-soft text-accent" : "hover:bg-surface-2")}
+                className={cx("flex items-center gap-3 rounded-xl px-2 py-2.5 text-sm font-medium", isCurrent(item.to, location) ? "bg-accent-soft text-accent" : "hover:bg-surface-2")}
               >
                 <span className="text-accent">{item.icon}</span>
                 {item.label}
-              </NavLink>
+              </Link>
             ))}
           </div>
         ))}

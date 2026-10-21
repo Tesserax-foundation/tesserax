@@ -5,7 +5,8 @@ import { Link, useSearchParams } from "react-router";
 export const cx = (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(" ");
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <section className={cx("rounded-2xl border border-line bg-surface shadow-[0_1px_0_rgba(0,0,0,0.02)]", className)}>{children}</section>;
+  // min-w-0: in a grid, a card shrinks below the width of long hashes and addresses.
+  return <section className={cx("min-w-0 rounded-2xl border border-line bg-surface shadow-[0_1px_0_rgba(0,0,0,0.02)]", className)}>{children}</section>;
 }
 
 export function CardHeader({ title, icon, action, children }: { title: ReactNode; icon?: ReactNode; action?: ReactNode; children?: ReactNode }) {
@@ -105,8 +106,9 @@ export function ErrorState({ error }: { error: unknown }) {
 }
 
 /** Rows of label and value, for detail pages. */
-export function Fields({ children }: { children: ReactNode }) {
-  return <dl className="divide-y divide-line">{children}</dl>;
+export function Fields({ children, narrow }: { children: ReactNode; narrow?: boolean }) {
+  // In a side column, labels take less room than in a full-width card.
+  return <dl className={cx("divide-y divide-line", narrow && "sm:[&>div]:grid-cols-[130px_minmax(0,1fr)]")}>{children}</dl>;
 }
 
 export function Field({ label, children, hint }: { label: ReactNode; children: ReactNode; hint?: string }) {

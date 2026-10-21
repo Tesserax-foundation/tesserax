@@ -35,7 +35,8 @@ export function BarChart({ points, height = HEIGHT }: { points: Point[]; height?
   const max = Math.max(...points.map((p) => p.value), 1);
   const inner = WIDTH - PAD.left - PAD.right;
   const step = inner / points.length;
-  const bar = Math.max(2, step * 0.7);
+  // Few points: narrow bars, not slabs.
+  const bar = Math.min(40, Math.max(2, step * 0.7));
   const y = (v: number) => PAD.top + (height - PAD.top - PAD.bottom) * (1 - v / max);
   return (
     <div className="relative">
@@ -107,7 +108,15 @@ function Labels({ points, step, height, centered = true }: { points: Point[]; st
     <>
       {points.map((p, i) =>
         i % every === 0 ? (
-          <text key={i} x={PAD.left + step * i + (centered ? step / 2 : 0)} y={height - 6} textAnchor="middle" fontSize={11} fill="var(--faint)">
+          <text
+            key={i}
+            x={PAD.left + step * i + (centered ? step / 2 : 0)}
+            y={height - 6}
+            // Labels at the ends of a line stay inside the chart.
+            textAnchor={centered ? "middle" : i === 0 ? "start" : i === points.length - 1 ? "end" : "middle"}
+            fontSize={11}
+            fill="var(--faint)"
+          >
             {p.label}
           </text>
         ) : null,

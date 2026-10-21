@@ -63,7 +63,7 @@ export function ExtrinsicPage() {
           <Field label="Result">{x.success ? <Badge tone="success">Success</Badge> : <span className="inline-flex flex-wrap items-center gap-2"><Badge tone="danger">Failed</Badge><code className="font-mono text-sm text-danger">{x.error}</code></span>}</Field>
           <Field label="Fee" hint="Paid to the miner of the block"><Amount planck={x.fee} decimals={12} /></Field>
           {x.tip && x.tip !== "0" && <Field label="Tip"><Amount planck={x.tip} decimals={12} /></Field>}
-          <Field label="Size" hint="ML-DSA-87 signatures are 4 627 bytes, their public keys 2 592">{formatNumber(x.size)} bytes</Field>
+          <Field label="Size" hint="ML-DSA-87 signatures are 4,627 bytes and their public keys 2,592">{formatNumber(x.size)} bytes</Field>
           <Field label="Call"><Badge tone="accent">{x.pallet}.{x.call}</Badge></Field>
         </Fields>
       </Card>

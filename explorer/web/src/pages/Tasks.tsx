@@ -5,7 +5,7 @@ import { AddressLink, Amount, BlockLink, TimeAgo } from "../components/links";
 import { Table } from "../components/Table";
 import { Badge, Card, CardHeader, EmptyState, ErrorState, Field, Fields, Filters, PageHeader, Pagination, Skeleton } from "../components/ui";
 import { useChainState, useTask, useTasks, type ChainEvent, type Task, type TaskStatus } from "../lib/api";
-import { blocksDuration, formatNumber, humanize } from "../lib/format";
+import { blocksDuration, humanize, plural } from "../lib/format";
 import { pageIndex } from "../lib/hooks";
 
 const STATUS: Record<TaskStatus, { label: string; tone: "accent" | "success" | "danger" | "warning" | "neutral" }> = {
@@ -163,7 +163,7 @@ export function TaskPage() {
         </div>
         <Card className="h-fit">
           <CardHeader title="Escrow" />
-          <Fields>
+          <Fields narrow>
             <Field label="Reward"><Amount planck={task.reward} decimals={6} /></Field>
             {task.paid && <Field label="Paid to the worker"><Amount planck={task.paid} decimals={6} /></Field>}
             {task.refunded && task.refunded !== "0" && <Field label="Refunded"><Amount planck={task.refunded} decimals={6} /></Field>}
@@ -172,7 +172,7 @@ export function TaskPage() {
             {task.invited && <Field label="Invited"><AddressLink address={task.invited} /></Field>}
             <Field label="Worker bond"><Amount planck={task.bond} decimals={4} /></Field>
             {task.arbiter && <Field label={<span className="inline-flex items-center gap-1"><Gavel size={13} /> Arbiter</span>}><div className="space-y-1"><AddressLink address={task.arbiter} /><div className="text-xs text-muted">Fee <Amount planck={task.arbiter_fee} decimals={4} /></div></div></Field>}
-            <Field label="Delivery period">{blocksDuration(task.delivery_period)} <span className="text-muted">({formatNumber(task.delivery_period)} blocks)</span></Field>
+            <Field label="Delivery period">{blocksDuration(task.delivery_period)} <span className="text-muted">({plural(task.delivery_period, "block")})</span></Field>
             <Field label="Review period">{blocksDuration(task.review_period)}</Field>
             {task.deadline != null && task.status === "assigned" && <Field label="Deadline"><Deadline block={task.deadline} best={best} /></Field>}
             {task.review_until != null && (task.status === "delivered" || task.status === "disputed") && <Field label={task.status === "disputed" ? "Arbitration until" : "Approved automatically at"}><Deadline block={task.review_until} best={best} /></Field>}

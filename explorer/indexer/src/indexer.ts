@@ -58,7 +58,12 @@ export class Indexer {
       try {
         await this.sync();
       } catch (error) {
-        log.error(`sync failed: ${(error as Error).stack ?? error}`);
+        const message = (error as Error).message ?? String(error);
+        if (message.includes("State already discarded")) {
+          log.error("the node discarded the state of blocks to index: run it as an archive node (--state-pruning archive)");
+        } else {
+          log.error(`sync failed: ${(error as Error).stack ?? error}`);
+        }
         await new Promise((r) => setTimeout(r, 5_000));
       }
       await new Promise<void>((resolve) => {
@@ -98,25 +103,42 @@ export class Indexer {
     let last: { hash: string; number: number; runtime: Runtime } | undefined;
     for (let start = fork + 1; start <= bestNumber; start += this.options.batch) {
       const numbers = Array.from({ length: Math.min(this.options.batch, bestNumber - start + 1) }, (_, i) => start + i);
+      let started = performance.now();
       const fetched = await Promise.all(numbers.map((n) => this.fetch(n)));
+      log.debug(`fetched ${numbers.length} blocks in ${Math.round(performance.now() - started)} ms`);
+      started = performance.now();
+      const rows: db.BlockRow[] = [];
+      let changed = false;
       for (const block of fetched) {
         if (!block || block.header.parentHash !== parent) {
           // The best chain changed while fetching: the next sync starts from here.
-          await this.finish(touched, last);
-          return indexed;
+          changed = true;
+          break;
         }
         const row = this.decode(block);
-        await db.saveBlock(this.sql, row);
+        rows.push(row);
         row.extrinsics.forEach((x) => touched.account(x.signer));
         touched.account(row.author);
         row.events.forEach((e) => touched.event(e));
         parent = block.hash;
         last = { hash: block.hash, number: row.number, runtime: block.runtime };
-        indexed++;
       }
-      log.info(`indexed up to #${last!.number} of #${bestNumber}`);
+      log.debug(`decoded ${rows.length} blocks in ${Math.round(performance.now() - started)} ms`);
+      started = performance.now();
+      // The blocks of a batch go to the database in one transaction.
+      await db.saveBlocks(this.sql, rows);
+      log.debug(`saved ${rows.length} blocks in ${Math.round(performance.now() - started)} ms`);
+      indexed += rows.length;
+      if (changed) {
+        await this.finish(touched, last);
+        return indexed;
+      }
+      if (last) log.info(`indexed up to #${last.number} of #${bestNumber}`);
       // Entities are refreshed every batch while catching up.
+      started = performance.now();
+      const entities = touched.size;
       await this.finish(touched, last);
+      log.debug(`refreshed ${entities} entities in ${Math.round(performance.now() - started)} ms`);
     }
     await this.finish(touched, last);
 

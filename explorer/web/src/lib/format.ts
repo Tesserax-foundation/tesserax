@@ -14,8 +14,8 @@ export function formatTess(planck: string | bigint | null | undefined, maxDecima
   const abs = negative ? -value : value;
   const whole = abs / PLANCK;
   let fraction = (abs % PLANCK).toString().padStart(DECIMALS, "0");
-  // Small amounts keep their significant digits.
-  const decimals = whole === 0n && abs > 0n ? Math.max(maxDecimals, fraction.search(/[1-9]/) + 2) : maxDecimals;
+  // Amounts below 1 TESS keep four significant digits.
+  const decimals = whole === 0n && abs > 0n ? Math.max(maxDecimals, fraction.search(/[1-9]/) + 4) : maxDecimals;
   fraction = fraction.slice(0, Math.min(decimals, DECIMALS)).replace(/0+$/, "");
   return `${negative ? "-" : ""}${group(whole.toString())}${fraction ? "." + fraction : ""}`;
 }
@@ -76,11 +76,11 @@ export function timeAgo(date: string | Date | null | undefined, now = Date.now()
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours} h ago`;
   const days = Math.floor(hours / 24);
-  return days < 30 ? `${days} d ago` : new Date(date).toLocaleDateString();
+  return days < 30 ? `${days} d ago` : new Date(date).toLocaleDateString("en-US", { dateStyle: "medium" });
 }
 
 export const formatDate = (date: string | Date | null | undefined) =>
-  date ? new Date(date).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" }) : "—";
+  date ? new Date(date).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "medium" }) : "—";
 
 /** "0x1234…cdef". */
 export function shortHash(hash: string | null | undefined, head = 6, tail = 4): string {
@@ -108,6 +108,10 @@ export function hexText(hex: string): string | null {
     return null;
   }
 }
+
+/** "1 payer", "2 payers". */
+export const plural = (count: number | string | null | undefined, word: string, many = `${word}s`) =>
+  `${formatNumber(count ?? 0)} ${Number(count ?? 0) === 1 ? word : many}`;
 
 /** "Balances.transfer_keep_alive" → "Balances · transfer keep alive". */
 export const callLabel = (pallet: string, call: string) => `${pallet} · ${call.replace(/_/g, " ")}`;

@@ -3,6 +3,7 @@
  *
  *   NODE_URL       websocket RPC of a Tesserax node (default ws://127.0.0.1:9944)
  *   DATABASE_URL   Postgres connection string of the Supabase project
+ *   DATABASE_PREPARE  false for a transaction pooler, which does not support prepared statements
  *   BATCH          blocks fetched in parallel while catching up (default 16)
  *   LOG_LEVEL      debug, info, warn or error (default info)
  */
@@ -20,7 +21,7 @@ if (!databaseUrl) {
 }
 
 const rpc = new Rpc(nodeUrl);
-const sql = connect(databaseUrl);
+const sql = connect(databaseUrl, { prepare: process.env.DATABASE_PREPARE !== "false" });
 const indexer = new Indexer(rpc, sql, {
   batch: Math.max(1, Number(process.env.BATCH ?? 16)),
   allocationsInterval: 600,

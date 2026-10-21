@@ -24,6 +24,7 @@ export function SearchBar({ large, className, onDone }: { large?: boolean; class
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+  const narrow = typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches;
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
@@ -42,7 +43,7 @@ export function SearchBar({ large, className, onDone }: { large?: boolean; class
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder={large ? "Search by block, transaction hash, address, agent name, task or channel" : "Block, hash, address, agent…"}
+        placeholder={large && !narrow ? "Search by block, transaction hash, address, agent name, task or channel" : "Block, hash, address, agent…"}
         aria-label="Search"
         className={cx(
           "w-full rounded-xl border border-line bg-surface text-fg placeholder:text-faint outline-none transition-shadow focus:border-accent focus:ring-4 focus:ring-accent-soft",

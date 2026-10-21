@@ -1,7 +1,7 @@
 /**
  * The indexer against a running development chain:
  *
- *   tesserax --dev --tmp --mine --author <address>
+ *   tesserax --dev --tmp --state-pruning archive --mine --author <address>
  *   TESSERAX_URL=ws://127.0.0.1:9944 npm test
  */
 
@@ -73,6 +73,17 @@ test("indexes a development chain and follows a reorganization", { skip: !url &&
       (await sql`select count(*)::int as n from tasks where status in ('open', 'assigned', 'delivered', 'disputed')`)[0].n,
       await onChain("Tasks", "Tasks"),
     );
+
+    // Tasks and channels created then finished between two refreshes are indexed too.
+    const [created] = await sql`
+      select (select count(distinct data->>'id')::int from events where pallet = 'Tasks' and name = 'Created') as tasks,
+             (select count(*)::int from tasks) as task_rows,
+             (select count(distinct data->>'id')::int from events where pallet = 'Channels' and name = 'Opened') as channels,
+             (select count(*)::int from channels) as channel_rows`;
+    assert.equal(created.task_rows, created.tasks);
+    assert.equal(created.channel_rows, created.channels);
+    const finished = await sql`select spec, reward::text, paid::text from tasks where status = 'completed'`;
+    for (const t of finished) assert.ok(t.spec.length > 0 && BigInt(t.paid) > 0n, JSON.stringify(t));
 
     const state = Object.fromEntries((await sql`select key, value from chain_state`).map((r) => [r.key, r.value]));
     const issuance = runtime.decodeStorage("Balances", "TotalIssuance", (await readStorage(rpc, [runtime.storageKey("Balances", "TotalIssuance")], tip.hash)).values().next().value ?? null);

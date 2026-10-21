@@ -44,14 +44,14 @@ export function SupplyPage() {
         <StatCard label="Next halving" loading={isLoading} value={supply ? `#${formatNumber(supply.next_halving)}` : "—"} sub={blocksToHalving != null ? `in about ${blocksDuration(blocksToHalving)}` : undefined} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid items-start gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader title="Distribution" />
           <div className="space-y-5 p-5">
             {[
-              { label: "Mining", share: 0.85, amount: "11,900,000", note: "Block rewards, halving every 7 000 000 blocks (about 4 years)" },
+              { label: "Mining", share: 0.85, amount: "11,900,000", note: "Block rewards, halving every 7,000,000 blocks (about 4 years)" },
               { label: "Team", share: 0.1, amount: "1,400,000", note: "48 months of vesting, with a 6-month cliff" },
-              { label: "Foundation", share: 0.05, amount: "700,000", note: "140 000 liquid at genesis, the rest over 36 months" },
+              { label: "Foundation", share: 0.05, amount: "700,000", note: "140,000 liquid at genesis, the rest over 36 months" },
             ].map((part) => (
               <div key={part.label}>
                 <div className="mb-1.5 flex items-baseline justify-between gap-2">
@@ -67,7 +67,8 @@ export function SupplyPage() {
         <Card>
           <CardHeader title="Emission schedule" />
           <Table
-            rows={schedule}
+            rows={constants ? schedule : undefined}
+            loading={isLoading}
             rowKey={(r) => r.era}
             columns={[
               { header: "Era", cell: (r) => <span className="inline-flex items-center gap-2 tabular">{r.era}{supply?.halving_era === r.era && <Badge tone="accent">Now</Badge>}</span> },

@@ -189,12 +189,28 @@ export async function refresh(
     );
   }
 
+  /** The storage value of `key` just before the block `end`: for an entity created and removed
+   * since the last refresh, its last state. */
+  const before = async (key: string, end: { hash: string } | null): Promise<string | null> => {
+    if (!end) return null;
+    const header = await rpc.request<{ parentHash: string }>("chain_getHeader", [end.hash]);
+    return (await readStorage(rpc, [key], header.parentHash)).get(key) ?? null;
+  };
+
   for (const id of touched.channels) {
-    const raw = value(`channel:${id}`);
+    let raw = value(`channel:${id}`);
     if (raw == null) {
+      if (!(await db.exists(sql, "channels", id))) {
+        raw = await before(keyOf.get(`channel:${id}`)!, await db.lastEvent(sql, "Channels", ["Closed"], id));
+        if (raw != null) await upsertChannel(id, raw);
+      }
       await db.closeChannel(sql, id, block);
       continue;
     }
+    await upsertChannel(id, raw);
+  }
+
+  async function upsertChannel(id: number, raw: string) {
     const c = runtime.decodeStorage("Channels", "Channels", raw);
     await db.upsertChannel(
       sql,
@@ -212,11 +228,19 @@ export async function refresh(
   }
 
   for (const id of touched.tasks) {
-    const raw = value(`task:${id}`);
+    let raw = value(`task:${id}`);
     if (raw == null) {
+      if (!(await db.exists(sql, "tasks", id))) {
+        raw = await before(keyOf.get(`task:${id}`)!, await db.lastEvent(sql, "Tasks", ["Completed", "Cancelled", "Expired"], id));
+        if (raw != null) await upsertTask(id, raw);
+      }
       await db.finishTask(sql, id, block);
       continue;
     }
+    await upsertTask(id, raw);
+  }
+
+  async function upsertTask(id: number, raw: string) {
     const t = runtime.decodeStorage("Tasks", "Tasks", raw);
     const status = t.status as { type: string; value?: any };
     await db.upsertTask(

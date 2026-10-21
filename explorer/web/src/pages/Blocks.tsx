@@ -7,7 +7,7 @@ import { AddressLink, Amount, BlockLink, HashText, TimeAgo } from "../components
 import { Table } from "../components/Table";
 import { Badge, Card, CardHeader, EmptyState, ErrorState, Field, Fields, Filters, PageHeader, Pagination, Skeleton, Tabs } from "../components/ui";
 import { useBlock, useBlocks, useChainState, type Block, type ChainEvent, type Extrinsic } from "../lib/api";
-import { callLabel, formatCompact, formatDate, formatNumber } from "../lib/format";
+import { callLabel, formatCompact, formatDate, formatNumber, plural } from "../lib/format";
 import { pageIndex } from "../lib/hooks";
 
 export const signedCount = (b: Pick<Block, "extrinsic_count" | "number">) => Math.max(0, b.extrinsic_count - (b.number > 0 ? 1 : 0));
@@ -27,7 +27,7 @@ export function BlocksPage() {
   const head = useChainState().data?.head;
   return (
     <Page>
-      <PageHeader title={orphaned ? "Orphaned blocks" : "Blocks"} icon={<BlocksIcon size={20} />} subtitle={orphaned ? "Blocks mined on a branch that lost to a heavier chain" : head ? `${formatNumber(head.best + 1)} blocks, final up to #${formatNumber(head.finalized)}` : undefined}>
+      <PageHeader title={orphaned ? "Orphaned blocks" : "Blocks"} icon={<BlocksIcon size={20} />} subtitle={orphaned ? "Blocks mined on a branch that lost to a heavier chain" : head ? `${plural(head.best + 1, "block")}, final up to #${formatNumber(head.finalized)}` : undefined}>
         <Filters name="orphaned" value={orphaned ? "1" : ""} options={[{ id: "", label: "Best chain" }, { id: "1", label: "Orphaned" }]} />
       </PageHeader>
       <Card>
@@ -155,7 +155,7 @@ export function BlockPage() {
           <Field label="Miner"><AddressLink address={block.author} full copy /></Field>
           <Field label="Reward"><Amount planck={block.reward} decimals={12} /></Field>
           <Field label="Fees" hint="Every fee goes to the miner: nothing is burned"><Amount planck={block.fees} decimals={12} /></Field>
-          <Field label="Transactions">{formatNumber(signedCount(block))} signed, {formatNumber(block.extrinsic_count)} extrinsics, {formatNumber(block.event_count)} events, {formatNumber(block.transfer_count)} transfers</Field>
+          <Field label="Transactions">{formatNumber(signedCount(block))} signed · {plural(block.extrinsic_count, "extrinsic")} · {plural(block.event_count, "event")} · {plural(block.transfer_count, "transfer")}</Field>
           <Field label="Difficulty" hint="Expected number of RandomTESS hashes to find this block">{block.difficulty ? formatNumber(block.difficulty) : "—"}</Field>
           <Field label="Proof of work" hint="Nonce and RandomTESS hash of the seal">
             {block.pow_nonce ? (

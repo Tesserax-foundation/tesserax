@@ -204,7 +204,14 @@ export class Runtime {
   errorName(error: any): string {
     if (typeof error === "string") return error;
     const [kind, value] = Object.entries(error ?? {})[0] ?? ["Unknown", null];
-    if (kind !== "Module") return value && typeof value === "object" ? `${kind}.${Object.keys(value)[0]}` : String(kind);
+    const nameOf = (v: unknown) => (typeof v === "string" ? v : Object.keys((v as object) ?? {})[0] ?? "");
+    if (kind !== "Module") return value && (typeof value === "object" || typeof value === "string") ? `${kind}.${nameOf(value)}` : String(kind);
+    // Decoded with the metadata: { Module: { Pallet: "Error" } }.
+    if (value && typeof value === "object" && !("index" in value)) {
+      const [pallet, inner] = Object.entries(value)[0] ?? ["Module", null];
+      return `${pallet}.${nameOf(inner)}`;
+    }
+    // Raw: { Module: { index, error } }.
     const module = value as { index: number | string; error: string };
     const pallet = this.metadata.pallets.find((p) => p.index === Number(module.index));
     if (!pallet?.errors) return `Module ${module.index}`;

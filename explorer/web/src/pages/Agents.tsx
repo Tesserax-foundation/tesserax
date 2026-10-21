@@ -6,7 +6,7 @@ import { AddressLink, Amount, BlockLink, CopyButton, Identicon, TimeAgo } from "
 import { Table } from "../components/Table";
 import { Badge, Card, CardHeader, cx, EmptyState, ErrorState, Field, Fields, Filters, PageHeader, Pagination, Skeleton, StatCard } from "../components/ui";
 import { useAgent, useAgents, useCapabilities, type Agent, type AgentSort } from "../lib/api";
-import { formatNumber } from "../lib/format";
+import { formatNumber, plural } from "../lib/format";
 import { pageIndex } from "../lib/hooks";
 import { TasksTable } from "./Tasks";
 
@@ -129,7 +129,7 @@ export function AgentPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard label="Payments received" icon={<Coins size={16} />} value={formatNumber(agent.payments)} sub={`from ${formatNumber(agent.payers)} payers`} />
+        <StatCard label="Payments received" icon={<Coins size={16} />} value={formatNumber(agent.payments)} sub={`from ${plural(agent.payers, "payer")}`} />
         <StatCard label="Volume" value={<Amount planck={agent.volume} decimals={2} />} />
         <StatCard label="Approval" icon={<Star size={16} />} value={score == null ? "—" : `${score}%`} sub={<span className="inline-flex gap-3"><span className="inline-flex items-center gap-1"><ThumbsUp size={12} /> {formatNumber(agent.positive)}</span><span className="inline-flex items-center gap-1"><ThumbsDown size={12} /> {formatNumber(agent.negative)}</span></span>} />
         <StatCard label="Tasks" icon={<Users size={16} />} value={formatNumber(agent.tasks_completed)} sub={`completed · ${formatNumber(agent.tasks_failed)} failed`} />

@@ -95,7 +95,7 @@ export function ChannelPage() {
         </Card>
         <Card className="h-fit">
           <CardHeader title="Channel" />
-          <Fields>
+          <Fields narrow>
             <Field label="Payer"><AddressLink address={channel.payer} /></Field>
             <Field label="Payee"><AddressLink address={channel.payee} /></Field>
             <Field label="Voucher signer" hint="Key whose ML-DSA-87 signatures the vouchers carry, an agent key in delegated mode"><AddressLink address={channel.signer} /></Field>
