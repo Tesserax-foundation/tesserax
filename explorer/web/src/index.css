@@ -89,15 +89,6 @@ body {
   color: white;
 }
 
-/* The mosaic of the header and the hero: tesserae, as in the name. */
-.mosaic {
-  background-image:
-    linear-gradient(var(--border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border) 1px, transparent 1px);
-  background-size: 28px 28px;
-  mask-image: radial-gradient(ellipse at 50% 0%, black 20%, transparent 75%);
-}
-
 .glow {
   background: radial-gradient(ellipse 60% 70% at 50% 0%, var(--glow), transparent 70%);
 }

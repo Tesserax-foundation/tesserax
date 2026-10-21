@@ -13,7 +13,6 @@ import { callLabel, plural, formatCompact, formatDuration, formatHashrate, forma
 function Hero() {
   return (
     <div className="relative overflow-hidden border-b border-line">
-      <div className="mosaic absolute inset-0" />
       <div className="glow absolute inset-0" />
       <div className="relative mx-auto max-w-4xl px-4 pb-12 pt-12 text-center sm:px-6 sm:pb-16 sm:pt-16">
         <img src="/logo.png" alt="Tesserax" className="mx-auto mb-5 size-20 drop-shadow-[0_8px_30px_rgba(77,134,255,0.35)] sm:size-24" />
