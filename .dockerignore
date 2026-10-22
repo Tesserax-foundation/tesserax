@@ -1,0 +1,10 @@
+target
+**/node_modules
+**/dist
+explorer
+sdk-python
+sdk-ts
+**/.env
+**/.env.*
+.git
+docker/binaries

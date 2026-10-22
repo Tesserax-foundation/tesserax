@@ -1,0 +1,110 @@
+# Builds and tests the node, the runtime, the wallet, the pool and the SDKs on every push to main
+# and every pull request, then runs the SDKs and the explorer indexer against a development chain
+# mined by the node just built.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  rust:
+    name: Build and test
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libclang-dev protobuf-compiler cmake pkg-config
+
+      - name: Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2.9.3
+        with:
+          shared-key: release
+
+      - name: Build
+        run: cargo build --release --locked -p tesserax-node -p tesserax-wallet -p tesserax-pool
+
+      - name: Test
+        run: cargo test --release --locked --workspace
+
+      - name: Benchmarks compile
+        run: cargo check --release --locked -p tesserax-node --features runtime-benchmarks
+
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: tesserax-linux-x64
+          path: target/release/tesserax
+          retention-days: 7
+
+  chain:
+    name: SDKs and explorer on a development chain
+    needs: rust
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: tesserax-linux-x64
+
+      - name: Development chain
+        run: |
+          chmod +x tesserax
+          ./tesserax --dev --tmp --state-pruning archive --mine --mining-threads 2 \
+            --author teqhTi5xkMrt7j8tAhU8wndjgz7rn4DfmY97Qbww7ar5KA1b5 > node.log 2>&1 &
+          for _ in $(seq 120); do
+            curl -sf -H 'Content-Type: application/json' \
+              -d '{"id":1,"jsonrpc":"2.0","method":"chain_getHeader"}' http://127.0.0.1:9944 && break
+            sleep 1
+          done
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: TypeScript SDK
+        working-directory: sdk-ts
+        env:
+          TESSERAX_URL: ws://127.0.0.1:9944
+        run: npm ci && npm run build && npm test
+
+      - name: Python SDK
+        working-directory: sdk-python
+        env:
+          TESSERAX_URL: ws://127.0.0.1:9944
+        run: pip install -e '.[test]' && pytest
+
+      - name: Explorer
+        working-directory: explorer
+        env:
+          TESSERAX_URL: ws://127.0.0.1:9944
+        run: npm ci && npm run build && npm test
+
+      - name: Node log
+        if: failure()
+        run: tail -200 node.log

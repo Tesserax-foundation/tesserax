@@ -185,6 +185,25 @@ rewards, automatic payouts, a dashboard and an API. See [docs/pool.md](docs/pool
 cargo test --workspace
 ```
 
+## Releases and CI
+
+- `.github/workflows/ci.yml`, on every push to `main` and every pull request: builds the node,
+  the wallet and the pool, runs every Rust test, checks that the benchmarks compile, then starts
+  a development chain with the node just built and runs the TypeScript and Python SDKs and the
+  explorer indexer against it.
+- `.github/workflows/release.yml`, on a tag `v<version>` matching `node/Cargo.toml`: the
+  runtime built reproducibly, the node, the wallet and the pool for Linux and macOS, a Docker
+  image on the GitHub container registry, and a draft release with their checksums.
+
+The runtime of a release is built by `scripts/build-runtime.sh`, in a Rust image pinned by its
+digest with the toolchain of `rust-toolchain.toml`: anyone can rebuild it and check its
+BLAKE2-256 hash, the one a runtime upgrade carries.
+
+```bash
+scripts/build-runtime.sh          # target/runtime-release/: the runtime and its hashes
+docker build -t tesserax .        # the node, the wallet and the pool from the sources
+```
+
 ## Weights
 
 Every call of the runtime has a weight, the time it takes, from which its fee follows: the

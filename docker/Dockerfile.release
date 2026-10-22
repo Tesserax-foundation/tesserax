@@ -1,0 +1,19 @@
+# Image of a release, from the binaries built by the release workflow (docker/binaries/).
+FROM docker.io/library/debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8
+
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends ca-certificates \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& useradd --create-home --home-dir /tesserax --uid 1000 --user-group --shell /usr/sbin/nologin tesserax \
+	&& mkdir /data && chown tesserax:tesserax /data
+
+COPY binaries/tesserax binaries/tesserax-wallet binaries/tesserax-pool /usr/local/bin/
+
+USER tesserax
+WORKDIR /tesserax
+VOLUME ["/data"]
+# Peer-to-peer, RPC, Prometheus, stratum of the node.
+EXPOSE 30333 9944 9615 3333
+
+ENTRYPOINT ["tesserax"]
+CMD ["--base-path", "/data", "--rpc-external", "--rpc-methods", "safe"]
