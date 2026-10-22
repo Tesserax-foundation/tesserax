@@ -1,0 +1,36 @@
+[package]
+name = "tesserax-pool"
+description = "Mining pool of Tesserax: stratum server for XMRig rigs, PPLNS rewards and automatic payouts."
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "tesserax-pool"
+path = "src/main.rs"
+
+[dependencies]
+axum = { workspace = true, features = ["http1", "json", "query", "tokio"] }
+clap = { workspace = true, features = ["derive", "env"] }
+hex = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
+primitive-types = { workspace = true, default-features = true }
+randomtess = { workspace = true }
+rusqlite = { workspace = true, features = ["bundled"] }
+serde = { workspace = true }
+serde_json = { workspace = true, default-features = true }
+subxt = { workspace = true }
+tesserax-sdk = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["ansi", "env-filter", "fmt"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"

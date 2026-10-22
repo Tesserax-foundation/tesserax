@@ -111,5 +111,12 @@ The server speaks the stratum protocol of RandomX pools (JSON-RPC, one message p
   RandomTESS hash) returns `OK` when the block is imported;
 - `keepalived` keeps the connection open; an idle connection closes after 5 minutes.
 
-Pools follow the same protocol: a pool builds blocks with its own address as author and pays the
-rigs from its rewards.
+Every job also carries `difficulty`, the exact block difficulty as a decimal string.
+
+A mining pool logs in with `"mode": "pool"`. Its jobs then carry `reserved_offset` (35) and
+`reserved_size` (4): the node fixes the first 3 bytes of the extra nonce, the pool sets the next 4
+for each of its rigs, and submits the blocks they find with that `extra_nonce` (4 bytes, hex). The
+extra nonces of pools and of rigs never overlap. See [the mining pool](pool.md).
+
+`tesserax-pool` is a mining pool built on this mode: PPLNS rewards, verified shares and automatic
+payouts. See [the mining pool](pool.md).

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Tesserax Pool</title>
+    <meta name="description" content="Mining pool of Tesserax: mine TESS with XMRig on any CPU, PPLNS rewards, automatic payouts." />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js"></script>
+  </head>
+  <body>
+    <header class="header">
+      <div class="wrap header-row">
+        <a class="brand" href="/" aria-label="Pool home">
+          <img src="/logo.png" alt="" width="34" height="34" />
+          <span><strong id="pool-name">Tesserax Pool</strong><small>Mining pool</small></span>
+        </a>
+        <div class="header-actions">
+          <span class="pill" id="network"><span class="dot"></span><span id="network-text">Connecting</span></span>
+          <button class="icon-button" id="theme" aria-label="Switch the theme">◐</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section class="hero">
+        <div class="glow"></div>
+        <div class="hero-content">
+          <h1>Mine Tesserax together</h1>
+          <p class="muted">CPU mining with RandomTESS. Rewards are shared PPLNS once each block is final, and paid automatically to your address.</p>
+          <div class="connect">
+            <div>
+              <span class="label">Stratum</span>
+              <code id="stratum">…</code>
+              <button class="copy" data-copy="stratum">Copy</button>
+            </div>
+            <div class="command">
+              <span class="label">XMRig</span>
+              <code id="command">…</code>
+              <button class="copy" data-copy="command">Copy</button>
+            </div>
+          </div>
+          <p class="small muted">Use the <a href="https://github.com/Wayleyy/tesserax-miner/releases" target="_blank" rel="noreferrer noopener">Tesserax build of XMRig</a>, without developer fee. Add <code>.name</code> after your address to name each rig.</p>
+        </div>
+      </section>
+
+      <section class="stats">
+        <div class="stat"><span class="label">Pool hashrate</span><strong id="hashrate">—</strong><small id="share">&nbsp;</small></div>
+        <div class="stat"><span class="label">Miners</span><strong id="miners">—</strong><small id="workers">&nbsp;</small></div>
+        <div class="stat"><span class="label">Network hashrate</span><strong id="network-hashrate">—</strong><small id="difficulty">&nbsp;</small></div>
+        <div class="stat"><span class="label">Blocks found</span><strong id="blocks">—</strong><small id="last-block">&nbsp;</small></div>
+        <div class="stat"><span class="label">Round effort</span><strong id="effort">—</strong><small>Shares of this round over the block difficulty</small></div>
+        <div class="stat"><span class="label">Fee</span><strong id="fee">—</strong><small id="terms">&nbsp;</small></div>
+      </section>
+
+      <section class="card">
+        <div class="card-header"><h2>Your mining</h2></div>
+        <form id="lookup" class="lookup">
+          <input id="address" placeholder="Your Tesserax address, te…" spellcheck="false" autocomplete="off" aria-label="Tesserax address" />
+          <button type="submit" class="button">Show</button>
+        </form>
+        <div id="miner" hidden>
+          <div class="miner-stats">
+            <div><span class="label">Hashrate</span><strong id="miner-hashrate">—</strong></div>
+            <div><span class="label">Balance</span><strong id="miner-balance">—</strong></div>
+            <div><span class="label">Not final yet</span><strong id="miner-immature">—</strong></div>
+            <div><span class="label">Paid</span><strong id="miner-paid">—</strong></div>
+          </div>
+          <h3>Workers</h3>
+          <div class="table"><table><thead><tr><th>Worker</th><th>Hashrate</th><th>Difficulty</th><th>Shares (10 min)</th><th>Last share</th></tr></thead><tbody id="miner-workers"></tbody></table></div>
+          <h3>Payouts</h3>
+          <div class="table"><table><thead><tr><th>Amount</th><th>Status</th><th>Transaction</th><th>When</th></tr></thead><tbody id="miner-payments"></tbody></table></div>
+        </div>
+        <p id="miner-error" class="error" hidden></p>
+      </section>
+
+      <section class="card">
+        <div class="card-header"><h2>Blocks found</h2></div>
+        <div class="table"><table><thead><tr><th>Height</th><th>Status</th><th>Reward</th><th>Effort</th><th>Finder</th><th>When</th></tr></thead><tbody id="blocks-table"></tbody></table></div>
+      </section>
+
+      <section class="card">
+        <div class="card-header"><h2>Payouts</h2></div>
+        <div class="table"><table><thead><tr><th>Address</th><th>Amount</th><th>Status</th><th>Transaction</th><th>When</th></tr></thead><tbody id="payments-table"></tbody></table></div>
+      </section>
+
+      <footer class="footer muted small">
+        <span id="footer-terms"></span>
+        <span>API: <a href="/api/stats">/api/stats</a> · <a href="/api/blocks">/api/blocks</a> · <a href="/api/payments">/api/payments</a> · /api/miners/{address}</span>
+      </footer>
+    </main>
+  </body>
+</html>

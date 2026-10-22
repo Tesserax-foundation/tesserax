@@ -11,6 +11,7 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 | `node/` | The `tesserax` node: networking, block import, built-in miner, RPC |
 | `runtime/` | The on-chain logic, compiled to WebAssembly |
 | `wallet/` | Command line wallet: encrypted ML-DSA-87 accounts, transfers, agents, channels and tasks |
+| `pool/` | Mining pool: stratum server for XMRig rigs, verified shares, PPLNS rewards and payouts |
 | `sdk/` | Rust SDK: ML-DSA keys, transfers, agent delegations and registry |
 | `sdk-python/` | Python SDK, same scope |
 | `sdk-ts/` | TypeScript SDK, same scope |
@@ -174,6 +175,9 @@ mines with 256 MiB of memory instead of 2 GiB, at a much lower hashrate.
 `--stratum` serves block templates to XMRig (algorithm `rx/tess`, from the `tesserax-miner`
 repository) on `127.0.0.1:3333`, several times faster than the built-in miner. See
 [docs/mining.md](docs/mining.md).
+
+`tesserax-pool` (`pool/`) runs a public mining pool on top of a node: verified shares, PPLNS
+rewards, automatic payouts, a dashboard and an API. See [docs/pool.md](docs/pool.md).
 
 ## Tests
 

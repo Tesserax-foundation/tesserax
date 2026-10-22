@@ -12,6 +12,12 @@
 //! A job is the 43-byte work input with a zero miner nonce at offset 39 and an extra nonce that
 //! differs for each connection, so that two rigs never hash the same inputs. The target is the
 //! block difficulty: every accepted share is a block.
+//!
+//! A mining pool logs in with `"mode": "pool"`: the server then fixes only the first
+//! [`POOL_PREFIX_SIZE`] bytes of the extra nonce and leaves the next [`POOL_RESERVED_SIZE`] to the
+//! pool (`reserved_offset` and `reserved_size` of the job), which gives each of its rigs a range
+//! of its own. The pool submits the blocks its rigs find with the `extra_nonce` it set; it keeps
+//! the accounting of the shares itself.
 
 use codec::Encode;
 use sc_consensus_pow::MiningHandle;
@@ -47,6 +53,12 @@ use crate::{
 
 /// Name of the algorithm in the stratum protocol.
 pub const ALGORITHM: &str = "rx/tess";
+
+/// Bytes of the extra nonce the server sets for a pool connection.
+pub const POOL_PREFIX_SIZE: usize = 3;
+
+/// Bytes of the extra nonce a pool sets for each of its rigs.
+pub const POOL_RESERVED_SIZE: usize = EXTRA_NONCE_SIZE - POOL_PREFIX_SIZE;
 
 /// Longest accepted message, in bytes.
 const MAX_MESSAGE: u64 = 16 * 1024;
@@ -91,17 +103,38 @@ pub fn share_target(difficulty: Difficulty) -> u64 {
 	top.low_u64().saturating_add(1)
 }
 
-fn job(template: &Template, extra_nonce: &[u8; EXTRA_NONCE_SIZE], id: &str) -> Value {
+fn job(template: &Template, extra_nonce: &[u8; EXTRA_NONCE_SIZE], id: &str, pool: bool) -> Value {
 	let mut nonce = [0u8; NONCE_SIZE];
 	nonce[..EXTRA_NONCE_SIZE].copy_from_slice(extra_nonce);
-	json!({
+	let mut job = json!({
 		"blob": hex::encode(work_input(&template.pre_hash, &nonce)),
 		"job_id": id,
 		"target": hex::encode(share_target(template.difficulty).to_le_bytes()),
 		"algo": ALGORITHM,
 		"height": template.height,
 		"seed_hash": hex::encode(template.seed),
-	})
+		// The exact block difficulty, which the 64-bit target only approximates.
+		"difficulty": template.difficulty.to_string(),
+	});
+	if pool {
+		job["reserved_offset"] = json!(32 + POOL_PREFIX_SIZE);
+		job["reserved_size"] = json!(POOL_RESERVED_SIZE);
+	}
+	job
+}
+
+/// The extra nonce of connection number `counter`. Rigs and pools draw from disjoint ranges: the
+/// high bit of the first byte is set for pools only, so that no rig hashes the inputs of a pool.
+fn extra_nonce(counter: u64, pool: bool) -> [u8; EXTRA_NONCE_SIZE] {
+	let mut extra_nonce = [0u8; EXTRA_NONCE_SIZE];
+	if pool {
+		extra_nonce[..POOL_PREFIX_SIZE].copy_from_slice(&counter.to_le_bytes()[..POOL_PREFIX_SIZE]);
+		extra_nonce[0] |= 0x80;
+	} else {
+		extra_nonce.copy_from_slice(&counter.to_le_bytes()[..EXTRA_NONCE_SIZE]);
+		extra_nonce[0] &= 0x7f;
+	}
+	extra_nonce
 }
 
 fn response(id: &Value, result: Value) -> Value {
@@ -157,6 +190,8 @@ struct Session {
 	id: String,
 	rig: String,
 	extra_nonce: [u8; EXTRA_NONCE_SIZE],
+	/// A pool, which sets the reserved bytes of the extra nonce.
+	pool: bool,
 	/// Last job sent, and the one before it to tell stale shares apart.
 	job: Option<(String, Arc<Template>)>,
 	previous_job: Option<String>,
@@ -359,7 +394,7 @@ where
 	L: sc_consensus::JustificationSyncLink<B> + 'static,
 {
 	let id = format!("{:x}", server.jobs.fetch_add(1, Ordering::Relaxed));
-	let params = job(&template, &session.extra_nonce, &id);
+	let params = job(&template, &session.extra_nonce, &id, session.pool);
 	session.previous_job = session.job.take().map(|(id, _)| id);
 	session.job = Some((id, template));
 	params
@@ -399,9 +434,9 @@ where
 				return error(&id, "the node has no block template yet, retry later");
 			};
 
+			let pool = params.get("mode").and_then(Value::as_str) == Some("pool");
 			let counter = server.extra_nonces.fetch_add(1, Ordering::Relaxed);
-			let mut extra_nonce = [0u8; EXTRA_NONCE_SIZE];
-			extra_nonce.copy_from_slice(&counter.to_le_bytes()[..EXTRA_NONCE_SIZE]);
+			let extra_nonce = extra_nonce(counter, pool);
 			let rig = match params.get("rigid").and_then(Value::as_str) {
 				Some(rig) if !rig.is_empty() => rig,
 				_ => login,
@@ -410,11 +445,13 @@ where
 				id: hex::encode(extra_nonce),
 				rig: rig.chars().take(64).collect(),
 				extra_nonce,
+				pool,
 				job: None,
 				previous_job: None,
 			};
 			let job = new_job(server, &mut new, template);
-			log::info!(target: LOG_TARGET, "⛏  Stratum miner {} connected", new.rig);
+			let kind = if pool { "pool" } else { "miner" };
+			log::info!(target: LOG_TARGET, "⛏  Stratum {kind} {} connected", new.rig);
 			let result = json!({
 				"id": new.id,
 				"job": job,
@@ -453,6 +490,14 @@ where
 
 			let mut nonce = [0u8; NONCE_SIZE];
 			nonce[..EXTRA_NONCE_SIZE].copy_from_slice(&session.extra_nonce);
+			if session.pool {
+				let reserved = decode("extra_nonce")
+					.and_then(|bytes| <[u8; POOL_RESERVED_SIZE]>::try_from(bytes).ok());
+				let Some(reserved) = reserved else {
+					return error(&id, "Malformed share: a pool sets extra_nonce");
+				};
+				nonce[POOL_PREFIX_SIZE..EXTRA_NONCE_SIZE].copy_from_slice(&reserved);
+			}
 			nonce[EXTRA_NONCE_SIZE..].copy_from_slice(&miner_nonce);
 			let input: [u8; WORK_INPUT_SIZE] = work_input(&template.pre_hash, &nonce);
 			if !meets_difficulty(&pow_value(&input, &hash), template.difficulty) {
@@ -517,7 +562,7 @@ mod tests {
 			height: 7,
 			seed: [0xbb; 32],
 		};
-		let job = job(&template, &[1, 2, 3, 4, 5, 6, 7], "2a");
+		let job = job(&template, &[1, 2, 3, 4, 5, 6, 7], "2a", false);
 		let blob = hex::decode(job["blob"].as_str().unwrap()).unwrap();
 		assert_eq!(blob.len(), WORK_INPUT_SIZE);
 		assert_eq!(&blob[32..39], &[1, 2, 3, 4, 5, 6, 7]);
@@ -527,6 +572,34 @@ mod tests {
 		assert_eq!(job["algo"], "rx/tess");
 		assert_eq!(job["height"], 7);
 		assert_eq!(job["seed_hash"], hex::encode([0xbb; 32]));
+		assert_eq!(job["difficulty"], "2");
+		assert!(job.get("reserved_offset").is_none());
+	}
+
+	#[test]
+	fn pools_get_a_prefix_and_reserved_bytes() {
+		let template = Template {
+			pre_hash: [0xaa; 32],
+			difficulty: U256::from(1_000_000),
+			height: 9,
+			seed: [0xbb; 32],
+		};
+		let prefix = extra_nonce(0x0102_0304_0506, true);
+		assert_eq!(prefix, [0x86, 0x05, 0x04, 0, 0, 0, 0]);
+		let job = job(&template, &prefix, "1", true);
+		assert_eq!(job["reserved_offset"], 35);
+		assert_eq!(job["reserved_size"], 4);
+		let blob = hex::decode(job["blob"].as_str().unwrap()).unwrap();
+		assert_eq!(&blob[32..35], &[0x86, 0x05, 0x04]);
+		assert_eq!(&blob[35..43], &[0; 8]);
+	}
+
+	#[test]
+	fn rigs_and_pools_never_share_extra_nonces() {
+		for counter in [0u64, 1, 0x80, 0xff, 0x7f_ffff, u64::MAX] {
+			assert_eq!(extra_nonce(counter, false)[0] & 0x80, 0);
+			assert_eq!(extra_nonce(counter, true)[0] & 0x80, 0x80);
+		}
 	}
 
 	#[test]
