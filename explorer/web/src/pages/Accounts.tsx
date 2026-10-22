@@ -23,7 +23,7 @@ function DelegationsTable({ rows, side }: { rows: Delegation[]; side: "owner" | 
       rowKey={(d) => `${d.owner}/${d.agent}`}
       empty="No delegation"
       columns={[
-        { header: side === "owner" ? "Agent key" : "Owner", cell: (d) => <AddressLink address={side === "owner" ? d.agent : d.owner} /> },
+        { header: side === "owner" ? "Agent address" : "Owner", cell: (d) => <AddressLink address={side === "owner" ? d.agent : d.owner} /> },
         { header: "Budget", align: "right", cell: (d) => <span><Amount planck={d.budget} decimals={2} /> <span className="text-xs text-muted">/ {blocksDuration(d.period)}</span></span> },
         { header: "Spent", align: "right", cell: (d) => <Amount planck={d.spent} decimals={4} /> },
         { header: "Per call", align: "right", desktopOnly: true, cell: (d) => <Amount planck={d.max_per_call} decimals={2} /> },

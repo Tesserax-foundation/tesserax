@@ -138,7 +138,7 @@ export function AgentPage() {
       <Card>
         <CardHeader title="Registration" />
         <Fields>
-          <Field label="Agent key"><AddressLink address={agent.address} full copy /></Field>
+          <Field label="Agent address"><AddressLink address={agent.address} full copy /></Field>
           <Field label="Owner">{agent.owner ? <span className="inline-flex flex-wrap items-center gap-2"><AddressLink address={agent.owner} full />{agent.owner_confirmed ? <Badge tone="success">Confirmed</Badge> : <Badge tone="warning">Unconfirmed</Badge>}</span> : <span className="text-muted">Independent</span>}</Field>
           <Field label="Endpoint">{agent.endpoint ? <span className="inline-flex min-w-0 items-center gap-1"><a href={agent.endpoint} target="_blank" rel="noreferrer nofollow" className="truncate font-mono text-sm text-accent">{agent.endpoint}</a><ExternalLink size={13} className="text-faint" /><CopyButton value={agent.endpoint} /></span> : "—"}</Field>
           <Field label="Registered at"><BlockLink number={agent.registered_at} /></Field>
