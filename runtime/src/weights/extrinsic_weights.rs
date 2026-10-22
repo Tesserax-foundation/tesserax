@@ -1,10 +1,19 @@
-//! Generated with the Substrate benchmark CLI 62.0.0 on 2026-10-20 (Apple M1), with ML-DSA-87 transaction signatures.
+
+//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 62.0.0
+//! DATE: 2026-10-22 (Y/M/D)
 //!
 //! SHORT-NAME: `extrinsic`, LONG-NAME: `ExtrinsicBase`, RUNTIME: `Tesserax Development`
 //! WARMUPS: `10`, REPEAT: `100`
+//! WEIGHT-PATH: `runtime/src/weights`
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
-//!
-//! Command: `tesserax benchmark overhead --dev --weight-path runtime/src/weights`
+
+// Executed Command:
+//   target/release/tesserax
+//   benchmark
+//   overhead
+//   --dev
+//   --weight-path
+//   runtime/src/weights
 
 use sp_core::parameter_types;
 use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
@@ -14,17 +23,17 @@ parameter_types! {
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 974_535, 1_631_954
-	///   Average:  993_376
-	///   Median:   979_726
-	///   Std-Dev:  68804.02
+	///   Min, Max: 970_806, 1_159_220
+	///   Average:  980_876
+	///   Median:   977_277
+	///   Std-Dev:  19541.21
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 1_150_949
-	///   95th: 1_024_832
-	///   75th: 983_507
+	///   99th: 1_026_437
+	///   95th: 991_377
+	///   75th: 980_135
 	pub const ExtrinsicBaseWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(993_376), 0);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(980_876), 0);
 }
 
 #[cfg(test)]

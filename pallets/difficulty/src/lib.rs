@@ -14,17 +14,23 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use pallet::*;
+pub use weights::WeightInfo;
 
 use sp_core::U256;
 
 /// Proof-of-work difficulty: the expected number of hashes needed to find a block.
 pub type Difficulty = U256;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod weights;
 
 /// Maximum ratio between a solve time taken into account and the target block time.
 const MAX_SOLVE_TIME_RATIO: u64 = 6;
@@ -57,6 +63,9 @@ pub mod pallet {
 		/// Lower bound of the difficulty.
 		#[pallet::constant]
 		type MinimumDifficulty: Get<Difficulty>;
+
+		/// Weights of the adjustment.
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]
@@ -108,7 +117,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			// Accounts for `on_finalize`.
-			T::DbWeight::get().reads_writes(2, 2)
+			T::WeightInfo::on_finalize()
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {

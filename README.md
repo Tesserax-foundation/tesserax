@@ -185,6 +185,23 @@ rewards, automatic payouts, a dashboard and an API. See [docs/pool.md](docs/pool
 cargo test --workspace
 ```
 
+## Weights
+
+Every call of the runtime has a weight, the time it takes, from which its fee follows: the
+fixed costs of a block and of a transaction (ML-DSA-87 signature check included), and a
+benchmarked weight for each call of every pallet, those of Tesserax and those of the Polkadot
+SDK in this runtime. `scripts/benchmark.sh` measures them all and writes them to the sources
+(`pallets/*/src/weights.rs`, `runtime/src/weights/`):
+
+```bash
+cargo build --release -p tesserax-node --features runtime-benchmarks
+scripts/benchmark.sh
+```
+
+Weights are times on the machine that measures them: run it on the reference hardware of the
+network before a release, on an idle machine. `PALLETS="pallet_tasks"` measures one pallet,
+`STEPS` and `REPEAT` set the precision.
+
 ## License
 
 Copyright 2026 Tesserax developers. See [LICENSE](LICENSE) for the details.

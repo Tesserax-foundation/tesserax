@@ -260,7 +260,9 @@ pub mod pallet {
 		/// Move `value_in` from the signer into the pool, with a shielded transaction bound to
 		/// the signer.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::shield())]
+		#[pallet::weight(T::WeightInfo::authorize_transact()
+			.saturating_add(T::WeightInfo::transact())
+			.saturating_add(T::WeightInfo::shield_burn()))]
 		pub fn shield(
 			origin: OriginFor<T>,
 			transaction: Box<ShieldedTransaction<T::AccountId>>,

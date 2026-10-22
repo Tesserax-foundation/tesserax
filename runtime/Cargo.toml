@@ -130,6 +130,7 @@ runtime-benchmarks = [
 	"pallet-agents/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-channels/runtime-benchmarks",
+	"pallet-difficulty/runtime-benchmarks",
 	"pallet-emission/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",

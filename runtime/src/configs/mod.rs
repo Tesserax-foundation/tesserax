@@ -25,7 +25,7 @@ use sp_runtime::{
 };
 use sp_version::RuntimeVersion;
 
-use super::weights::{block_weights::BlockExecutionWeight, extrinsic_weights::ExtrinsicBaseWeight};
+use super::weights::{self, block_weights::BlockExecutionWeight, extrinsic_weights::ExtrinsicBaseWeight};
 use super::{
 	precompiles::MlDsa87Verify, AccountId, Balance, Balances, Block, BlockNumber, Hash, Nonce,
 	PalletInfo, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason,
@@ -88,6 +88,8 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type MaxConsumers = ConstU32<16>;
 	type BaseCallFilter = NoEthereumTransactions;
+	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
+	type ExtensionsWeightInfo = weights::frame_system_extensions::WeightInfo<Runtime>;
 	/// Accounts get their contract address mapping on creation.
 	type OnNewAccount = pallet_revive::AutoMapper<Runtime>;
 	type OnKilledAccount = pallet_revive::AutoMapper<Runtime>;
@@ -149,7 +151,7 @@ impl pallet_timestamp::Config for Runtime {
 	type OnTimestampSet = ();
 	/// Consecutive blocks are at least one second apart.
 	type MinimumPeriod = ConstU64<1_000>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -162,6 +164,7 @@ impl pallet_difficulty::Config for Runtime {
 	/// 120 blocks, about 36 minutes.
 	type Window = ConstU32<120>;
 	type MinimumDifficulty = MinimumDifficulty;
+	type WeightInfo = pallet_difficulty::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_balances::Config for Runtime {
@@ -173,7 +176,7 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ToAuthor;
 	type ExistentialDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
 	type AccountStore = System;
-	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeHoldReason = RuntimeHoldReason;
@@ -192,13 +195,26 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
-	type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_transaction_payment::WeightInfo<Runtime>;
+}
+
+/// Fees go to the miner of the block: the benchmark names one, as a mined block does, so that it
+/// measures the payment of the fee to the miner.
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_transaction_payment::BenchmarkConfig for Runtime {
+	fn setup_benchmark_environment() {
+		let miner: AccountId = frame_benchmarking::account("miner", 0, 0);
+		System::deposit_log(sp_runtime::DigestItem::PreRuntime(
+			sp_consensus_pow::POW_ENGINE_ID,
+			codec::Encode::encode(&miner),
+		));
+	}
 }
 
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_sudo::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -213,7 +229,7 @@ impl pallet_vesting::Config for Runtime {
 	type Currency = Balances;
 	type BlockNumberToBalance = ConvertInto;
 	type MinVestedTransfer = MinVestedTransfer;
-	type WeightInfo = pallet_vesting::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_vesting::WeightInfo<Runtime>;
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
@@ -232,7 +248,7 @@ impl pallet_multisig::Config for Runtime {
 	type DepositBase = MultisigDepositBase;
 	type DepositFactor = MultisigDepositFactor;
 	type MaxSignatories = ConstU32<100>;
-	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
 	type BlockNumberProvider = System;
 }
 

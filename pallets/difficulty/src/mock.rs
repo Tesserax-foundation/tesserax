@@ -50,6 +50,7 @@ impl pallet_difficulty::Config for Test {
 	type TargetBlockTime = ConstU64<TARGET>;
 	type Window = ConstU32<WINDOW>;
 	type MinimumDifficulty = MinimumDifficulty;
+	type WeightInfo = ();
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
