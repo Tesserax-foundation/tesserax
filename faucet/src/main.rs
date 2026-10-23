@@ -105,7 +105,10 @@ impl Faucet {
 				return Ok(client.clone());
 			}
 		}
-		let client = Client::connect(&self.node).await.map_err(|e| format!("node unreachable: {e}"))?;
+		let client = Client::connect(&self.node).await.map_err(|e| {
+			tracing::warn!("Connecting to the node at {}: {e}", self.node);
+			format!("node unreachable: {e}")
+		})?;
 		*slot = Some(client.clone());
 		Ok(client)
 	}
@@ -129,7 +132,8 @@ async fn info(State(faucet): State<Arc<Faucet>>) -> Response {
 		match faucet.client(&mut slot).await {
 			Ok(client) => match client.balance(&faucet.key.account_id()).await {
 				Ok(balance) => Some(balance.transferable.to_string()),
-				Err(_) => {
+				Err(e) => {
+					tracing::warn!("Reading the balance of the faucet: {e}");
 					*slot = None;
 					None
 				},

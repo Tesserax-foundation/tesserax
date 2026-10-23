@@ -230,10 +230,50 @@ impl Policy {
 	}
 }
 
+/// TLS of the `wss://` connections: TLS 1.3, ML-KEM-768 in every key exchange.
+fn post_quantum_tls() -> Result<rustls::ClientConfig> {
+	use rustls::crypto::{aws_lc_rs, CryptoProvider};
+	let provider = std::sync::Arc::new(CryptoProvider {
+		kx_groups: vec![aws_lc_rs::kx_group::MLKEM768, aws_lc_rs::kx_group::X25519MLKEM768],
+		..aws_lc_rs::default_provider()
+	});
+	let tls = |e: rustls::Error| Error::InvalidInput(format!("TLS: {e}"));
+	let verifier = rustls_platform_verifier::Verifier::new(provider.clone()).map_err(tls)?;
+	Ok(rustls::ClientConfig::builder_with_provider(provider)
+		.with_protocol_versions(&[&rustls::version::TLS13])
+		.map_err(tls)?
+		.dangerous()
+		.with_custom_certificate_verifier(std::sync::Arc::new(verifier))
+		.with_no_client_auth())
+}
+
+/// A websocket client of `url` over post-quantum TLS, configured as `subxt` configures its own.
+async fn post_quantum_client(url: &str) -> Result<jsonrpsee::core::client::Client> {
+	use jsonrpsee::client_transport::ws::{Url, WsTransportClientBuilder};
+	let node = |e: String| Error::Node(subxt::Error::Other(format!("{url}: {e}")));
+	let parsed = Url::parse(url).map_err(|e| node(e.to_string()))?;
+	let (sender, receiver) = WsTransportClientBuilder::default()
+		.with_custom_cert_store(post_quantum_tls()?)
+		.build(parsed)
+		.await
+		.map_err(|e| node(e.to_string()))?;
+	Ok(jsonrpsee::core::client::Client::builder()
+		.max_buffer_capacity_per_subscription(4096)
+		.build_with_tokio(sender, receiver))
+}
+
 impl Client {
-	/// Connect to the node at `url`, such as `ws://127.0.0.1:9944`.
+	/// Connect to the node at `url`, such as `wss://rpc.tesserax.app:21207`, or `ws://127.0.0.1:9944`.
+	///
+	/// `wss://` connections use TLS 1.3 with ML-KEM-768, alone or in the hybrid X25519MLKEM768, and
+	/// the certificate authorities of the system: a server without ML-KEM is refused. `ws://` is
+	/// not encrypted: use it on the machine of the node or a private network only.
 	pub async fn connect(url: &str) -> Result<Self> {
-		let rpc = RpcClient::from_url(url).await.map_err(subxt::Error::from)?;
+		let rpc = if url.starts_with("wss://") {
+			RpcClient::new(post_quantum_client(url).await?)
+		} else {
+			RpcClient::from_insecure_url(url).await.map_err(subxt::Error::from)?
+		};
 		let api = OnlineClient::<TesseraxConfig>::from_rpc_client(rpc.clone()).await?;
 		Ok(Client { api, rpc: LegacyRpcMethods::new(rpc) })
 	}
