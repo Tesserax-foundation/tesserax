@@ -1,8 +1,8 @@
 //! Rust SDK of Tesserax.
 //!
 //! Connects to a Tesserax node, signs transactions with ML-DSA-87 keys and covers what an AI
-//! agent needs: balances and transfers, delegations from an owner to an agent key, and the agent
-//! registry with its reputation.
+//! agent needs: balances and transfers, delegations from an owner to an agent key, the agent
+//! registry with its reputation, and smart contracts ([`contracts`]).
 //!
 //! ```no_run
 //! # async fn example() -> Result<(), tesserax_sdk::Error> {
@@ -19,6 +19,7 @@
 pub mod amount;
 pub mod channels;
 pub mod client;
+pub mod contracts;
 pub mod keys;
 mod store;
 pub mod tasks;
@@ -32,6 +33,7 @@ pub use client::{
 	AgentRecord, Balance, ChainInfo, Client, Delegation, Permissions, Policy, Profile, Reputation,
 	TxOutcome,
 };
+pub use contracts::{Contract, ContractEvent, ContractTx, Deploy, DryRun};
 pub use keys::{format_address, parse_address, AccountId, Keypair, SS58_PREFIX};
 pub use tasks::{NewTask, TaskInfo, TaskStatus, BLOCKS_PER_HOUR};
 
@@ -70,6 +72,9 @@ pub enum Error {
 	InvalidInput(String),
 	#[error("transaction failed: {0}")]
 	Dispatch(String),
+	/// A contract reverted, with its reason, such as `InsufficientBalance(available: 5, required: 10)`.
+	#[error("contract reverted: {0}")]
+	ContractReverted(String),
 	#[error("not found: {0}")]
 	NotFound(String),
 	#[error("state file: {0}")]

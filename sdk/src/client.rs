@@ -55,6 +55,7 @@ pub struct Balance {
 pub struct TxOutcome {
 	/// Block that includes the transaction.
 	pub block_hash: String,
+	pub block_number: u32,
 	/// Hash of the transaction.
 	pub extrinsic_hash: String,
 }
@@ -258,7 +259,7 @@ impl Client {
 
 	/// Hash and number of the best block. Proof-of-work blocks are final only 60 blocks deep, so
 	/// the client reads the state of the best block and builds transactions on top of it.
-	async fn best(&self) -> Result<(H256, u32)> {
+	pub(crate) async fn best(&self) -> Result<(H256, u32)> {
 		let rpc_error = |e| Error::Node(subxt::Error::from(e));
 		let hash = self
 			.rpc
@@ -273,6 +274,14 @@ impl Client {
 			.map_err(rpc_error)?
 			.ok_or_else(|| Error::NotFound("best block header".into()))?;
 		Ok((hash, header.number))
+	}
+
+	/// Hash of the block `number` of the best chain, if the chain has it.
+	pub(crate) async fn block_hash(&self, number: u32) -> Result<Option<H256>> {
+		self.rpc
+			.chain_get_block_hash(Some(number.into()))
+			.await
+			.map_err(|e| Error::Node(subxt::Error::from(e)))
 	}
 
 	async fn best_block(&self) -> Result<u32> {
@@ -342,8 +351,17 @@ impl Client {
 			subxt::Error::Runtime(error) => Error::Dispatch(error.to_string()),
 			other => Error::Node(other),
 		})?;
-		let outcome =
-			TxOutcome { block_hash: hex(block_hash.as_ref()), extrinsic_hash: hex(extrinsic_hash.as_ref()) };
+		let block_number = self
+			.rpc
+			.chain_get_header(Some(block_hash))
+			.await
+			.map_err(|e| Error::Node(subxt::Error::from(e)))?
+			.map_or(0, |header| header.number);
+		let outcome = TxOutcome {
+			block_hash: hex(block_hash.as_ref()),
+			block_number,
+			extrinsic_hash: hex(extrinsic_hash.as_ref()),
+		};
 		Ok((outcome, events))
 	}
 

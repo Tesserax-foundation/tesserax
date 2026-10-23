@@ -5,22 +5,14 @@ import { getWsProvider } from "polkadot-api/ws";
 import { lastValueFrom, filter, map, take } from "rxjs";
 import { Amount, DECIMALS } from "./amount.js";
 import { fromHex, Keypair, formatAddress, parseAddress, SS58_PREFIX, toHex } from "./keys.js";
+import { Contract, Contracts, type ContractTxOutcome, type DeployOptions } from "./contracts.js";
+import { chainError, TransactionFailed } from "./errors.js";
 import { mlDsaTxCreator } from "./signer.js";
+
+export { chainError, TransactionFailed };
 
 /** Blocks a transaction stays valid, counted from the best block: about 19 minutes. */
 export const MORTALITY = 64;
-
-/** The chain refused or failed a transaction. `error` is the chain error, such as
- * `Agents::BudgetExceeded`, when known. */
-export class TransactionFailed extends Error {
-  constructor(
-    message: string,
-    readonly error?: string,
-  ) {
-    super(message);
-    this.name = "TransactionFailed";
-  }
-}
 
 export interface ChainInfo {
   chain: string;
@@ -112,14 +104,6 @@ const bounded = (value: string, limit: number, name: string) => {
 // Accounts are given to the codecs as addresses with the Tesserax prefix.
 const address = (value: string) => formatAddress(parseAddress(value));
 
-const chainError = (dispatchError: { type: string; value: unknown }) => {
-  const inner = dispatchError.value as { type?: string; value?: { type?: string } } | undefined;
-  if (dispatchError.type === "Module" && inner?.type && inner.value?.type) {
-    return `${inner.type}::${inner.value.type}`;
-  }
-  return inner?.type ? `${dispatchError.type}::${inner.type}` : dispatchError.type;
-};
-
 /**
  * A connection to a Tesserax node.
  *
@@ -131,10 +115,13 @@ export class TesseraxClient {
   readonly client: PolkadotClient;
   // The SDK is not generated from metadata: calls and storage are reached by name.
   readonly api: any;
+  /** Smart contracts: dry runs, deployments, calls and events. */
+  readonly contracts: Contracts;
 
   constructor(url = "ws://127.0.0.1:9944") {
     this.client = createClient(getWsProvider(url));
     this.api = this.client.getUnsafeApi();
+    this.contracts = new Contracts(this);
   }
 
   destroy(): void {
@@ -206,6 +193,20 @@ export class TesseraxClient {
       txHash: included.txHash,
       events: included.events as unknown as TxOutcome["events"],
     };
+  }
+
+  // Smart contracts.
+
+  /** Deploy a contract compiled to PolkaVM, signed by `signer`, and return it once a block
+   * includes the deployment, with the events of its constructor. */
+  async deployContract(signer: Keypair, options: DeployOptions): Promise<Contract & { deployment: ContractTxOutcome }> {
+    const { contract, outcome } = await this.contracts.deploy(signer, options);
+    return Object.assign(contract, { deployment: outcome });
+  }
+
+  /** The contract at `address` (`0x` and 40 digits), called through `abi`. */
+  contract(address: string, abi: Contract["abi"]): Contract {
+    return new Contract(this, address as `0x${string}`, abi);
   }
 
   /** Transfer `amount` to `to`, keeping the signer's account alive. */

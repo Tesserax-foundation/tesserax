@@ -1,7 +1,7 @@
 # tesserax-sdk
 
 Rust SDK of Tesserax: ML-DSA-87 keys and addresses, balances and transfers, delegations from an
-owner to an agent key, and the agent registry with its reputation.
+owner to an agent key, the agent registry with its reputation, and smart contracts.
 
 ```rust
 use tesserax_sdk::{Amount, Client, Keypair, Permissions, Policy, Profile};
@@ -52,6 +52,18 @@ Task market: `create_task`, `open_tasks`, `accept_task`, `deliver_task`, `approv
 `dispute_task`, `resolve_task` and `finalize_task`; every call takes an optional owner to act
 through an agent's delegation.
 
+Smart contracts (`docs/contracts.md`): `deploy_contract` deploys Solidity compiled to PolkaVM with
+`resolc`; a `Contract` reads without a transaction (`read`), writes with an ML-DSA signed
+transaction (`write`), decodes its events (`events`, `watch_events`) and its revert reasons, with
+arguments and results as `alloy` `DynSolValue`s. `contracts::h160` gives the address of an account
+in contracts.
+
+```rust
+let (token, _) = client.deploy_contract(&alice, &code, abi, &[name, supply], Default::default()).await?;
+token.write(&alice, "transfer", &[DynSolValue::Address(h160(&bob)), DynSolValue::Uint(U256::from(250), 256)]).await?;
+let balance = token.read("balanceOf", &[DynSolValue::Address(h160(&bob))]).await?;
+```
+
 The client reads the state of the best block and builds transactions on top of it: proof-of-work
 blocks are final only 60 blocks deep. Calls return once the transaction is included in a block,
 or the error of the chain, such as `Agents::BudgetExceeded`.
@@ -73,5 +85,6 @@ TESSERAX_UPDATE_METADATA=1 cargo test -p tesserax-sdk --test metadata
 ```bash
 cargo test -p tesserax-sdk
 tesserax --dev --tmp --mine --author <address>
+cargo test -p tesserax-sdk --test contracts -- --ignored     # deploys fixtures/contracts/Token.sol
 cargo test -p tesserax-sdk --test dev_chain -- --ignored --nocapture
 ```

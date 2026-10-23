@@ -93,6 +93,22 @@ tasks.deliver(worker, task.id, "ipfs://contract-en")
 tasks.approve(agent, task_id, owner=owner.address)
 ```
 
+## Smart contracts
+
+Solidity compiled to PolkaVM with `resolc`, deployed and called with ML-DSA signed transactions;
+functions called by name, arguments and results encoded with the Solidity ABI, events and revert
+reasons decoded (`docs/contracts.md`). Reads are dry runs, without a transaction or a fee.
+
+```python
+from tesserax import to_h160
+
+token = client.deploy_contract(alice, code, abi, args=["Tesserax Coin", 1_000_000])
+token.write(alice, "transfer", [to_h160(bob), 250])
+balance = token.read("balanceOf", [to_h160(bob)])
+for event in token.watch_events():
+    print(event.name, event.args)
+```
+
 ## Tests
 
 ```bash

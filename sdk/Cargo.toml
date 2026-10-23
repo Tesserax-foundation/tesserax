@@ -1,6 +1,6 @@
 [package]
 name = "tesserax-sdk"
-description = "Rust SDK of Tesserax: ML-DSA accounts, transfers, agent delegations and the agent registry."
+description = "Rust SDK of Tesserax: ML-DSA accounts, transfers, agent delegations, the agent registry and smart contracts."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -12,9 +12,11 @@ publish = false
 workspace = true
 
 [dependencies]
+alloy-core = { workspace = true, features = ["dyn-abi", "json-abi", "std"] }
 base64 = { workspace = true }
 bip39 = { workspace = true }
 codec = { workspace = true, default-features = true, features = ["derive"] }
+futures = { workspace = true }
 getrandom = { workspace = true, default-features = true }
 serde = { workspace = true }
 serde_json = { workspace = true, default-features = true }

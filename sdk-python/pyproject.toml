@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "tesserax"
 version = "0.1.0"
-description = "Python SDK of Tesserax: ML-DSA accounts, transfers, AI agent delegations and the agent registry."
+description = "Python SDK of Tesserax: ML-DSA accounts, transfers, AI agent delegations, the agent registry and smart contracts."
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -13,6 +13,7 @@ requires-python = ">=3.10"
 dependencies = [
     "substrate-interface>=1.8.1,<2",
     "dilithium-py>=1.5.1,<2",
+    "eth-abi>=5.2,<6",
 ]
 
 [project.optional-dependencies]

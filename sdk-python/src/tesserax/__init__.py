@@ -1,5 +1,5 @@
-"""Python SDK of Tesserax: ML-DSA accounts, transfers, AI agent delegations and the agent
-registry.
+"""Python SDK of Tesserax: ML-DSA accounts, transfers, AI agent delegations, the agent registry
+and smart contracts.
 
     from tesserax import Amount, Client, Keypair
 
@@ -32,6 +32,16 @@ from .client import (
     Profile,
     Reputation,
     TxOutcome,
+)
+from .contracts import (
+    MAX_EVENT_RANGE,
+    Contract,
+    ContractEvent,
+    ContractReverted,
+    ContractTxOutcome,
+    DryRun,
+    revert_reason,
+    to_h160,
 )
 from .errors import (
     InvalidAddress,
@@ -84,4 +94,12 @@ __all__ = [
     "TaskInfo",
     "Tasks",
     "blocks_for",
+    "MAX_EVENT_RANGE",
+    "Contract",
+    "ContractEvent",
+    "ContractReverted",
+    "ContractTxOutcome",
+    "DryRun",
+    "revert_reason",
+    "to_h160",
 ]

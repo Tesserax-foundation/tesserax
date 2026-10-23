@@ -145,6 +145,10 @@ hash of its account id. The mapping is registered automatically when the account
 npx @parity/resolc --bin --abi -o out MyContract.sol
 ```
 
+The Rust, TypeScript and Python SDKs deploy contracts, call them by function name, read them
+without a transaction and follow their events: see [docs/contracts.md](docs/contracts.md), from the
+Solidity to the deployment.
+
 ## Building
 
 Requirements: Rust (installed through `rustup`, the toolchain is pinned by `rust-toolchain.toml`),

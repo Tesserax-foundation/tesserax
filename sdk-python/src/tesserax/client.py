@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 from substrateinterface import SubstrateInterface
 from substrateinterface.exceptions import SubstrateRequestException
 from websocket import WebSocket, WebSocketConnectionClosedException
 
 from .amount import DECIMALS, Amount
+from .contracts import Contract, Contracts
 from .errors import InvalidInput, TransactionFailed
 from .keys import SS58_PREFIX, Keypair, format_address, parse_address
 
@@ -77,6 +78,7 @@ class TxOutcome:
     extrinsic_hash: str
     #: Events of the transaction, as `(pallet, event, attributes)`.
     events: list = field(default_factory=list, repr=False)
+    block_number: int = 0
 
 
 @dataclass
@@ -181,6 +183,8 @@ class Client:
 
     def __init__(self, url: str = "ws://127.0.0.1:9944"):
         self.substrate = SubstrateInterface(url=url, ss58_format=SS58_PREFIX, ws_options={"class_": _WebSocket})
+        #: Smart contracts: dry runs, deployments, calls and events.
+        self.contracts = Contracts(self)
 
     def close(self) -> None:
         self.substrate.close()
@@ -252,7 +256,32 @@ class Client:
             value = event.value
             inner = value.get("event", value)
             events.append((inner.get("module_id"), inner.get("event_id"), inner.get("attributes")))
-        return TxOutcome(block_hash=receipt.block_hash, extrinsic_hash=receipt.extrinsic_hash, events=events)
+        return TxOutcome(
+            block_hash=receipt.block_hash,
+            extrinsic_hash=receipt.extrinsic_hash,
+            events=events,
+            block_number=s.get_block_number(receipt.block_hash),
+        )
+
+    # Smart contracts.
+
+    def deploy_contract(
+        self,
+        signer: Keypair,
+        code: bytes,
+        abi: list,
+        args: Sequence = (),
+        value: Amount = Amount(0),
+        salt: Optional[bytes] = None,
+    ) -> Contract:
+        """Deploy `code`, a contract compiled to PolkaVM (`.polkavm` from `resolc --bin`), with the
+        constructor arguments `args` of `abi`, signed by `signer`. Returns the contract once a block
+        includes the deployment; its `deployment` is the outcome, with the constructor's events."""
+        return self.contracts.deploy(signer, code, abi, args, value, salt)
+
+    def contract(self, address: str, abi: list) -> Contract:
+        """The contract at `address` (`0x` and 40 digits), called through `abi`."""
+        return Contract(self, address, abi)
 
     def transfer(self, signer: Keypair, to: str, amount: Amount) -> TxOutcome:
         """Transfer `amount` to `to`, keeping the signer's account alive."""

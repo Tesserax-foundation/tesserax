@@ -106,6 +106,21 @@ await tasks.deliver(worker, undefined, open.id, "ipfs://contract-en");
 await tasks.approve(agent, owner.address, id);
 ```
 
+## Smart contracts
+
+Solidity compiled to PolkaVM with `resolc`, deployed and called with ML-DSA signed transactions;
+functions called by name, arguments and results encoded with the Solidity ABI, events and revert
+reasons decoded (`docs/contracts.md`). Reads are dry runs, without a transaction or a fee.
+
+```ts
+import { toH160 } from "@tesserax/sdk";
+
+const token = await client.deployContract(alice, { code, abi, args: ["Tesserax Coin", 1_000_000n] });
+await token.write(alice, "transfer", [toH160(bob), 250n]);
+const balance = await token.read("balanceOf", [toH160(bob)]);
+const stop = token.watchEvents((event) => console.log(event.name, event.args));
+```
+
 ## Tests
 
 ```bash
