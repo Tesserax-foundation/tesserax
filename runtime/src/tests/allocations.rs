@@ -148,3 +148,33 @@ fn testnet_genesis_creates_the_allocations() {
 	});
 }
 
+#[test]
+fn mainnet_genesis_creates_the_allocations_only() {
+	ext_of(genesis_config_presets::MAINNET_RUNTIME_PRESET).execute_with(|| {
+		// The addresses the team gave, with the Tesserax prefix.
+		let account = |address: &str| {
+			let (account, format) =
+				<AccountId as sp_core::crypto::Ss58Codec>::from_ss58check_with_version(address).unwrap();
+			assert_eq!(u16::from(format), SS58_PREFIX);
+			account
+		};
+		let team = ["tetTtAxXxBzRTTsc5otocLgRrGZVCcxzBeK4NSGwdqAsee7XM", "tetBiN5GwskQqq8ykcMUQbqCPdWPRaE5PoYwfazsJ2jHGtTZw"]
+			.map(account);
+		let backup = account("terN4gSZpiFpeERvb1PoaJiiBRqSEmXw56xF5MqqjLbp7eH3x");
+		let foundation = genesis_config_presets::foundation_account(&[team[0].clone(), team[1].clone(), backup], 2);
+
+		// Every TESS of the genesis is an allocation; the rest is mined.
+		let allocated = TEAM_ALLOCATION + FOUNDATION_ALLOCATION;
+		assert!((allocated..allocated + UNIT).contains(&Balances::total_issuance()));
+		for member in &team {
+			assert_eq!(Balances::free_balance(member), TEAM_ALLOCATION / 2);
+			// Nothing of the team is spendable before the cliff.
+			assert_eq!(spendable(member), 0);
+		}
+		assert_eq!(Balances::free_balance(&foundation), FOUNDATION_ALLOCATION);
+		assert!(spendable(&foundation) <= FOUNDATION_LIQUID);
+		assert_eq!(pallet_sudo::Key::<Runtime>::get(), Some(foundation));
+		assert_eq!(pallet_difficulty::CurrentDifficulty::<Runtime>::get(), sp_core::U256::from(1_000_000));
+	});
+}
+

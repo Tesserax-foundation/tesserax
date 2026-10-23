@@ -13,31 +13,25 @@ fn properties() -> Properties {
 }
 
 pub fn development_chain_spec() -> Result<ChainSpec, String> {
-	Ok(ChainSpec::builder(
-		WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?,
-		None,
-	)
-	.with_name("Tesserax Development")
-	.with_id("tesserax_dev")
-	.with_chain_type(ChainType::Development)
-	.with_protocol_id("tess")
-	.with_properties(properties())
-	.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
-	.build())
+	Ok(ChainSpec::builder(WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?, None)
+		.with_name("Tesserax Development")
+		.with_id("tesserax_dev")
+		.with_chain_type(ChainType::Development)
+		.with_protocol_id("tess")
+		.with_properties(properties())
+		.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
+		.build())
 }
 
 pub fn local_chain_spec() -> Result<ChainSpec, String> {
-	Ok(ChainSpec::builder(
-		WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?,
-		None,
-	)
-	.with_name("Tesserax Local Testnet")
-	.with_id("tesserax_local")
-	.with_chain_type(ChainType::Local)
-	.with_protocol_id("tess")
-	.with_properties(properties())
-	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
-	.build())
+	Ok(ChainSpec::builder(WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?, None)
+		.with_name("Tesserax Local Testnet")
+		.with_id("tesserax_local")
+		.with_chain_type(ChainType::Local)
+		.with_protocol_id("tess")
+		.with_properties(properties())
+		.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
+		.build())
 }
 
 /// The public testnet, built from its runtime preset. Its specification is generated once and
@@ -59,3 +53,16 @@ pub fn testnet_chain_spec() -> Result<ChainSpec, String> {
 	ChainSpec::from_json_bytes(&include_bytes!("../../chain-specs/testnet.json")[..])
 }
 
+/// The mainnet, built from its runtime preset. Its specification is generated once, at the launch,
+/// with the runtime built reproducibly (`scripts/build-runtime.sh`), then frozen: see
+/// `docs/mainnet.md`.
+pub fn mainnet_genesis_chain_spec() -> Result<ChainSpec, String> {
+	Ok(ChainSpec::builder(WASM_BINARY.ok_or_else(|| "Mainnet wasm not available".to_string())?, None)
+		.with_name("Tesserax")
+		.with_id("tesserax")
+		.with_chain_type(ChainType::Live)
+		.with_protocol_id("tess")
+		.with_properties(properties())
+		.with_genesis_config_preset_name(tesserax_runtime::genesis_config_presets::MAINNET_RUNTIME_PRESET)
+		.build())
+}
