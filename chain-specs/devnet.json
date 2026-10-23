@@ -2,7 +2,9 @@
   "name": "Tesserax Development",
   "id": "tesserax_dev",
   "chainType": "Development",
-  "bootNodes": [],
+  "bootNodes": [
+    "/dns/interchange.proxy.rlwy.net/tcp/28385/p2p/QmPUY5BhQfshJqb3vUhZ7utcsVggZXRFhygi4hP4NjcGve"
+  ],
   "telemetryEndpoints": null,
   "protocolId": "tess",
   "properties": {
