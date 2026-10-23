@@ -116,7 +116,7 @@ jobs:
   image:
     name: Docker image
     needs: [rust, chain]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     permissions:
       contents: read
