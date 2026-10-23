@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+supabase
+web/*
+!web/package.json
+indexer/test

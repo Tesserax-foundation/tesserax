@@ -62,14 +62,20 @@ npm run indexer          # reads indexer/.env
 npm run dev              # web application on http://localhost:5173
 ```
 
-The indexer also runs with Docker: `docker build -t tesserax-indexer indexer && docker run --env-file indexer/.env tesserax-indexer`.
+The indexer also runs with Docker, its image built from this directory for the lockfile:
+
+```bash
+docker build -f indexer/Dockerfile -t tesserax-indexer .
+docker run --env-file indexer/.env tesserax-indexer
+```
 
 ## Deploy
 
 - Web application: `npm run build -w web` produces `web/dist`, a static site. `web/vercel.json`
   and `web/public/_redirects` send every path to `index.html` on Vercel and Netlify.
 - Indexer: one process per database, next to the node, restarted on failure (systemd, Docker).
-  It resumes where it stopped.
+  It resumes where it stopped. The indexer of the devnet runs on Railway next to its node: see
+  [docs/devnet.md](../docs/devnet.md).
 
 ## Tests
 

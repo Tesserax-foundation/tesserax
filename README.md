@@ -179,6 +179,9 @@ repository) on `127.0.0.1:3333`, several times faster than the built-in miner. S
 `tesserax-pool` (`pool/`) runs a public mining pool on top of a node: verified shares, PPLNS
 rewards, automatic payouts, a dashboard and an API. See [docs/pool.md](docs/pool.md).
 
+The public development network, the one the explorer and the web wallet follow, is described in
+[docs/devnet.md](docs/devnet.md).
+
 ## Tests
 
 ```bash
@@ -190,7 +193,8 @@ cargo test --workspace
 - `.github/workflows/ci.yml`, on every push to `main` and every pull request: builds the node,
   the wallet and the pool, runs every Rust test, checks that the benchmarks compile, then starts
   a development chain with the node just built and runs the TypeScript and Python SDKs and the
-  explorer indexer against it.
+  explorer indexer against it. A push to `main` that passes is published as the Docker image
+  `ghcr.io/<owner>/tesserax:main`, which the devnet runs.
 - `.github/workflows/release.yml`, on a tag `v<version>` matching `node/Cargo.toml`: the
   runtime built reproducibly, the node, the wallet and the pool for Linux and macOS, a Docker
   image on the GitHub container registry, and a draft release with their checksums.

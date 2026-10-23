@@ -4,3 +4,4 @@ target/
 .idea
 .vscode
 docker/binaries/
+docker/chain-specs/

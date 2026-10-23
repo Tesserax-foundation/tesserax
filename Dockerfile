@@ -3,7 +3,8 @@
 #   docker build -t tesserax .
 #   docker run -p 30333:30333 -p 9944:9944 -v tesserax-data:/data tesserax --chain <spec>
 #
-# Releases publish a ready image on the GitHub container registry instead.
+# The chain specifications of chain-specs/ are in /usr/share/tesserax. Releases publish a ready
+# image on the GitHub container registry instead.
 
 FROM docker.io/library/rust:1.99.1-bookworm@sha256:48b7f435b8fc6378ce43b44f15e3a47fd8919b2825f835c39bd4bd3da50af5b8 AS builder
 
@@ -26,10 +27,10 @@ RUN apt-get update \
 	&& mkdir /data && chown tesserax:tesserax /data
 
 COPY --from=builder /binaries/ /usr/local/bin/
+COPY chain-specs/ /usr/share/tesserax/
 
 USER tesserax
 WORKDIR /tesserax
-VOLUME ["/data"]
 # Peer-to-peer, RPC, Prometheus, stratum of the node.
 EXPOSE 30333 9944 9615 3333
 
