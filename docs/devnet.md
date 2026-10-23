@@ -27,7 +27,7 @@ node only follows the chain; with `--stratum`, XMRig mines on it (see [mining.md
 ## Hosting
 
 The devnet runs on Railway, project `tesserax`, region `us-west2` next to the Supabase database of
-the explorer, in two services.
+the explorer, in three services.
 
 ### `node`
 
@@ -48,18 +48,19 @@ the network.
 - Start command:
 
   ```bash
-  /bin/sh -c "exec /build/docker/devnet-node.sh --chain /build/chain-specs/devnet.json --base-path /data --state-pruning archive --name tesserax-devnet-railway --listen-addr /ip4/0.0.0.0/tcp/30333 --listen-addr /ip6/::/tcp/30333 ${RAILWAY_TCP_PROXY_DOMAIN:+--public-addr /dns/$RAILWAY_TCP_PROXY_DOMAIN/tcp/$RAILWAY_TCP_PROXY_PORT} --experimental-rpc-endpoint listen-addr=[::]:9944,methods=safe --no-prometheus --no-telemetry --no-mdns"
+  /bin/sh -c "exec /build/docker/devnet-node.sh --chain /build/chain-specs/devnet.json --base-path /data --state-pruning archive --name tesserax-devnet-railway --listen-addr /ip4/0.0.0.0/tcp/30333 --listen-addr /ip6/::/tcp/30333 ${RAILWAY_TCP_PROXY_DOMAIN:+--public-addr /dns/$RAILWAY_TCP_PROXY_DOMAIN/tcp/$RAILWAY_TCP_PROXY_PORT} --experimental-rpc-endpoint listen-addr=[::]:9944,methods=safe --experimental-rpc-endpoint listen-addr=[::]:9945,methods=safe,rate-limit=600,max-connections=1000,max-subscriptions-per-connection=64,max-batch-request-len=50,max-request-size=10,max-response-size=10 --no-prometheus --no-telemetry --no-mdns"
   ```
 
 - Restart policy: always.
 
-The RPC listens on one endpoint, `[::]:9944`, which takes IPv4 and IPv6 connections alike: with
-`--rpc-external`, Linux gives the IPv6 listener a random port, the IPv4 one holding 9944, and the
-private network of Railway may be IPv6 only.
+The RPC has two endpoints, each taking IPv4 and IPv6 connections alike (with `--rpc-external`,
+Linux gives the IPv6 listener a random port, and the private network of Railway may be IPv6
+only):
 
-The RPC of the node has no public domain: the indexer reaches it on the private network of the
-project. A public RPC needs post-quantum TLS in front of it, which the proxies of Railway do not
-offer.
+- `[::]:9944`, without limits, for the indexer;
+- `[::]:9945`, rate limited, for the public through the `rpc` service.
+
+Neither has a public domain of Railway: the public reaches the node through the gateway only.
 
 ### `indexer`
 
@@ -84,3 +85,25 @@ The indexer of the explorer ([explorer/README.md](../explorer/README.md)).
 - Restart policy: always. It resumes where it stopped.
 
 Only one indexer may write to a database: stop any other one before starting this one.
+
+### `rpc`
+
+The public RPC ([rpc.md](rpc.md)): `tesserax-rpc-gateway`, which terminates post-quantum TLS
+itself and relays to the endpoint `9945` of the node.
+
+- Source: `rpc-gateway/Dockerfile`, deployed with the Railway CLI from the repository
+  (`railway up --service rpc --detach`).
+- Volume: mounted on `/data`, the ACME account and the certificate; `RAILWAY_RUN_UID=0`.
+- TCP proxy: `maglev.proxy.rlwy.net:21207` to the internal port `8443`. The DNS record
+  `rpc.tesserax.app` is a CNAME of `maglev.proxy.rlwy.net`, on Vercel DNS.
+- Variables:
+
+  | Variable | Value |
+  |---|---|
+  | `UPSTREAM` | `${{node.RAILWAY_PRIVATE_DOMAIN}}:9945` |
+  | `DOMAIN` | `rpc.tesserax.app` |
+  | `DNS_ZONE` | `tesserax.app` |
+  | `VERCEL_TEAM` | the team owning the zone on Vercel |
+  | `VERCEL_TOKEN` | a token of the Vercel API, for the DNS-01 challenges (secret) |
+
+- Restart policy: always.

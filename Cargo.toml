@@ -23,6 +23,7 @@ members = [
 	"pool",
 	"primitives/crypto",
 	"primitives/shielded",
+	"rpc-gateway",
 	"runtime",
 	"sdk",
 	"wallet",

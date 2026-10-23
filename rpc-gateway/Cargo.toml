@@ -1,0 +1,32 @@
+[package]
+name = "tesserax-rpc-gateway"
+description = "Public RPC gateway of Tesserax: post-quantum TLS (ML-KEM) in front of the RPC of a node."
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "tesserax-rpc-gateway"
+path = "src/main.rs"
+
+[dependencies]
+arc-swap = "1.9.3"
+clap = { workspace = true, features = ["derive", "env"] }
+hickory-resolver = { version = "0.26.3", default-features = false, features = ["system-config", "tokio"] }
+instant-acme = { version = "0.8.5", default-features = false, features = ["aws-lc-rs", "hyper-rustls", "rcgen"] }
+reqwest = { workspace = true, features = ["json"] }
+rustls = { version = "0.23.46", default-features = false, features = ["aws_lc_rs", "logging", "std"] }
+serde = { workspace = true }
+serde_json = { workspace = true, default-features = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["aws_lc_rs", "logging"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["ansi", "env-filter", "fmt"] }
+x509-parser = "0.18.1"
