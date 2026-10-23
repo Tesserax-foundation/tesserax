@@ -1,6 +1,6 @@
 # Public RPC
 
-The public RPC of the devnet:
+The public RPC of the testnet:
 
 ```
 wss://rpc.tesserax.app:21207      websocket (subscriptions)

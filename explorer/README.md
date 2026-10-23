@@ -74,8 +74,8 @@ docker run --env-file indexer/.env tesserax-indexer
 - Web application: `npm run build -w web` produces `web/dist`, a static site. `web/vercel.json`
   and `web/public/_redirects` send every path to `index.html` on Vercel and Netlify.
 - Indexer: one process per database, next to the node, restarted on failure (systemd, Docker).
-  It resumes where it stopped. The indexer of the devnet runs on Railway next to its node: see
-  [docs/devnet.md](../docs/devnet.md).
+  It resumes where it stopped. The indexer of the testnet runs on Railway next to its node: see
+  [docs/testnet.md](../docs/testnet.md).
 
 ## Tests
 

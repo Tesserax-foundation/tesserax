@@ -1,7 +1,7 @@
 # Builds and tests the node, the runtime, the wallet, the pool and the SDKs on every push to main
 # and every pull request, then runs the SDKs and the explorer indexer against a development chain
 # mined by the node just built. Once a push to main passes, its binaries are published as the
-# Docker image ghcr.io/<owner>/tesserax:main, which the devnet runs (docs/devnet.md).
+# Docker image ghcr.io/<owner>/tesserax:main.
 
 name: CI
 

@@ -10,6 +10,7 @@ exclude = ["vendor"]
 members = [
 	"consensus/pow",
 	"crypto/randomtess",
+	"faucet",
 	"mcp",
 	"node",
 	"pallets/agent-registry",

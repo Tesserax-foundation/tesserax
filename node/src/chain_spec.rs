@@ -39,3 +39,23 @@ pub fn local_chain_spec() -> Result<ChainSpec, String> {
 	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 	.build())
 }
+
+/// The public testnet, built from its runtime preset. Its specification is generated once and
+/// frozen in `chain-specs/testnet.json`, genesis included: nodes load that file, whatever the
+/// runtime they are built with.
+pub fn testnet_genesis_chain_spec() -> Result<ChainSpec, String> {
+	Ok(ChainSpec::builder(WASM_BINARY.ok_or_else(|| "Testnet wasm not available".to_string())?, None)
+		.with_name("Tesserax Testnet")
+		.with_id("tesserax_testnet")
+		.with_chain_type(ChainType::Live)
+		.with_protocol_id("tess-testnet")
+		.with_properties(properties())
+		.with_genesis_config_preset_name(tesserax_runtime::genesis_config_presets::TESTNET_RUNTIME_PRESET)
+		.build())
+}
+
+/// The public testnet, from its frozen specification.
+pub fn testnet_chain_spec() -> Result<ChainSpec, String> {
+	ChainSpec::from_json_bytes(&include_bytes!("../../chain-specs/testnet.json")[..])
+}
+

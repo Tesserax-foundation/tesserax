@@ -13670,6 +13670,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "tesserax-faucet"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "clap",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tesserax-sdk",
+ "tokio",
+ "tracing",
+ "tracing-subscriber 0.3.19",
+]
+
+[[package]]
 name = "tesserax-mcp"
 version = "0.1.0"
 dependencies = [

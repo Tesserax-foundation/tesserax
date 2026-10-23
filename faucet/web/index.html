@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Tesserax Faucet</title>
+    <meta name="description" content="Test TESS for the Tesserax testnet, free, to try the wallet, agents and contracts." />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js"></script>
+  </head>
+  <body>
+    <header class="header">
+      <div class="wrap header-row">
+        <a class="brand" href="/" aria-label="Faucet home">
+          <img src="/logo.png" alt="" width="34" height="34" />
+          <span><strong>Tesserax Faucet</strong><small>Testnet</small></span>
+        </a>
+        <div class="header-actions">
+          <span class="pill" id="network"><span class="dot"></span><span id="network-text">Connecting</span></span>
+          <button class="icon-button" id="theme" aria-label="Switch the theme">◐</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section class="hero">
+        <div class="glow"></div>
+        <div class="hero-content">
+          <h1>Test TESS, free</h1>
+          <p class="muted">For the Tesserax testnet: try the wallet, AI agents, payment channels and contracts. Test TESS have no value and the testnet may be reset.</p>
+          <form id="claim" class="lookup">
+            <input id="address" placeholder="Your Tesserax address, te…" spellcheck="false" autocomplete="off" aria-label="Tesserax address" />
+            <button type="submit" class="button" id="send">Send <span id="amount">test TESS</span></button>
+          </form>
+          <p id="result" class="notice" hidden></p>
+          <p id="error" class="error" hidden></p>
+          <p class="small muted">One claim per address every 24 hours. No address yet? Create one in the <a href="https://wallet.tesserax.app" target="_blank" rel="noreferrer noopener">Tesserax wallet</a>.</p>
+        </div>
+      </section>
+
+      <section class="stats">
+        <div class="stat"><span class="label">Per claim</span><strong id="per-claim">—</strong><small>Once per address every 24 hours</small></div>
+        <div class="stat"><span class="label">Given in 24 hours</span><strong id="given">—</strong><small id="cap">&nbsp;</small></div>
+        <div class="stat"><span class="label">Faucet balance</span><strong id="balance">—</strong><small>Refilled by the testnet miner</small></div>
+      </section>
+
+      <section class="card">
+        <div class="card-header"><h2>Mine test TESS instead</h2></div>
+        <p class="muted">Run a node of the testnet and mine with your CPU:</p>
+        <div class="connect"><div class="command"><span class="label">Node</span><code id="command">tesserax --chain testnet --mine --author &lt;your address&gt;</code><button class="copy" data-copy="command">Copy</button></div></div>
+        <p class="small muted">See <a href="https://github.com/Wayleyy/tesserax/blob/main/docs/testnet.md" target="_blank" rel="noreferrer noopener">docs/testnet.md</a> to build the node, mine with XMRig and use the public RPC.</p>
+      </section>
+
+      <footer class="footer muted small">
+        <span>Faucet address <code class="mono" id="faucet-address">…</code></span>
+      </footer>
+    </main>
+  </body>
+</html>

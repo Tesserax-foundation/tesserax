@@ -13,6 +13,46 @@ use tesserax_crypto::keyring::Keyring;
 /// Initial difficulty of development chains: a few seconds per block for a single CPU core.
 const DEV_INITIAL_DIFFICULTY: u64 = 2_000;
 
+/// Preset of the public testnet.
+pub const TESTNET_RUNTIME_PRESET: &str = "testnet";
+
+/// Initial difficulty of the public testnet: about a block per 18 seconds for one CPU core mining
+/// with the light dataset, the miner the network starts with. It follows the miners who join.
+const TESTNET_INITIAL_DIFFICULTY: u64 = 1_000;
+
+/// Accounts of the public testnet, derived from the secret phrase of its operator: `//sudo`,
+/// `//team` and `//foundation//1` to `//foundation//3`. They hold test TESS only.
+mod testnet {
+	use super::AccountId;
+
+	const fn account(hex: &str) -> AccountId {
+		let hex = hex.as_bytes();
+		let mut bytes = [0u8; 32];
+		let mut i = 0;
+		while i < 32 {
+			bytes[i] = digit(hex[2 * i]) << 4 | digit(hex[2 * i + 1]);
+			i += 1;
+		}
+		AccountId::new(bytes)
+	}
+
+	const fn digit(c: u8) -> u8 {
+		match c {
+			b'0'..=b'9' => c - b'0',
+			b'a'..=b'f' => c - b'a' + 10,
+			_ => panic!("lowercase hexadecimal"),
+		}
+	}
+
+	pub const SUDO: AccountId = account("7b0553fa3c7806743b6385729df590586d6f6597e25e763beb95f918e0d10385");
+	pub const TEAM: AccountId = account("ff3b93268f3bacfa3622447c82adb7cf556f43c81ee2b78e95d58052fc89f8cc");
+	pub const FOUNDATION: [AccountId; 3] = [
+		account("585b1b19f28c02c672a580d78c337609fe416845d891544869c63624a6dd295f"),
+		account("398f7778ccba60207fcc413f3433d4d815fb8c35589a8af586b3ac1a525dcc25"),
+		account("b1426b054d11da66959059ee559a21462a7491dbdd69b70303183aa7f0d610de"),
+	];
+}
+
 /// Account of the foundation: a multisig of `signatories` requiring `threshold` approvals.
 pub fn foundation_account(signatories: &[AccountId], threshold: u16) -> AccountId {
 	let mut signatories = signatories.to_vec();
@@ -93,11 +133,25 @@ pub fn local_config_genesis() -> Value {
 	)
 }
 
+/// Public testnet: the allocations of the mainnet, to test accounts, and test TESS for the faucet,
+/// held by the sudo key.
+pub fn testnet_config_genesis() -> Value {
+	build_struct_json_patch!(RuntimeGenesisConfig {
+		balances: BalancesConfig { balances: vec![(testnet::SUDO, 100_000 * UNIT)] },
+		allocations: AllocationsConfig {
+			allocations: allocations(&[(testnet::TEAM, TEAM_ALLOCATION)], foundation_account(&testnet::FOUNDATION, 2)),
+		},
+		difficulty: pallet_difficulty::GenesisConfig { initial_difficulty: U256::from(TESTNET_INITIAL_DIFFICULTY) },
+		sudo: SudoConfig { key: Some(testnet::SUDO) },
+	})
+}
+
 /// The JSON genesis config patch of the preset `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.as_ref() {
 		sp_genesis_builder::DEV_RUNTIME_PRESET => development_config_genesis(),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => local_config_genesis(),
+		TESTNET_RUNTIME_PRESET => testnet_config_genesis(),
 		_ => return None,
 	};
 	Some(
@@ -112,5 +166,6 @@ pub fn preset_names() -> Vec<PresetId> {
 	vec![
 		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
 		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
+		PresetId::from(TESTNET_RUNTIME_PRESET),
 	]
 }

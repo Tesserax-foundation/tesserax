@@ -1,0 +1,29 @@
+[package]
+name = "tesserax-faucet"
+description = "Faucet of the Tesserax testnet: test TESS for anyone, within limits per address and per IP."
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "tesserax-faucet"
+path = "src/main.rs"
+
+[dependencies]
+axum = { workspace = true, features = ["http1", "json", "tokio"] }
+clap = { workspace = true, features = ["derive", "env"] }
+serde = { workspace = true }
+serde_json = { workspace = true, default-features = true }
+tesserax-sdk = { workspace = true }
+tokio = { workspace = true, features = ["fs", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["ansi", "env-filter", "fmt"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"

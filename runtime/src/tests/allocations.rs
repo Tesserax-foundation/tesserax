@@ -17,15 +17,18 @@ fn merge(base: &mut serde_json::Value, patch: serde_json::Value) {
 }
 
 fn preset_ext() -> sp_io::TestExternalities {
-	let patch = genesis_config_presets::get_preset(&sp_genesis_builder::DEV_RUNTIME_PRESET.into())
-		.expect("the development preset exists");
+	ext_of(sp_genesis_builder::DEV_RUNTIME_PRESET)
+}
+
+fn ext_of(preset: &str) -> sp_io::TestExternalities {
+	let patch = genesis_config_presets::get_preset(&preset.into()).expect("the preset exists");
 	let mut config = serde_json::to_value(RuntimeGenesisConfig::default()).unwrap();
 	merge(&mut config, serde_json::from_slice(&patch).unwrap());
 	let json = serde_json::to_vec(&config).unwrap();
 	let mut ext = sp_io::TestExternalities::default();
 	ext.execute_with(|| {
 		frame_support::genesis_builder_helper::build_state::<RuntimeGenesisConfig>(json)
-			.expect("the development preset builds");
+			.expect("the preset builds");
 		System::set_block_number(1);
 	});
 	ext
@@ -132,3 +135,16 @@ fn foundation_spends_with_two_of_three_signatures() {
 		assert_eq!(Balances::balance(&ferdie), 1_000 * UNIT);
 	});
 }
+
+#[test]
+fn testnet_genesis_creates_the_allocations() {
+	ext_of(genesis_config_presets::TESTNET_RUNTIME_PRESET).execute_with(|| {
+		let sudo = pallet_sudo::Key::<Runtime>::get().expect("the testnet has a sudo key");
+		assert_eq!(Balances::free_balance(&sudo), 100_000 * UNIT);
+		// The faucet funds, the team and the foundation, and the existential deposits pallets create.
+		let issued = 100_000 * UNIT + TEAM_ALLOCATION + FOUNDATION_ALLOCATION;
+		assert!((issued..issued + UNIT).contains(&Balances::total_issuance()));
+		assert_eq!(pallet_difficulty::CurrentDifficulty::<Runtime>::get(), sp_core::U256::from(1_000));
+	});
+}
+
