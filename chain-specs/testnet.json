@@ -2,7 +2,9 @@
   "name": "Tesserax Testnet",
   "id": "tesserax_testnet",
   "chainType": "Live",
-  "bootNodes": [],
+  "bootNodes": [
+    "/dns/interchange.proxy.rlwy.net/tcp/28385/p2p/QmUAEp2bK2V3ADJkZym99dAEZZBN6WccwLecjfAFzpDWGo"
+  ],
   "telemetryEndpoints": null,
   "protocolId": "tess-testnet",
   "properties": {

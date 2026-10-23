@@ -9,6 +9,7 @@ test TESS: they have no value, and the testnet may be reset.
 |---|---|
 | Chain | `tesserax --chain testnet`, [`chain-specs/testnet.json`](../chain-specs/testnet.json) |
 | Genesis hash | `0xc2f9cb03897c5ad30fff2f93debaa8b4a6e08f37a12270e107c71eb1ad39e5d1` |
+| Bootnode | `/dns/interchange.proxy.rlwy.net/tcp/28385/p2p/QmUAEp2bK2V3ADJkZym99dAEZZBN6WccwLecjfAFzpDWGo` |
 | Public RPC | `wss://rpc.tesserax.app:21207`, post-quantum TLS ([rpc.md](rpc.md)) |
 | Explorer | https://explorer.tesserax.app |
 | Wallet | https://wallet.tesserax.app |
