@@ -15,8 +15,38 @@ Every cryptographic component is post-quantum:
 
 There is no elliptic curve and no trusted setup.
 
-**Status:** design and implementation in progress. The shielded pool must be audited by
-cryptographers specialised in zero-knowledge proofs before it holds real value.
+**Status:** active from the genesis, on the testnet and the mainnet. The pool balance can never
+become negative, so that a flaw in the proof system could not create TESS outside the pool; the
+pool must still be audited by cryptographers specialised in zero-knowledge proofs before it holds
+much value.
+
+## Using it
+
+Every account has a shielded account, whose key derives from the seed of its ML-DSA key: its
+recovery phrase restores its shielded notes too. Its shielded address starts with `zte` and is
+long, about 1,670 characters, most of it the ML-KEM-768 encapsulation key notes are encrypted to.
+
+```bash
+tesserax-wallet shielded address alice              # the shielded address of alice
+tesserax-wallet shielded shield alice 10            # 10 TESS of alice into her shielded balance
+tesserax-wallet shielded send alice zte... 4        # 4 TESS to a shielded address, privately
+tesserax-wallet shielded unshield alice te... 3     # 3 TESS of the shielded balance to an address
+tesserax-wallet shielded balance alice
+```
+
+- Shielding is a transaction signed by the account: everyone sees the account and the amount
+  entering the pool, not where they go.
+- A private transfer is submitted without signer, linked to no account: its proof authorizes it,
+  and its fee (the minimum fee, about 0.014 TESS) is paid from the shielded balance.
+- Unshielding shows the amount and the transparent recipient, not the notes it comes from.
+- A transaction spends at most two notes: an amount larger than the two largest notes is sent
+  in steps, or after sending the whole balance to oneself.
+
+The wallet reads the `Shielded.Transacted` events of every block since the genesis, keeps the note
+tree of the chain and the notes of the account in its directory (`shielded/<account>.state`), and
+reads the chain again from the genesis after a reorganization below its last block. Libraries:
+`shielded-wallet` (keys, notes, synchronization and proving, native and WebAssembly) and the
+`shielded` feature of the Rust SDK (`ShieldedAccount`).
 
 ## Notation
 

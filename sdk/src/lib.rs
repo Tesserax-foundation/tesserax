@@ -21,6 +21,8 @@ pub mod channels;
 pub mod client;
 pub mod contracts;
 pub mod keys;
+#[cfg(feature = "shielded")]
+pub mod shielded;
 mod store;
 pub mod tasks;
 

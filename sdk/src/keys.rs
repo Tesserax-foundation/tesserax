@@ -66,6 +66,12 @@ impl Keypair {
 		Ok((Self::from_uri(&phrase)?, phrase))
 	}
 
+	/// The 32-byte seed of the key. Anyone knowing it controls the account: it derives the
+	/// shielded key of the account, and must never leave the wallet.
+	pub fn seed(&self) -> [u8; 32] {
+		self.0.seed()
+	}
+
 	/// The account of the key.
 	pub fn account_id(&self) -> AccountId {
 		AccountId::from(<[u8; 32]>::from(self.0.account_id()))

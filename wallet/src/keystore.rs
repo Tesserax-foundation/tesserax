@@ -88,9 +88,15 @@ fn random<const N: usize>() -> [u8; N] {
 	bytes
 }
 
-fn derive_key(password: &str, salt: &[u8], memory_kib: u32, iterations: u32, parallelism: u32) -> Result<Key, KeystoreError> {
-	let params = Params::new(memory_kib, iterations, parallelism, Some(32))
-		.map_err(|e| KeystoreError::Key(e.to_string()))?;
+fn derive_key(
+	password: &str,
+	salt: &[u8],
+	memory_kib: u32,
+	iterations: u32,
+	parallelism: u32,
+) -> Result<Key, KeystoreError> {
+	let params =
+		Params::new(memory_kib, iterations, parallelism, Some(32)).map_err(|e| KeystoreError::Key(e.to_string()))?;
 	let mut key = [0u8; 32];
 	Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
 		.hash_password_into(password.as_bytes(), salt, &mut key)
@@ -99,9 +105,7 @@ fn derive_key(password: &str, salt: &[u8], memory_kib: u32, iterations: u32, par
 }
 
 fn valid_name(name: &str) -> bool {
-	!name.is_empty() &&
-		name.len() <= 64 &&
-		name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+	!name.is_empty() && name.len() <= 64 && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
 #[cfg(unix)]
@@ -191,11 +195,8 @@ impl Keystore {
 		let file = self.read(name)?;
 		let corrupted = || KeystoreError::Corrupted(name.into());
 		let salt = STANDARD.decode(&file.kdf.salt).map_err(|_| corrupted())?;
-		let nonce: [u8; 12] = STANDARD
-			.decode(&file.cipher.nonce)
-			.ok()
-			.and_then(|n| n.try_into().ok())
-			.ok_or_else(corrupted)?;
+		let nonce: [u8; 12] =
+			STANDARD.decode(&file.cipher.nonce).ok().and_then(|n| n.try_into().ok()).ok_or_else(corrupted)?;
 		let ciphertext = STANDARD.decode(&file.cipher.ciphertext).map_err(|_| corrupted())?;
 		let key = derive_key(password, &salt, file.kdf.memory_kib, file.kdf.iterations, file.kdf.parallelism)?;
 		let secret = ChaCha20Poly1305::new(&key)

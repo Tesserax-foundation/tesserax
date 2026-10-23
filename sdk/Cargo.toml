@@ -26,8 +26,13 @@ serde_json = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 subxt = { workspace = true }
 tesserax-crypto = { workspace = true, default-features = true }
+tesserax-shielded-wallet = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
+
+[features]
+# Private transactions with the shielded pool: proofs and note encryption.
+shielded = ["dep:tesserax-shielded-wallet"]
 
 [dev-dependencies]
 tesserax-runtime = { workspace = true, default-features = true }

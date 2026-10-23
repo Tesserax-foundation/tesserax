@@ -178,10 +178,7 @@ impl Profile {
 			description: bounded(&self.description, 512, "description")?,
 			endpoint: bounded(&self.endpoint, 256, "endpoint")?,
 			capabilities: BoundedVec(
-				self.capabilities
-					.iter()
-					.map(|c| bounded(c, 32, "capability"))
-					.collect::<Result<_>>()?,
+				self.capabilities.iter().map(|c| bounded(c, 32, "capability")).collect::<Result<_>>()?,
 			),
 			metadata,
 		})
@@ -209,9 +206,7 @@ impl Policy {
 				transfers: self.permissions.transfers,
 				contracts: self.permissions.contracts,
 			},
-			targets: BoundedVec(
-				self.targets.iter().map(|t| crate::parse_address(t)).collect::<Result<_>>()?,
-			),
+			targets: BoundedVec(self.targets.iter().map(|t| crate::parse_address(t)).collect::<Result<_>>()?),
 		})
 	}
 
@@ -221,10 +216,7 @@ impl Policy {
 			period_blocks: p.period,
 			max_per_call: Amount(p.max_per_call),
 			expires_at: p.expires_at,
-			permissions: Permissions {
-				transfers: p.permissions.transfers,
-				contracts: p.permissions.contracts,
-			},
+			permissions: Permissions { transfers: p.permissions.transfers, contracts: p.permissions.contracts },
 			targets: p.targets.0.iter().map(format_address).collect(),
 		}
 	}
@@ -318,10 +310,7 @@ impl Client {
 
 	/// Hash of the block `number` of the best chain, if the chain has it.
 	pub(crate) async fn block_hash(&self, number: u32) -> Result<Option<H256>> {
-		self.rpc
-			.chain_get_block_hash(Some(number.into()))
-			.await
-			.map_err(|e| Error::Node(subxt::Error::from(e)))
+		self.rpc.chain_get_block_hash(Some(number.into())).await.map_err(|e| Error::Node(subxt::Error::from(e)))
 	}
 
 	async fn best_block(&self) -> Result<u32> {
@@ -364,22 +353,27 @@ impl Client {
 		call: &Call,
 		signer: &Keypair,
 	) -> Result<(TxOutcome, subxt::blocks::ExtrinsicEvents<TesseraxConfig>)> {
-		let nonce = self
-			.rpc
-			.system_account_next_index(&signer.account_id())
-			.await
-			.map_err(subxt::Error::from)?;
+		let nonce = self.rpc.system_account_next_index(&signer.account_id()).await.map_err(subxt::Error::from)?;
 		let (hash, number) = self.best().await?;
 		let params = DefaultExtrinsicParamsBuilder::<TesseraxConfig>::new()
 			.nonce(nonce)
 			.mortal_from_unchecked(MORTALITY, number.into(), hash)
 			.build();
-		let mut progress = self.api.tx().sign_and_submit_then_watch(call, signer, params).await?;
+		let progress = self.api.tx().sign_and_submit_then_watch(call, signer, params).await?;
+		self.included(progress).await
+	}
+
+	/// Wait until a block includes the transaction of `progress` successfully.
+	pub(crate) async fn included(
+		&self,
+		mut progress: subxt::tx::TxProgress<TesseraxConfig, OnlineClient<TesseraxConfig>>,
+	) -> Result<(TxOutcome, subxt::blocks::ExtrinsicEvents<TesseraxConfig>)> {
 		let in_block = loop {
 			match progress.next().await {
 				Some(Ok(TxStatus::InBestBlock(tx) | TxStatus::InFinalizedBlock(tx))) => break tx,
-				Some(Ok(TxStatus::Error { message } | TxStatus::Invalid { message } | TxStatus::Dropped { message })) =>
-					return Err(Error::Dispatch(message)),
+				Some(Ok(
+					TxStatus::Error { message } | TxStatus::Invalid { message } | TxStatus::Dropped { message },
+				)) => return Err(Error::Dispatch(message)),
 				Some(Ok(_)) => continue,
 				Some(Err(error)) => return Err(error.into()),
 				None => return Err(Error::Dispatch("the node stopped following the transaction".into())),
@@ -414,12 +408,7 @@ impl Client {
 	// Delegations.
 
 	/// Delegate to `agent` within `policy`, signed by the owner.
-	pub async fn authorize_agent(
-		&self,
-		owner: &Keypair,
-		agent: &AccountId,
-		policy: &Policy,
-	) -> Result<TxOutcome> {
+	pub async fn authorize_agent(&self, owner: &Keypair, agent: &AccountId, policy: &Policy) -> Result<TxOutcome> {
 		let call = runtime::tx().agents().authorize(agent.clone(), policy.to_runtime()?);
 		self.submit(&call, owner).await
 	}
@@ -579,9 +568,8 @@ impl Client {
 			}
 			// The map is hashed with Blake2_128Concat: the account ends the key.
 			let key = &entry.key_bytes[entry.key_bytes.len().saturating_sub(32)..];
-			let account = AccountId::from(
-				<[u8; 32]>::try_from(key).map_err(|_| Error::NotFound("malformed agent key".into()))?,
-			);
+			let account =
+				AccountId::from(<[u8; 32]>::try_from(key).map_err(|_| Error::NotFound("malformed agent key".into()))?);
 			found.push(AgentRecord {
 				address: format_address(&account),
 				owner: info.owner.as_ref().map(format_address),

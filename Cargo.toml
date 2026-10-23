@@ -27,6 +27,7 @@ members = [
 	"rpc-gateway",
 	"runtime",
 	"sdk",
+	"shielded-wallet",
 	"wallet",
 ]
 
@@ -62,6 +63,7 @@ randomtess = { path = "crypto/randomtess" }
 tesserax-crypto = { path = "primitives/crypto", default-features = false }
 tesserax-pow = { path = "consensus/pow" }
 tesserax-shielded = { path = "primitives/shielded", default-features = false }
+tesserax-shielded-wallet = { path = "shielded-wallet" }
 tesserax-runtime = { path = "runtime", default-features = false }
 tesserax-sdk = { path = "sdk" }
 

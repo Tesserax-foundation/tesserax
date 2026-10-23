@@ -13876,6 +13876,7 @@ dependencies = [
  "subxt",
  "tesserax-crypto",
  "tesserax-runtime",
+ "tesserax-shielded-wallet",
  "thiserror 1.0.69",
  "tokio",
 ]
@@ -13906,6 +13907,17 @@ dependencies = [
  "rand 0.10.3",
  "scale-info",
  "sha3 0.12.0",
+]
+
+[[package]]
+name = "tesserax-shielded-wallet"
+version = "0.1.0"
+dependencies = [
+ "bs58",
+ "parity-scale-codec",
+ "sp-crypto-hashing",
+ "tesserax-shielded",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

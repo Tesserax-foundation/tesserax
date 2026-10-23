@@ -1,0 +1,19 @@
+[package]
+name = "tesserax-shielded-wallet"
+description = "Client of the Tesserax shielded pool: keys, notes, synchronization and proven transactions, for native wallets and WebAssembly."
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+bs58 = { version = "0.5.1", default-features = false, features = ["alloc"] }
+codec = { workspace = true, default-features = true, features = ["derive"] }
+sp-crypto-hashing = { workspace = true, default-features = true }
+tesserax-shielded = { workspace = true, default-features = true }
+thiserror = { workspace = true }

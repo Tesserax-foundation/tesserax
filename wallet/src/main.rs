@@ -1,8 +1,8 @@
 //! Command line wallet of Tesserax.
 //!
 //! Keeps ML-DSA-87 keys encrypted in a wallet directory (`~/.tesserax/wallet` by default) and
-//! sends transactions to a node: transfers, delegations to AI agents, the agent registry,
-//! payment channels and the task market.
+//! sends transactions to a node: transfers, private transactions, delegations to AI agents, the
+//! agent registry, payment channels and the task market.
 
 mod keystore;
 
@@ -11,8 +11,8 @@ use keystore::Keystore;
 use serde::Serialize;
 use std::{io::IsTerminal, path::PathBuf};
 use tesserax_sdk::{
-	format_address, parse_address, AccountId, Amount, Client, Keypair, NewTask, Permissions, Policy,
-	Profile, Voucher, BLOCKS_PER_HOUR,
+	format_address, parse_address, shielded::ShieldedAccount, AccountId, Amount, Client, Keypair, NewTask, Permissions,
+	Policy, Profile, Voucher, BLOCKS_PER_HOUR,
 };
 
 /// Tesserax wallet: post-quantum accounts, transfers, AI agents, micropayments and tasks.
@@ -71,6 +71,9 @@ enum Command {
 	/// Task market.
 	#[command(subcommand)]
 	Task(TaskCommand),
+	/// Private transactions: the shielded pool.
+	#[command(subcommand)]
+	Shielded(ShieldedCommand),
 	/// Information about the chain.
 	Chain,
 }
@@ -332,6 +335,38 @@ enum TaskCommand {
 	},
 }
 
+/// Private transactions. The shielded account of an account derives from its key; its notes and
+/// the note tree of the chain are kept in the wallet directory, under `shielded/`.
+#[derive(Subcommand)]
+enum ShieldedCommand {
+	/// Show the shielded address of an account, to receive private transfers.
+	Address { account: String },
+	/// Read the chain for the notes of an account and show its shielded balance.
+	Balance { account: String },
+	/// Move TESS of an account into its shielded balance.
+	Shield {
+		account: String,
+		/// Amount in TESS.
+		amount: String,
+	},
+	/// Send TESS privately to a shielded address, from the shielded balance of an account.
+	Send {
+		account: String,
+		/// Shielded address of the recipient, zte...
+		to: String,
+		/// Amount in TESS.
+		amount: String,
+	},
+	/// Move TESS of the shielded balance of an account to a transparent address.
+	Unshield {
+		account: String,
+		/// Recipient: address or account name.
+		to: String,
+		/// Amount in TESS.
+		amount: String,
+	},
+}
+
 type Result<T> = core::result::Result<T, String>;
 
 fn error(e: impl std::fmt::Display) -> String {
@@ -339,6 +374,7 @@ fn error(e: impl std::fmt::Display) -> String {
 }
 
 struct Wallet {
+	dir: PathBuf,
 	cli_url: String,
 	json: bool,
 	yes: bool,
@@ -380,7 +416,8 @@ fn tess(text: &str) -> Result<Amount> {
 impl Wallet {
 	async fn client(&mut self) -> Result<&Client> {
 		if self.client.is_none() {
-			let client = Client::connect(&self.cli_url).await.map_err(|e| format!("cannot reach {}: {e}", self.cli_url))?;
+			let client =
+				Client::connect(&self.cli_url).await.map_err(|e| format!("cannot reach {}: {e}", self.cli_url))?;
 			self.client = Some(client);
 		}
 		Ok(self.client.as_ref().expect("connected above; qed"))
@@ -390,7 +427,9 @@ impl Wallet {
 	fn resolve(&self, who: &str) -> Result<AccountId> {
 		match self.store.account(who) {
 			Ok(account) => parse_address(&account.address).map_err(error),
-			Err(_) => parse_address(who).map_err(|_| format!("{who} is neither an account of the wallet nor an address")),
+			Err(_) => {
+				parse_address(who).map_err(|_| format!("{who} is neither an account of the wallet nor an address"))
+			},
 		}
 	}
 
@@ -440,7 +479,14 @@ async fn run(cli: Cli) -> Result<()> {
 		Some(dir) => dir,
 		None => default_dir()?,
 	};
-	let mut w = Wallet { cli_url: cli.url, json: cli.json, yes: cli.yes, store: Keystore::open(dir).map_err(error)?, client: None };
+	let mut w = Wallet {
+		dir: dir.clone(),
+		cli_url: cli.url,
+		json: cli.json,
+		yes: cli.yes,
+		store: Keystore::open(dir).map_err(error)?,
+		client: None,
+	};
 
 	match cli.command {
 		Command::Account(command) => account(&mut w, command).await,
@@ -477,7 +523,88 @@ async fn run(cli: Cli) -> Result<()> {
 		Command::Registry(command) => registry(&mut w, command).await,
 		Command::Channel(command) => channel(&mut w, command).await,
 		Command::Task(command) => task(&mut w, command).await,
+		Command::Shielded(command) => shielded(&mut w, command).await,
 	}
+}
+
+/// The shielded account of `name`, read from its file and synchronized with the chain.
+async fn shielded_account(w: &mut Wallet, name: &str, key: &Keypair) -> Result<ShieldedAccount> {
+	let path = w.dir.join("shielded").join(format!("{name}.state"));
+	let mut account = match std::fs::read(&path) {
+		Ok(state) => ShieldedAccount::restore(key, &state).map_err(error)?,
+		Err(_) => ShieldedAccount::new(key),
+	};
+	if !w.json {
+		eprintln!("Reading the chain for the notes of {name}…");
+	}
+	let synced = account.sync(w.client().await?).await;
+	// What was read is kept, even when the reading stopped on an error.
+	save_shielded(w, name, &account)?;
+	let synced = synced.map_err(error)?;
+	if synced.received > 0 && !w.json {
+		eprintln!("Received {} TESS", Amount(synced.received.into()));
+	}
+	Ok(account)
+}
+
+fn save_shielded(w: &Wallet, name: &str, account: &ShieldedAccount) -> Result<()> {
+	let dir = w.dir.join("shielded");
+	std::fs::create_dir_all(&dir).map_err(error)?;
+	let path = dir.join(format!("{name}.state"));
+	let partial = path.with_extension("partial");
+	std::fs::write(&partial, account.state()).map_err(error)?;
+	std::fs::rename(&partial, &path).map_err(error)
+}
+
+async fn shielded(w: &mut Wallet, command: ShieldedCommand) -> Result<()> {
+	match command {
+		ShieldedCommand::Address { account } => {
+			let key = w.key(&account)?;
+			let address = ShieldedAccount::new(&key).address();
+			w.print(serde_json::json!({ "address": address }), || address.clone());
+		},
+		ShieldedCommand::Balance { account } => {
+			let key = w.key(&account)?;
+			let private = shielded_account(w, &account, &key).await?;
+			let (balance, pending) = (private.balance(), private.pending());
+			let text = if pending.0 > 0 {
+				format!("{balance} TESS, and {pending} TESS spent by transactions not yet in a block")
+			} else {
+				format!("{balance} TESS")
+			};
+			w.print(serde_json::json!({ "balance": balance, "pending": pending }), || text);
+		},
+		ShieldedCommand::Shield { account, amount } => {
+			let amount = tess(&amount)?;
+			w.confirm(&format!("Move {amount} TESS of {account} into its shielded balance"))?;
+			let key = w.key(&account)?;
+			let mut private = shielded_account(w, &account, &key).await?;
+			let outcome = private.shield(w.client().await?, &key, amount).await.map_err(error)?;
+			save_shielded(w, &account, &private)?;
+			w.sent(outcome);
+		},
+		ShieldedCommand::Send { account, to, amount } => {
+			let recipient = tesserax_sdk::shielded::decode_address(&to).map_err(error)?;
+			let amount = tess(&amount)?;
+			w.confirm(&format!("Send {amount} TESS privately from {account}"))?;
+			let key = w.key(&account)?;
+			let mut private = shielded_account(w, &account, &key).await?;
+			let outcome = private.send(w.client().await?, &recipient, amount).await.map_err(error)?;
+			save_shielded(w, &account, &private)?;
+			w.sent(outcome);
+		},
+		ShieldedCommand::Unshield { account, to, amount } => {
+			let to = w.resolve(&to)?;
+			let amount = tess(&amount)?;
+			w.confirm(&format!("Move {amount} TESS of the shielded balance of {account} to {}", format_address(&to)))?;
+			let key = w.key(&account)?;
+			let mut private = shielded_account(w, &account, &key).await?;
+			let outcome = private.unshield(w.client().await?, &to, amount).await.map_err(error)?;
+			save_shielded(w, &account, &private)?;
+			w.sent(outcome);
+		},
+	}
+	Ok(())
 }
 
 async fn account(w: &mut Wallet, command: AccountCommand) -> Result<()> {
@@ -551,12 +678,13 @@ async fn agent(w: &mut Wallet, command: AgentCommand) -> Result<()> {
 		} => {
 			let agent = w.resolve(&agent)?;
 			let expires_at = match expires_in_hours {
-				Some(hours) => Some(
-					w.client().await?.best_block_number().await.map_err(error)? + hours * BLOCKS_PER_HOUR,
-				),
+				Some(hours) => {
+					Some(w.client().await?.best_block_number().await.map_err(error)? + hours * BLOCKS_PER_HOUR)
+				},
 				None => None,
 			};
-			let targets = targets.iter().map(|t| w.resolve(t).map(|a| format_address(&a))).collect::<Result<Vec<_>>>()?;
+			let targets =
+				targets.iter().map(|t| w.resolve(t).map(|a| format_address(&a))).collect::<Result<Vec<_>>>()?;
 			let policy = Policy {
 				budget: tess(&budget)?,
 				period_blocks: period_hours * BLOCKS_PER_HOUR,
@@ -644,7 +772,16 @@ async fn registry(w: &mut Wallet, command: RegistryCommand) -> Result<()> {
 			let agents = w.client().await?.find_agents(capability.as_deref(), true).await.map_err(error)?;
 			let text = agents
 				.iter()
-				.map(|a| format!("{}  {}  [{}]  +{}/-{}", a.address, a.profile.name, a.profile.capabilities.join(", "), a.reputation.positive, a.reputation.negative))
+				.map(|a| {
+					format!(
+						"{}  {}  [{}]  +{}/-{}",
+						a.address,
+						a.profile.name,
+						a.profile.capabilities.join(", "),
+						a.reputation.positive,
+						a.reputation.negative
+					)
+				})
 				.collect::<Vec<_>>()
 				.join("\n");
 			w.print(agents, || if text.is_empty() { "No agent".into() } else { text });
@@ -683,7 +820,16 @@ async fn channel(w: &mut Wallet, command: ChannelCommand) -> Result<()> {
 			let channels = w.client().await?.channels_of(&payer).await.map_err(error)?;
 			let text = channels
 				.iter()
-				.map(|c| format!("#{}  to {}  deposit {}  claimed {}{}", c.id, c.payee, c.deposit, c.claimed, if c.closes_at.is_some() { "  closing" } else { "" }))
+				.map(|c| {
+					format!(
+						"#{}  to {}  deposit {}  claimed {}{}",
+						c.id,
+						c.payee,
+						c.deposit,
+						c.claimed,
+						if c.closes_at.is_some() { "  closing" } else { "" }
+					)
+				})
 				.collect::<Vec<_>>()
 				.join("\n");
 			w.print(channels, || if text.is_empty() { "No channel".into() } else { text });
