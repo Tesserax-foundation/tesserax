@@ -1,6 +1,7 @@
 /** Writes of the indexer to the explorer database (Supabase Postgres). */
 
 import postgres from "postgres";
+import type { ShieldedEvent } from "./chain.js";
 
 export type Sql = postgres.Sql<{}>;
 
@@ -68,6 +69,11 @@ export interface BlockRow {
   extrinsics: ExtrinsicRow[];
   events: EventRow[];
   transfers: TransferRow[];
+  shielded: ShieldedRow[];
+}
+
+export interface ShieldedRow extends ShieldedEvent {
+  eventIndex: number;
 }
 
 /** The highest canonical block indexed. */
@@ -96,6 +102,7 @@ export async function orphanAbove(sql: Sql, number: number): Promise<{ hashes: s
       returning index, extrinsic_index, pallet, name, data`;
     await tx`delete from extrinsics where block_hash in ${tx(hashes)}`;
     await tx`delete from transfers where block_hash in ${tx(hashes)}`;
+    await tx`delete from shielded_transactions where block_hash in ${tx(hashes)}`;
     return {
       hashes,
       events: events.map((e) => ({
@@ -127,6 +134,7 @@ export async function saveBlocks(sql: Sql, blocks: BlockRow[]): Promise<void> {
       statements.push(tx`delete from extrinsics where block_hash = ${block.hash}`);
       statements.push(tx`delete from events where block_hash = ${block.hash}`);
       statements.push(tx`delete from transfers where block_hash = ${block.hash}`);
+      statements.push(tx`delete from shielded_transactions where block_hash = ${block.hash}`);
       statements.push(tx`
         insert into blocks (hash, number, parent_hash, state_root, extrinsics_root, author, timestamp,
           difficulty, pow_nonce, pow_hash, extrinsic_count, event_count, transfer_count, reward, fees,
@@ -188,6 +196,22 @@ export async function saveBlocks(sql: Sql, blocks: BlockRow[]): Promise<void> {
             to_address: t.to,
             amount: num(t.amount),
             timestamp,
+          })),
+        ),
+        ...insertChunks(
+          tx,
+          "shielded_transactions",
+          block.shielded.map((s) => ({
+            block_hash: block.hash,
+            block_number: block.number,
+            event_index: s.eventIndex,
+            position: s.position.toString(),
+            nullifiers: s.nullifiers,
+            commitments: s.commitments,
+            notes: s.notes,
+            value_in: num(s.valueIn),
+            value_out: num(s.valueOut),
+            fee: num(s.fee),
           })),
         ),
       );

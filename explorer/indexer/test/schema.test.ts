@@ -21,6 +21,7 @@ const block = (number: number, hash: string, parentHash: string, extra: Partial<
   extrinsics: [],
   events: [],
   transfers: [],
+  shielded: [],
   ...extra,
 });
 
@@ -84,3 +85,36 @@ test("blocks, reorganizations and the read functions", async () => {
     await database.close();
   }
 });
+
+test("shielded transactions follow the canonical chain", async () => {
+  const database = await testDatabase();
+  const sql = db.connect(database.url);
+  try {
+    const note = "0x" + "ab".repeat(1232);
+    const shielded = (position: bigint): db.ShieldedRow => ({
+      eventIndex: 0,
+      position,
+      nullifiers: ["0x" + "01".repeat(32), "0x" + "02".repeat(32)],
+      commitments: ["0x" + "03".repeat(32), "0x" + "04".repeat(32)],
+      notes: [note, note],
+      valueIn: 10n ** 13n,
+      valueOut: 0n,
+      fee: 0n,
+    });
+    await db.saveBlock(sql, block(0, "0xa0", "0x00"));
+    await db.saveBlock(sql, block(1, "0xa1", "0xa0", { shielded: [shielded(0n)] }));
+    await db.saveBlock(sql, block(2, "0xa2", "0xa1", { shielded: [shielded(2n)] }));
+    const rows = await sql`select position, notes, nullifiers from shielded_transactions order by position`;
+    assert.deepEqual(rows.map((r) => Number(r.position)), [0, 2]);
+    // The encrypted notes are kept in full, unlike the event data.
+    assert.equal(rows[0].notes[0], note);
+
+    // A reorganization drops the transactions of the blocks that left the chain.
+    await db.orphanAbove(sql, 1);
+    assert.deepEqual((await sql`select position from shielded_transactions`).map((r) => Number(r.position)), [0]);
+  } finally {
+    await sql.end();
+    await database.close();
+  }
+});
+

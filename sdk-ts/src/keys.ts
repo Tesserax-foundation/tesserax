@@ -114,14 +114,22 @@ export class Keypair {
   readonly accountId: Uint8Array;
   readonly address: string;
   readonly #secretKey: Uint8Array;
+  readonly #seed: Uint8Array;
 
   constructor(seed: Uint8Array) {
     if (seed.length !== 32) throw new Error("a seed is 32 bytes");
     const { publicKey, secretKey } = ml_dsa87.keygen(seed);
     this.publicKey = publicKey;
     this.#secretKey = secretKey;
+    this.#seed = seed.slice();
     this.accountId = accountIdOf(publicKey);
     this.address = formatAddress(this.accountId);
+  }
+
+  /** The 32-byte seed of the key. Anyone knowing it controls the account: it derives the shielded
+   * key of the account, and must never leave the wallet. */
+  seed(): Uint8Array {
+    return this.#seed.slice();
   }
 
   /**

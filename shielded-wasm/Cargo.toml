@@ -1,0 +1,24 @@
+[package]
+name = "tesserax-shielded-wasm"
+description = "The shielded wallet of Tesserax for JavaScript: WebAssembly bindings of shielded-wallet."
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+codec = { workspace = true, default-features = true }
+tesserax-shielded-wallet = { workspace = true }
+wasm-bindgen = "0.2.129"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# Randomness of the browser, for note randomness and dummy keys.
+getrandom = { workspace = true, features = ["wasm_js"] }

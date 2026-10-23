@@ -98,7 +98,7 @@ test("indexes a development chain and follows a reorganization", { skip: !url &&
     const fake = (n: number): db.BlockRow => ({
       hash: `0xfake${n}`, number: n, parentHash: "0x", stateRoot: "0x", extrinsicsRoot: "0x", author: null,
       timestamp: new Date(), difficulty: 1n, powNonce: null, powHash: null, reward: 0n, fees: 0n, size: 0,
-      specVersion: 100, extrinsics: [], events: [], transfers: [],
+      specVersion: 100, extrinsics: [], events: [], transfers: [], shielded: [],
     });
     await db.saveBlock(sql, fake(top.number - 1));
     await db.saveBlock(sql, fake(top.number));

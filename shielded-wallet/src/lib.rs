@@ -16,7 +16,6 @@
 //! ([`spending_key`]): restoring an account from its recovery phrase restores its shielded notes.
 
 use codec::{Decode, Encode};
-use sp_crypto_hashing::blake2_256;
 use tesserax_shielded::{
 	encryption::{decrypt, encrypt},
 	note::{nullifier, output_rho, random_randomness},
@@ -27,6 +26,12 @@ pub use tesserax_shielded::{
 	keys::{Address, SpendingKey},
 	Digest, EncryptedNote, Note, ENCRYPTED_NOTE_SIZE, MAX_VALUE,
 };
+
+/// BLAKE2b-256, the hash of the runtime.
+fn blake2_256(data: &[u8]) -> [u8; 32] {
+	use blake2::{digest::consts::U32, Blake2b, Digest as _};
+	Blake2b::<U32>::digest(data).into()
+}
 
 /// Prefix of shielded addresses, which are long: an ML-KEM-768 key is 1184 bytes.
 pub const ADDRESS_PREFIX: &str = "zte";

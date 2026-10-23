@@ -69,6 +69,45 @@ export interface DecodedEvent {
   name: string;
   /** JSON friendly data. */
   data: any;
+  /** A `Shielded.Transacted` event, in full: its notes are longer than the inline limit. */
+  shielded?: ShieldedEvent;
+}
+
+export interface ShieldedEvent {
+  position: bigint;
+  /** Hexadecimal of the 32-byte SCALE encoding of each digest. */
+  nullifiers: string[];
+  commitments: string[];
+  /** Hexadecimal of the encrypted notes. */
+  notes: string[];
+  valueIn: bigint;
+  valueOut: bigint;
+  fee: bigint;
+}
+
+/** Hexadecimal of a decoded digest: four 64-bit limbs, little-endian. */
+function digestHex(value: unknown): string {
+  if (value instanceof Uint8Array) return toHex(value);
+  if (typeof value === "string") return value;
+  const limbs = value as Array<bigint | number>;
+  const bytes = new Uint8Array(32);
+  const view = new DataView(bytes.buffer);
+  limbs.forEach((limb, i) => view.setBigUint64(i * 8, BigInt(limb), true));
+  return toHex(bytes);
+}
+
+const bytesHex = (value: unknown): string => (value instanceof Uint8Array ? toHex(value) : String(value));
+
+function shieldedEvent(value: any): ShieldedEvent {
+  return {
+    position: BigInt(value.position),
+    nullifiers: value.nullifiers.map(digestHex),
+    commitments: value.commitments.map(digestHex),
+    notes: value.notes.map(bytesHex),
+    valueIn: BigInt(value.value_in),
+    valueOut: BigInt(value.value_out),
+    fee: BigInt(value.fee),
+  };
 }
 
 /** Codecs of one runtime version. */
@@ -148,6 +187,10 @@ export class Runtime {
       pallet: record.event.type,
       name: record.event.value.type,
       data: toJson(record.event.value.value) ?? {},
+      shielded:
+        record.event.type === "Shielded" && record.event.value.type === "Transacted"
+          ? shieldedEvent(record.event.value.value)
+          : undefined,
     }));
   }
 

@@ -48,6 +48,12 @@ reads the chain again from the genesis after a reorganization below its last blo
 `shielded-wallet` (keys, notes, synchronization and proving, native and WebAssembly) and the
 `shielded` feature of the Rust SDK (`ShieldedAccount`).
 
+The web wallet, its extension and its desktop application have a Private page: proofs are
+generated in the browser by `shielded-wasm` (`scripts/build-shielded-wasm.sh`), in about 0.1
+second. They read the transactions of the pool from the explorer database
+(`shielded_transactions`, public data only) in one request and check the note tree against the
+latest root on chain; without it, they read the blocks of the node.
+
 ## Notation
 
 - `F` is the Goldilocks field, `p = 2^64 - 2^32 + 1`. A digest is four field elements.

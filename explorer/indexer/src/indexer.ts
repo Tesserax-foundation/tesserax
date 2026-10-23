@@ -258,6 +258,7 @@ export class Indexer {
       })),
       events: events.map((e) => ({ index: e.index, extrinsicIndex: e.extrinsicIndex, pallet: e.pallet, name: e.name, data: e.data })),
       transfers,
+      shielded: events.flatMap((e) => (e.shielded ? [{ ...e.shielded, eventIndex: e.index }] : [])),
     };
   }
 
@@ -284,6 +285,7 @@ export class Indexer {
       extrinsics: [],
       events: [],
       transfers: [],
+      shielded: [],
     });
     const prefix = runtime.storageKey("System", "Account");
     const storage = runtime.builder.buildStorage("System", "Account");
