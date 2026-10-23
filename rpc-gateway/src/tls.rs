@@ -36,6 +36,13 @@ pub fn provider() -> CryptoProvider {
 	}
 }
 
+/// The cryptography of the connections the gateway opens: X25519MLKEM768 first, classical key
+/// exchanges for the servers that offer nothing else.
+pub fn outgoing_provider() -> CryptoProvider {
+	use aws_lc_rs::kx_group::{SECP256R1, SECP384R1, X25519, X25519MLKEM768};
+	CryptoProvider { kx_groups: vec![X25519MLKEM768, X25519, SECP256R1, SECP384R1], ..aws_lc_rs::default_provider() }
+}
+
 /// The TLS configuration of the gateway, whose certificate comes from `certificates`.
 pub fn server_config(certificates: Arc<Certificates>) -> Result<ServerConfig, Error> {
 	let mut config = ServerConfig::builder_with_provider(Arc::new(provider()))
@@ -137,5 +144,10 @@ mod tests {
 	fn every_key_exchange_has_ml_kem() {
 		let groups: Vec<_> = provider().kx_groups.iter().map(|group| group.name()).collect();
 		assert_eq!(groups, [rustls::NamedGroup::MLKEM768, rustls::NamedGroup::X25519MLKEM768]);
+	}
+
+	#[test]
+	fn outgoing_connections_prefer_ml_kem() {
+		assert_eq!(outgoing_provider().kx_groups[0].name(), rustls::NamedGroup::X25519MLKEM768);
 	}
 }

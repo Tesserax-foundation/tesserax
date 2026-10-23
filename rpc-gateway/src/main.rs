@@ -78,8 +78,12 @@ async fn main() {
 }
 
 async fn run(cli: Cli) -> Result<(), String> {
-	// Outgoing connections (certificate authority, DNS API) use the same cryptography.
-	let _ = tls::provider().install_default();
+	// Outgoing connections, to the certificate authority and the DNS API, offer X25519MLKEM768
+	// first but may fall back to classical key exchanges: the API of Let's Encrypt offers no
+	// ML-KEM. They carry nothing secret: account requests signed by the gateway, the certificate
+	// request and the certificate, all public. The TLS the gateway serves is set apart, in
+	// `tls::server_config`, and always has ML-KEM.
+	let _ = tls::outgoing_provider().install_default();
 
 	let certificates = Arc::new(tls::Certificates::default());
 	match (&cli.certificate, &cli.key) {
