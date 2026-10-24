@@ -55,7 +55,15 @@ measure.
 
 3. Add the bootnodes to `bootNodes`, make the node load `chain-specs/mainnet.json` for
    `--chain mainnet`, as it does for the testnet, and release the node.
-4. Announce the genesis hash and the launch time; the first block is mined by whoever starts
+4. Open the mainnet in the wallet (`tesserax-wallet`, `src/lib/networks.ts`): set its
+   `genesisHash`, which makes the network selectable, and its node and explorer if they differ
+   from `wss://rpc.tesserax.app` and `https://explorer.tesserax.app`. To open the wallet on the
+   mainnet by default, set `VITE_NETWORK=Mainnet` in `.env.production` and `.env.desktop`; the
+   explorer database variables without prefix then serve the mainnet, and those of the testnet
+   take the `VITE_TESTNET_` prefix. A build can also set the mainnet alone, without a new
+   release of the code, with `VITE_MAINNET_GENESIS`, `VITE_MAINNET_NODE_URL` and
+   `VITE_MAINNET_EXPLORER_URL`.
+5. Announce the genesis hash and the launch time; the first block is mined by whoever starts
    first.
 
 ## Sudo through the multisig
