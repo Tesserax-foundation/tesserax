@@ -275,6 +275,11 @@ impl Client {
 		&self.api
 	}
 
+	/// The legacy RPC methods of the node, on the same connection.
+	pub fn rpc(&self) -> &LegacyRpcMethods<TesseraxConfig> {
+		&self.rpc
+	}
+
 	/// Information about the chain.
 	pub async fn chain_info(&self) -> Result<ChainInfo> {
 		let (_, best_block) = self.best().await?;

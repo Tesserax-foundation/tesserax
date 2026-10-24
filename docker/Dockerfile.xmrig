@@ -1,0 +1,24 @@
+# The Tesserax build of XMRig (rx/tess), from its release, checked against its SHA-256: a rig for
+# a pool or a node, such as the rig of the hosted testnet pool (docs/testnet.md).
+#
+#   docker build -f docker/Dockerfile.xmrig -t tesserax-xmrig .
+#   docker run tesserax-xmrig -o pool.example.com:3333 -u <address>.rig1 -p x
+
+FROM docker.io/library/debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8
+
+ARG MINER=6.26.0-tesserax.1
+ARG SHA256=2fb46d1dcac6bf89bfb9c7b95e0a230151838797ea57394372052fd744896bfc
+
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends ca-certificates curl \
+	&& archive="tesserax-miner-$MINER-linux-x64.tar.gz" \
+	&& curl -fsSL -o "/tmp/$archive" "https://github.com/Wayleyy/tesserax-miner/releases/download/v$MINER/$archive" \
+	&& echo "$SHA256  /tmp/$archive" | sha256sum -c - \
+	&& mkdir /opt/xmrig \
+	&& tar xzf "/tmp/$archive" -C /opt/xmrig --strip-components 1 \
+	&& rm "/tmp/$archive" \
+	&& apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* \
+	&& useradd --system --no-create-home xmrig
+
+USER xmrig
+ENTRYPOINT ["/opt/xmrig/xmrig", "--algo", "rx/tess", "--no-color"]

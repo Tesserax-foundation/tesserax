@@ -26,9 +26,10 @@ use tesserax_sdk::{Amount, Keypair};
 #[derive(Parser, Debug)]
 #[command(name = "tesserax-pool", version, about = "Mining pool of Tesserax")]
 struct Cli {
-	/// Stratum server of the node, started with `--stratum` and `--author` the pool address.
+	/// Stratum server of the node, `host:port`, started with `--stratum` and `--author` the pool
+	/// address.
 	#[arg(long, default_value = "127.0.0.1:3334")]
-	node_stratum: SocketAddr,
+	node_stratum: String,
 	/// RPC of the node, to follow the blocks of the pool and send the payouts.
 	#[arg(long, default_value = "ws://127.0.0.1:9944")]
 	node_rpc: String,
@@ -45,6 +46,9 @@ struct Cli {
 	/// environment variable TESSERAX_POOL_KEY can hold it instead.
 	#[arg(long)]
 	key_file: Option<PathBuf>,
+	/// Generate a new pool account in --key-file if the file does not exist yet.
+	#[arg(long, requires = "key_file")]
+	create_key: bool,
 	/// Fee of the pool on each block, in percent. It also pays the fees of the payouts.
 	#[arg(long, default_value_t = 1.0)]
 	fee: f64,
@@ -91,9 +95,33 @@ struct Cli {
 	/// Explorer for the links of the dashboard, such as https://explorer.tesserax.app.
 	#[arg(long)]
 	explorer: Option<String>,
+	/// Name of the network shown on the dashboard, such as Testnet.
+	#[arg(long)]
+	network: Option<String>,
 }
 
-fn load_key(path: Option<&PathBuf>) -> Result<Keypair, String> {
+/// A new pool account, its secret phrase written to `path`, readable by its owner only.
+fn create_key(path: &std::path::Path) -> Result<Keypair, String> {
+	use std::io::Write;
+	let (key, phrase) = Keypair::generate().map_err(|e| e.to_string())?;
+	let partial = path.with_extension("partial");
+	let mut options = std::fs::OpenOptions::new();
+	options.write(true).create(true).truncate(true);
+	#[cfg(unix)]
+	std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+	let mut file = options.open(&partial).map_err(|e| format!("{}: {e}", partial.display()))?;
+	file.write_all(format!("{phrase}\n").as_bytes())
+		.and_then(|()| file.sync_all())
+		.map_err(|e| format!("{}: {e}", partial.display()))?;
+	std::fs::rename(&partial, path).map_err(|e| format!("{}: {e}", path.display()))?;
+	tracing::info!("Pool account generated in {}: back this file up, it holds the balances of the miners", path.display());
+	Ok(key)
+}
+
+fn load_key(path: Option<&PathBuf>, create: bool) -> Result<Keypair, String> {
+	if let Some(path) = path.filter(|path| create && !path.exists()) {
+		return create_key(path);
+	}
 	let secret = match path {
 		Some(path) => {
 			#[cfg(unix)]
@@ -130,7 +158,7 @@ async fn run(cli: Cli) -> Result<(), String> {
 		tracing::warn!("Maturity of {} blocks: below 60, credited blocks may still leave the chain", cli.maturity);
 	}
 	let min_payout = Amount::from_tess(&cli.min_payout).map_err(|e| e.to_string())?.planck();
-	let key = load_key(cli.key_file.as_ref())?;
+	let key = load_key(cli.key_file.as_ref(), cli.create_key)?;
 	let address = key.address();
 	tracing::info!("Pool account {address}");
 	// The secret leaves the environment once read.
@@ -202,6 +230,7 @@ async fn run(cli: Cli) -> Result<(), String> {
 		address,
 		stratum: cli.stratum_url.unwrap_or_else(|| cli.listen.to_string()),
 		explorer: cli.explorer.map(|e| e.trim_end_matches('/').to_string()),
+		network: cli.network,
 		fee_percent: cli.fee,
 		min_payout: min_payout.to_string(),
 		payout_interval_minutes: cli.payout_interval,

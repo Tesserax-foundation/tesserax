@@ -4,7 +4,7 @@
 use crate::ledger::Ledger;
 use std::{sync::Arc, time::Duration};
 use subxt::{
-	backend::{legacy::LegacyRpcMethods, rpc::RpcClient},
+	backend::legacy::LegacyRpcMethods,
 	config::substrate::DigestItem,
 	OnlineClient,
 };
@@ -36,11 +36,11 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 impl Chain {
+	/// Connect to the RPC of the node: `ws://` on its machine or a private network, or `wss://`
+	/// with post-quantum TLS.
 	pub async fn connect(url: &str) -> Result<Self> {
-		let rpc = RpcClient::from_url(url).await.map_err(|e| e.to_string())?;
-		let api = OnlineClient::<TesseraxConfig>::from_rpc_client(rpc.clone()).await.map_err(|e| e.to_string())?;
 		let client = Client::connect(url).await.map_err(|e| e.to_string())?;
-		Ok(Chain { api, rpc: LegacyRpcMethods::new(rpc), client })
+		Ok(Chain { api: client.api().clone(), rpc: client.rpc().clone(), client })
 	}
 
 	pub async fn best_number(&self) -> Result<u64> {

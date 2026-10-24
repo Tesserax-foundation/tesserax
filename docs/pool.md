@@ -59,7 +59,14 @@ tesserax-pool --key-file pool.key \
   --fee 1 --min-payout 1
 ```
 
-or pass it in the environment variable `TESSERAX_POOL_KEY`, which the pool clears once read.
+or pass it in the environment variable `TESSERAX_POOL_KEY`, which the pool clears once read. With
+`--create-key`, the pool generates a new account in `--key-file` on its first start, readable by
+its owner only, and logs its address: start the node with that address as `--author`. Back the
+file up: the account holds what the pool owes its miners.
+
+`--network` names the network on the dashboard (`Testnet`): on a test network, it tells miners
+that its TESS have no value. `--node-stratum` takes a host name, resolved again at each
+connection, such as `node.railway.internal:3334`.
 `tesserax-pool --help` lists every option. Logs follow `RUST_LOG` (`info` by default).
 
 - **Memory**: the verification of shares needs one light RandomTESS cache per key, 256 MiB, two
@@ -78,6 +85,8 @@ or pass it in the environment variable `TESSERAX_POOL_KEY`, which the pool clear
 
 - `-u` is your Tesserax address (`te…`), where your rewards go, then `.` and a name for the rig.
 - `-u <address>.<rig>+50000` fixes the share difficulty instead of letting the pool adjust it.
+- The dashboard guides a new miner: an address from the wallet, the download for their system and
+  the command to start.
 - The dashboard of the pool shows your hashrate, each rig, your balance, what is not final yet,
   and your payouts.
 

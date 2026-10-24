@@ -9,7 +9,6 @@ use primitive_types::U256;
 use serde_json::{json, Value};
 use std::{
 	collections::HashMap,
-	net::SocketAddr,
 	sync::{
 		atomic::{AtomicU64, Ordering},
 		Arc,
@@ -59,15 +58,16 @@ impl Upstream {
 	}
 }
 
-/// Connect to the node at `address` as the pool `login`, and keep the connection. Templates are
-/// published in the returned receiver.
-pub fn start(address: SocketAddr, login: String) -> (Upstream, watch::Receiver<Option<Arc<Template>>>) {
+/// Connect to the node at `address`, `host:port`, as the pool `login`, and keep the connection.
+/// Templates are published in the returned receiver. The host is resolved again at each
+/// connection, so that a node whose address changes is found again.
+pub fn start(address: String, login: String) -> (Upstream, watch::Receiver<Option<Arc<Template>>>) {
 	let (templates, receiver) = watch::channel(None);
 	let (blocks, mut queue) = mpsc::channel(64);
 	tokio::spawn(async move {
 		let mut delay = Duration::from_secs(1);
 		loop {
-			match session(address, &login, &templates, &mut queue).await {
+			match session(&address, &login, &templates, &mut queue).await {
 				Ok(()) => tracing::warn!("The node closed the stratum connection"),
 				Err(Fatal(message)) => {
 					tracing::error!("The node refused the pool: {message}");
@@ -122,7 +122,7 @@ fn parse_template(job: &Value) -> Result<Template, String> {
 }
 
 async fn session(
-	address: SocketAddr,
+	address: &str,
 	login: &str,
 	templates: &watch::Sender<Option<Arc<Template>>>,
 	queue: &mut mpsc::Receiver<(Block, oneshot::Sender<Result<(), String>>)>,

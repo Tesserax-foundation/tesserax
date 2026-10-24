@@ -28,6 +28,8 @@ pub struct Info {
 	pub address: String,
 	pub stratum: String,
 	pub explorer: Option<String>,
+	/// Name of the network, such as Testnet.
+	pub network: Option<String>,
 	pub fee_percent: f64,
 	pub min_payout: String,
 	pub payout_interval_minutes: u64,

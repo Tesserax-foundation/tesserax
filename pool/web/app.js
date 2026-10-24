@@ -17,6 +17,39 @@ let explorer = null;
 
 const $ = (id) => document.getElementById(id);
 
+/** Release of the Tesserax build of XMRig the dashboard links to. */
+const MINER = "6.26.0-tesserax.1";
+const RELEASE = `https://github.com/Wayleyy/tesserax-miner/releases/download/v${MINER}`;
+
+/** The system of this computer, for the download offered first. */
+function detectSystem() {
+  const agent = navigator.userAgent;
+  if (/Windows/i.test(agent)) return "windows";
+  if (/Mac/i.test(agent)) return "macos-arm64";
+  if (/aarch64|arm64/i.test(agent)) return "linux-arm64";
+  return "linux-x64";
+}
+
+let system = detectSystem();
+
+/** The download, the command and the notes of the getting started steps for `system`. */
+function showStart() {
+  const windows = system === "windows";
+  const archive = `tesserax-miner-${MINER}-${system}.${windows ? "zip" : "tar.gz"}`;
+  for (const button of document.querySelectorAll("[data-os]")) button.setAttribute("aria-selected", String(button.dataset.os === system));
+  $("download").href = `${RELEASE}/${archive}`;
+  $("download").textContent = "Download the miner";
+  $("unpack").textContent = windows ? "Unzip it, then open a terminal in its folder." : `Unpack it: tar xzf ${archive}, then cd into its folder.`;
+  const stratum = info?.stratum ?? "…";
+  const address = $("address").value.trim() || "YOUR_ADDRESS";
+  $("start-command").textContent = `${windows ? "xmrig.exe" : "./xmrig"} -a rx/tess -o ${stratum} -u ${address}.rig1 -p x`;
+  $("start-note").textContent = system.startsWith("macos")
+    ? "Allow it once before: xattr -d com.apple.quarantine xmrig. Mining at full speed takes about 2.5 GB of memory."
+    : windows
+      ? "Windows Defender may flag any XMRig build as a miner: allow it. Mining at full speed takes about 2.5 GB of memory."
+      : "Mining at full speed takes about 2.5 GB of memory; huge pages make it faster (sudo sysctl vm.nr_hugepages=1280).";
+}
+
 function tess(planck, decimals = 4) {
   const value = BigInt(planck ?? 0);
   const whole = value / PLANCK;
@@ -106,6 +139,10 @@ async function refresh() {
     $("pool-name").textContent = info.name;
     $("stratum").textContent = info.stratum;
     $("command").textContent = `xmrig -a rx/tess -o ${info.stratum} -u ${$("address").value.trim() || "YOUR_ADDRESS"}.rig1 -p x`;
+    $("maturity").textContent = String(info.maturity);
+    $("test-note").hidden = !/test/i.test(info.network ?? "");
+    $("test-network").textContent = (info.network ?? "testnet").toLowerCase();
+    showStart();
     $("hashrate").textContent = hashrate(stats.hashrate);
     $("miners").textContent = stats.miners.toLocaleString("en-US");
     $("workers").textContent = `${stats.workers} rig${stats.workers === 1 ? "" : "s"} connected`;
@@ -118,7 +155,7 @@ async function refresh() {
     const network = $("network");
     if (stats.network) {
       network.className = "pill online";
-      $("network-text").textContent = `Block #${stats.network.height.toLocaleString("en-US")}`;
+      $("network-text").textContent = `${info.network ? `${info.network} · ` : ""}Block #${stats.network.height.toLocaleString("en-US")}`;
       $("network-hashrate").textContent = hashrate(stats.network.hashrate);
       $("difficulty").textContent = `Difficulty ${Number(stats.network.difficulty).toLocaleString("en-US")}`;
       const share = stats.network.hashrate > 0 ? (stats.hashrate / stats.network.hashrate) * 100 : 0;
@@ -216,6 +253,12 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch {}
     });
   }
+  for (const button of document.querySelectorAll("[data-os]")) {
+    button.addEventListener("click", () => {
+      system = button.dataset.os;
+      showStart();
+    });
+  }
   let saved = decodeURIComponent(location.hash.slice(1));
   if (!saved) {
     try {
@@ -223,6 +266,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {}
   }
   $("address").value = saved;
+  showStart();
   $("lookup").addEventListener("submit", (event) => {
     event.preventDefault();
     const address = $("address").value.trim();

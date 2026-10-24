@@ -46,6 +46,42 @@
         </div>
       </section>
 
+      <section class="card" id="start">
+        <div class="card-header"><h2>Start in five minutes</h2></div>
+        <p class="test-note" id="test-note" hidden>This pool mines the <span id="test-network">testnet</span>: its TESS are for trying and have no value.</p>
+        <ol class="steps">
+          <li>
+            <strong>Get an address.</strong>
+            <span class="muted">Create an account in the <a href="https://wallet.tesserax.app" target="_blank" rel="noreferrer noopener">Tesserax wallet</a> and copy its address, which starts with “te”. Your rewards go there.</span>
+          </li>
+          <li>
+            <strong>Download the miner</strong> for your computer.
+            <div class="systems" role="tablist" aria-label="System">
+              <button role="tab" data-os="windows">Windows</button>
+              <button role="tab" data-os="linux-x64">Linux</button>
+              <button role="tab" data-os="linux-arm64">Linux ARM</button>
+              <button role="tab" data-os="macos-arm64">Mac (Apple chip)</button>
+              <button role="tab" data-os="macos-x64">Mac (Intel)</button>
+            </div>
+            <a class="button download" id="download" href="https://github.com/Wayleyy/tesserax-miner/releases" rel="noreferrer noopener">Download</a>
+            <span class="small muted" id="unpack"></span>
+          </li>
+          <li>
+            <strong>Start it</strong> <span class="muted">from a terminal, in the folder of the miner, with your address:</span>
+            <div class="connect">
+              <div class="command">
+                <code id="start-command">…</code>
+                <button class="copy" data-copy="start-command">Copy</button>
+              </div>
+            </div>
+            <span class="small muted" id="start-note"></span>
+          </li>
+          <li>
+            <strong>Follow your mining</strong> <span class="muted">below with your address. Each block found is credited once it is <span id="maturity">60</span> blocks deep, then paid automatically.</span>
+          </li>
+        </ol>
+      </section>
+
       <section class="stats">
         <div class="stat"><span class="label">Pool hashrate</span><strong id="hashrate">—</strong><small id="share">&nbsp;</small></div>
         <div class="stat"><span class="label">Miners</span><strong id="miners">—</strong><small id="workers">&nbsp;</small></div>
