@@ -22,11 +22,27 @@ pub struct ChainBlock {
 	pub nonce: String,
 }
 
-#[derive(Clone)]
-pub struct Chain {
+/// One connection to the RPC of the node.
+struct Connection {
 	api: OnlineClient<TesseraxConfig>,
 	rpc: LegacyRpcMethods<TesseraxConfig>,
 	client: Client,
+}
+
+impl Connection {
+	/// `ws://` on the machine of the node or a private network, or `wss://` with post-quantum TLS.
+	async fn open(url: &str) -> Result<Self> {
+		let client = Client::connect(url).await.map_err(|e| e.to_string())?;
+		Ok(Connection { api: client.api().clone(), rpc: client.rpc().clone(), client })
+	}
+}
+
+/// The RPC of the node. A connection the node closed, when it restarts for instance, is opened
+/// again at the next call.
+#[derive(Clone)]
+pub struct Chain {
+	url: Arc<str>,
+	connection: Arc<tokio::sync::Mutex<Option<Arc<Connection>>>>,
 }
 
 pub type Result<T> = std::result::Result<T, String>;
@@ -35,36 +51,74 @@ fn hex(bytes: &[u8]) -> String {
 	format!("0x{}", ::hex::encode(bytes))
 }
 
+/// Whether `error` means that the connection is closed and must be opened again.
+fn closes(error: &str) -> bool {
+	error.contains("restart required") || error.contains("connection closed") || error.contains("Connection closed")
+}
+
 impl Chain {
-	/// Connect to the RPC of the node: `ws://` on its machine or a private network, or `wss://`
-	/// with post-quantum TLS.
 	pub async fn connect(url: &str) -> Result<Self> {
-		let client = Client::connect(url).await.map_err(|e| e.to_string())?;
-		Ok(Chain { api: client.api().clone(), rpc: client.rpc().clone(), client })
+		let connection = Connection::open(url).await?;
+		Ok(Chain { url: url.into(), connection: Arc::new(tokio::sync::Mutex::new(Some(Arc::new(connection)))) })
+	}
+
+	/// The connection, opened again if the last one was closed.
+	async fn connection(&self) -> Result<Arc<Connection>> {
+		let mut current = self.connection.lock().await;
+		if let Some(connection) = current.as_ref() {
+			return Ok(connection.clone());
+		}
+		let connection = Arc::new(Connection::open(&self.url).await?);
+		tracing::info!("Connected again to the RPC of the node");
+		*current = Some(connection.clone());
+		Ok(connection)
+	}
+
+	/// Drop the connection if `error` closed it.
+	async fn failed(&self, error: &str) {
+		if closes(error) {
+			tracing::warn!("The RPC connection to the node closed: opening another");
+			*self.connection.lock().await = None;
+		}
+	}
+
+	/// `result`, after dropping the connection if its error closed it.
+	async fn checked<T>(&self, result: Result<T>) -> Result<T> {
+		if let Err(error) = &result {
+			self.failed(error).await;
+		}
+		result
 	}
 
 	pub async fn best_number(&self) -> Result<u64> {
-		self.client.best_block_number().await.map(u64::from).map_err(|e| e.to_string())
+		let connection = self.connection().await?;
+		let result = connection.client.best_block_number().await.map(u64::from).map_err(|e| e.to_string());
+		self.checked(result).await
 	}
 
 	/// The block of the best chain at `height`, if any.
 	pub async fn block_at(&self, height: u64) -> Result<Option<ChainBlock>> {
-		let Some(hash) = self
-			.rpc
-			.chain_get_block_hash(Some(height.into()))
-			.await
-			.map_err(|e| e.to_string())?
-		else {
-			return Ok(None);
-		};
-		let Some(header) = self.rpc.chain_get_header(Some(hash)).await.map_err(|e| e.to_string())? else {
-			return Ok(None);
-		};
-		let nonce = header.digest.logs.iter().find_map(|item| match item {
-			DigestItem::Seal(engine, seal) if *engine == POW_ENGINE_ID && seal.len() >= 11 => Some(::hex::encode(&seal[..11])),
-			_ => None,
-		});
-		Ok(nonce.map(|nonce| ChainBlock { hash: hex(hash.as_ref()), nonce }))
+		let connection = self.connection().await?;
+		let result = async {
+			let Some(hash) = connection
+				.rpc
+				.chain_get_block_hash(Some(height.into()))
+				.await
+				.map_err(|e| e.to_string())?
+			else {
+				return Ok(None);
+			};
+			let Some(header) = connection.rpc.chain_get_header(Some(hash)).await.map_err(|e| e.to_string())? else {
+				return Ok(None);
+			};
+			let nonce = header.digest.logs.iter().find_map(|item| match item {
+				DigestItem::Seal(engine, seal) if *engine == POW_ENGINE_ID && seal.len() >= 11 => Some(::hex::encode(&seal[..11])),
+				_ => None,
+			});
+			Ok(nonce.map(|nonce| ChainBlock { hash: hex(hash.as_ref()), nonce }))
+		}
+		.await;
+		self.checked(result).await
 	}
 
 	/// What the block `hash` paid to `author`: the mining reward and the fees and tips of its
@@ -74,35 +128,47 @@ impl Chain {
 			.ok()
 			.and_then(|b| b.try_into().ok())
 			.ok_or("invalid block hash")?;
-		let events = self.api.events().at(subxt::utils::H256(hash)).await.map_err(|e| e.to_string())?;
-		let mut reward = 0u128;
-		for event in events.find::<emission::events::Rewarded>() {
-			let event = event.map_err(|e| e.to_string())?;
-			if &event.author == author {
-				reward += event.amount;
+		let connection = self.connection().await?;
+		let result = async {
+			let events = connection.api.events().at(subxt::utils::H256(hash)).await.map_err(|e| e.to_string())?;
+			let mut reward = 0u128;
+			for event in events.find::<emission::events::Rewarded>() {
+				let event = event.map_err(|e| e.to_string())?;
+				if &event.author == author {
+					reward += event.amount;
+				}
 			}
+			for event in events.find::<transaction_payment::events::TransactionFeePaid>() {
+				let event = event.map_err(|e| e.to_string())?;
+				reward += event.actual_fee + event.tip;
+			}
+			for event in events.find::<shielded::events::Transacted>() {
+				reward += u128::from(event.map_err(|e| e.to_string())?.fee);
+			}
+			Ok(reward)
 		}
-		for event in events.find::<transaction_payment::events::TransactionFeePaid>() {
-			let event = event.map_err(|e| e.to_string())?;
-			reward += event.actual_fee + event.tip;
-		}
-		for event in events.find::<shielded::events::Transacted>() {
-			reward += u128::from(event.map_err(|e| e.to_string())?.fee);
-		}
-		Ok(reward)
+		.await;
+		self.checked(result).await
 	}
 
 	pub async fn transferable(&self, account: &AccountId) -> Result<u128> {
-		self.client.balance(account).await.map(|b| b.transferable.planck()).map_err(|e| e.to_string())
+		let connection = self.connection().await?;
+		let result = connection.client.balance(account).await.map(|b| b.transferable.planck()).map_err(|e| e.to_string());
+		self.checked(result).await
 	}
 
 	/// Pay `amount` to `to`: Ok with the transaction and block hashes once included; Err(true)
 	/// when the transfer surely did not happen, Err(false) when it is not known.
 	pub async fn pay(&self, key: &Keypair, to: &AccountId, amount: u128) -> std::result::Result<(String, String), (bool, String)> {
-		match self.client.transfer(key, to, Amount(amount)).await {
+		let connection = self.connection().await.map_err(|e| (true, e))?;
+		match connection.client.transfer(key, to, Amount(amount)).await {
 			Ok(outcome) => Ok((outcome.extrinsic_hash, outcome.block_hash)),
 			Err(tesserax_sdk::Error::Dispatch(message)) => Err((true, message)),
-			Err(error) => Err((false, error.to_string())),
+			Err(error) => {
+				let error = error.to_string();
+				self.failed(&error).await;
+				Err((false, error))
+			},
 		}
 	}
 }

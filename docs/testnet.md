@@ -14,6 +14,7 @@ test TESS: they have no value, and the testnet may be reset.
 | Explorer | https://explorer.tesserax.app |
 | Wallet | https://wallet.tesserax.app |
 | Faucet | https://faucet.tesserax.app |
+| Mining pool | https://pool.tesserax.app, stratum `stratum.tesserax.app:25202` |
 
 The specification holds the genesis state itself, runtime included, and the bootnodes: the node
 embeds it, and a node started with `--chain testnet` joins the testnet whatever the runtime it is
@@ -23,6 +24,27 @@ built with.
 
 - **Faucet**: https://faucet.tesserax.app gives 10 test TESS per address every 24 hours.
 - **Mining**: every block pays its miner 0.85 test TESS, as on the mainnet.
+
+## Mine on the pool
+
+The quickest way to mine: no node to run, only the miner.
+
+1. Create an account in the [wallet](https://wallet.tesserax.app) and copy its address.
+2. Download the Tesserax build of XMRig for your system from the
+   [releases of `tesserax-miner`](https://github.com/Wayleyy/tesserax-miner/releases) and unpack
+   it. On macOS, allow it once: `xattr -d com.apple.quarantine xmrig`.
+3. Start it with your address and a name for the machine:
+
+   ```bash
+   ./xmrig -a rx/tess -o stratum.tesserax.app:25202 -u <your address>.rig1 -p x
+   ```
+
+   On Windows: `xmrig.exe` instead of `./xmrig`. Mining at full speed takes about 2.5 GB of
+   memory; on a machine with less, add `--randomx-mode=light`, several times slower.
+4. Follow your hashrate and balance on https://pool.tesserax.app with your address. A block is
+   credited once it is 60 blocks deep; balances of 1 test TESS or more are paid every 30 minutes.
+
+The pool keeps 1% of each block for the fees of its payouts. See [pool.md](pool.md).
 
 ## Run a node
 
@@ -69,12 +91,12 @@ Generating it again with another runtime gives another genesis, so another chain
 ## Hosting
 
 The testnet runs on Railway, project `tesserax`, region `us-west2` next to the Supabase database of
-the explorer, in four services.
+the explorer, in six services.
 
 ### `node`
 
-An archive node: the bootnode of the network, the node the indexer and the public RPC read, and a
-miner with one core so that blocks never stop, its rewards going to the faucet.
+An archive node: the bootnode of the network, the node the indexer and the public RPC read, and
+the node of the pool, which mines through its stratum server.
 
 - Source: `docker/Dockerfile.from-source`, deployed with the Railway CLI from the repository
   (`railway up --service node --detach`). Railway gives an image build about twenty minutes, less
@@ -83,8 +105,8 @@ miner with one core so that blocks never stop, its rewards going to the faucet.
   into the volume. A restart on the same sources starts at once; a deploy of new sources compiles
   again, during which the node is down.
 - Variables: `CARGO_BUILD_JOBS=6`, so that the compilation fits in the memory of the service;
-  `MINER_AUTHOR`, the address the mined blocks pay, the faucet's; `RAILWAY_RUN_UID=0`, so that the
-  node writes to its volume.
+  `POOL_AUTHOR`, the address of the pool account, which the blocks mined through the stratum
+  server pay; `RAILWAY_RUN_UID=0`, so that the node writes to its volume.
 - Volume: mounted on `/data`.
 - TCP proxy: `interchange.proxy.rlwy.net:28385` to the internal port `30333`, the peer-to-peer
   port. The node announces that address (`--public-addr`, from `RAILWAY_TCP_PROXY_DOMAIN` and
@@ -92,7 +114,7 @@ miner with one core so that blocks never stop, its rewards going to the faucet.
 - Start command:
 
   ```bash
-  /bin/sh -c "exec /build/docker/from-source.sh --chain testnet --base-path /data --state-pruning archive --name tesserax-testnet-railway --listen-addr /ip4/0.0.0.0/tcp/30333 --listen-addr /ip6/::/tcp/30333 ${RAILWAY_TCP_PROXY_DOMAIN:+--public-addr /dns/$RAILWAY_TCP_PROXY_DOMAIN/tcp/$RAILWAY_TCP_PROXY_PORT} --experimental-rpc-endpoint listen-addr=[::]:9944,methods=safe --experimental-rpc-endpoint listen-addr=[::]:9945,methods=safe,rate-limit=600,max-connections=1000,max-subscriptions-per-connection=64,max-batch-request-len=50,max-request-size=10,max-response-size=10 ${MINER_AUTHOR:+--mine --mining-threads 1 --mining-light --author $MINER_AUTHOR} --no-prometheus --no-telemetry --no-mdns"
+  /bin/sh -c "exec /build/docker/from-source.sh --chain testnet --base-path /data --state-pruning archive --name tesserax-testnet-railway --listen-addr /ip4/0.0.0.0/tcp/30333 --listen-addr /ip6/::/tcp/30333 ${RAILWAY_TCP_PROXY_DOMAIN:+--public-addr /dns/$RAILWAY_TCP_PROXY_DOMAIN/tcp/$RAILWAY_TCP_PROXY_PORT} --experimental-rpc-endpoint listen-addr=[::]:9944,methods=safe --experimental-rpc-endpoint listen-addr=[::]:9945,methods=safe,rate-limit=600,max-connections=1000,max-subscriptions-per-connection=64,max-batch-request-len=50,max-request-size=10,max-response-size=10 --stratum [::]:3334 --stratum-max-miners 8 --author $POOL_AUTHOR --no-prometheus --no-telemetry --no-mdns"
   ```
 
 - Restart policy: always.
@@ -105,6 +127,7 @@ only):
 - `[::]:9945`, rate limited, for the public through the `rpc` service.
 
 Neither has a public domain of Railway: the public reaches the node through the gateway only.
+The stratum server, `[::]:3334`, has none either: only the pool reaches it, on the private network.
 
 ### `faucet`
 
@@ -165,5 +188,48 @@ itself and relays to the endpoint `9945` of the node.
   | `DNS_ZONE` | `tesserax.app` |
   | `VERCEL_TEAM` | the team owning the zone on Vercel |
   | `VERCEL_TOKEN` | a token of the Vercel API, for the DNS-01 challenges (secret) |
+
+- Restart policy: always.
+
+### `pool`
+
+`tesserax-pool` (`pool/`, [pool.md](pool.md)): the stratum server of the rigs, the dashboard and
+the API. Its account is generated on its first start and kept in its volume (`pool.key`), with
+the database of shares, balances and payouts (`pool.sqlite`): back both up.
+
+- Source: `docker/Dockerfile.from-source`, with `PACKAGE=tesserax-pool` and
+  `BINARY=tesserax-pool`, compiled when it starts like the node, and deployed with
+  `railway up --service pool --detach`.
+- Variables: `NODE_HOST=${{node.RAILWAY_PRIVATE_DOMAIN}}`,
+  `STRATUM_URL=stratum.tesserax.app:25202`, `PORT=8080`, `RUST_LOG=info`, `RAILWAY_RUN_UID=0`,
+  `CARGO_BUILD_JOBS=6`.
+- Volume: mounted on `/data`.
+- TCP proxy: `trolley.proxy.rlwy.net:25202` to the internal port `3333`, the stratum port. The
+  DNS record `stratum.tesserax.app` is a CNAME of `trolley.proxy.rlwy.net`, on Vercel DNS. The
+  proxy hides the IP addresses of the rigs, hence `--behind-proxy`.
+- Domain: `pool.tesserax.app`, the dashboard, a CNAME on Vercel DNS to the domain Railway gives
+  it, on the internal port `8080`.
+- Start command:
+
+  ```bash
+  /bin/sh -c "exec /build/docker/from-source.sh --key-file /data/pool.key --create-key --db /data/pool.sqlite --node-stratum $NODE_HOST:3334 --node-rpc ws://$NODE_HOST:9944 --listen [::]:3333 --api [::]:8080 --behind-proxy --stratum-url $STRATUM_URL --network Testnet --name \"Tesserax Testnet Pool\" --explorer https://explorer.tesserax.app --min-payout 1 --payout-interval 30"
+  ```
+
+- Restart policy: always.
+
+### `rig`
+
+A rig of the pool with one core, so that blocks never stop: the Tesserax build of XMRig in light
+mode, paying the faucet.
+
+- Source: `docker/Dockerfile.xmrig`, the release of the miner checked against its SHA-256,
+  deployed with `railway up --service rig --detach`.
+- Variables: `POOL_HOST=${{pool.RAILWAY_PRIVATE_DOMAIN}}`, `PAYOUT_ADDRESS`, the address of the
+  faucet.
+- Start command:
+
+  ```bash
+  /bin/sh -c "exec /opt/xmrig/xmrig --algo rx/tess --no-color --url $POOL_HOST:3333 --user $PAYOUT_ADDRESS.railway --pass x --threads 1 --randomx-mode=light --dns-ipv6 --print-time 300"
+  ```
 
 - Restart policy: always.
