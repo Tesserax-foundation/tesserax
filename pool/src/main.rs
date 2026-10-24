@@ -86,6 +86,11 @@ struct Cli {
 	/// Minutes an IP address sending invalid shares stays banned.
 	#[arg(long, default_value_t = 10)]
 	ban_minutes: u64,
+	/// Rigs connect through a TCP proxy that hides their IP addresses, such as the TCP proxy of
+	/// Railway: no limit per IP address, and a rig sending invalid shares is disconnected
+	/// instead of having its IP address banned.
+	#[arg(long)]
+	behind_proxy: bool,
 	/// Name of the pool on its dashboard.
 	#[arg(long, default_value = "Tesserax Pool")]
 	name: String,
@@ -185,6 +190,7 @@ async fn run(cli: Cli) -> Result<(), String> {
 			max_connections: cli.max_connections,
 			max_per_ip: cli.max_per_ip,
 			ban: Duration::from_secs(cli.ban_minutes * 60),
+			behind_proxy: cli.behind_proxy,
 			pplns_factor: cli.pplns_factor.max(0.1),
 		},
 		templates,

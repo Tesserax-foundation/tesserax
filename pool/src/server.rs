@@ -48,6 +48,10 @@ pub struct ServerConfig {
 	pub max_connections: usize,
 	pub max_per_ip: usize,
 	pub ban: Duration,
+	/// Rigs connect through a TCP proxy that hides their IP addresses: there is no limit per IP
+	/// address, and a rig sending invalid shares is disconnected without ban. Banning its payout
+	/// address instead would let anyone have a miner banned, by logging in with its address.
+	pub behind_proxy: bool,
 	/// Units of difficulty of the PPLNS window, as a multiple of the block difficulty.
 	pub pplns_factor: f64,
 }
@@ -202,13 +206,15 @@ pub async fn run(pool: Arc<Pool>) -> std::io::Result<()> {
 			},
 		};
 		let ip = peer.ip();
-		if pool.banned.lock().get(&ip).is_some_and(|until| *until > Instant::now()) {
+		// Behind a proxy, every rig comes from the address of the proxy.
+		let by_ip = !pool.config.behind_proxy;
+		if by_ip && pool.banned.lock().get(&ip).is_some_and(|until| *until > Instant::now()) {
 			continue;
 		}
 		if connections.load(Ordering::Relaxed) as usize >= pool.config.max_connections {
 			continue;
 		}
-		{
+		if by_ip {
 			let mut per_ip = pool.per_ip.lock();
 			let count = per_ip.entry(ip).or_default();
 			if *count >= pool.config.max_per_ip {
@@ -227,7 +233,7 @@ pub async fn run(pool: Arc<Pool>) -> std::io::Result<()> {
 			pool.stats.workers.lock().remove(&session);
 			connections.fetch_sub(1, Ordering::Relaxed);
 			let mut per_ip = pool.per_ip.lock();
-			if let Some(count) = per_ip.get_mut(&ip) {
+			if let Some(count) = per_ip.get_mut(&ip).filter(|_| by_ip) {
 				*count -= 1;
 				if *count == 0 {
 					per_ip.remove(&ip);
@@ -349,8 +355,12 @@ async fn serve(pool: &Arc<Pool>, stream: TcpStream, ip: IpAddr, number: u64) -> 
 				}
 				if let Some(session) = &session {
 					if session.invalid >= 3 && session.invalid > session.accepted / 10 {
-						tracing::warn!("Banning {ip} ({}): {} invalid shares", session.address, session.invalid);
-						pool.banned.lock().insert(ip, Instant::now() + pool.config.ban);
+						if pool.config.behind_proxy {
+							tracing::warn!("Disconnecting a rig of {}: {} invalid shares", session.address, session.invalid);
+						} else {
+							tracing::warn!("Banning {ip} ({}): {} invalid shares", session.address, session.invalid);
+							pool.banned.lock().insert(ip, Instant::now() + pool.config.ban);
+						}
 						return Err(Error::new(ErrorKind::PermissionDenied, "banned"));
 					}
 				}
