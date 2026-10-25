@@ -99,6 +99,7 @@ version, and a node syncing from the genesis applies the upgrades in their block
 |---|---|---|
 | 100 | 2026-10-23 | Genesis |
 | 101 | 2026-10-25 | An address in contracts belongs to its first owner ([contracts.md](contracts.md#addresses)) |
+| 102 | 2026-10-25 | The same runtime, built with the paths of the build machine remapped |
 
 ## Hosting
 

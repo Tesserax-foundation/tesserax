@@ -121,6 +121,23 @@ const balance = await token.read("balanceOf", [toH160(bob)]);
 const stop = token.watchEvents((event) => console.log(event.name, event.args));
 ```
 
+## Private transactions
+
+Every account has a shielded account, restored by its recovery phrase. Proofs are generated
+locally by the WebAssembly shielded wallet the package ships (`wasm/`), in Node.js and browsers
+(`docs/privacy.md`).
+
+```ts
+import { Amount, ShieldedAccount } from "@tesserax/sdk";
+
+const shielded = await ShieldedAccount.create(alice);
+await shielded.sync(client);                                   // reads the chain since its last block
+await shielded.shield(client, alice, Amount.fromTess("10"));   // public balance -> private
+await shielded.send(client, "zte...", Amount.fromTess("4"));   // private, to a shielded address
+await shielded.unshield(client, "te...", Amount.fromTess("3")); // private -> a public address
+const state = shielded.state();                                 // ShieldedAccount.restore(alice, state)
+```
+
 ## Tests
 
 ```bash

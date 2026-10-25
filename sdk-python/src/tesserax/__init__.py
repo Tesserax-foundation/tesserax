@@ -1,5 +1,5 @@
-"""Python SDK of Tesserax: ML-DSA accounts, transfers, AI agent delegations, the agent registry
-and smart contracts.
+"""Python SDK of Tesserax: ML-DSA accounts, transfers, AI agent delegations, the agent registry,
+smart contracts and private transactions.
 
     from tesserax import Amount, Client, Keypair
 
@@ -53,6 +53,7 @@ from .errors import (
     TransactionFailed,
 )
 from .keys import SS58_PREFIX, Keypair, format_address, parse_address, verify
+from .shielded import ShieldedAccount, Synced, is_shielded_address, shielded_minimum_fee
 from .tasks import NewTask, TaskInfo, Tasks, blocks_for
 
 __all__ = [
@@ -102,4 +103,8 @@ __all__ = [
     "DryRun",
     "revert_reason",
     "to_h160",
+    "ShieldedAccount",
+    "Synced",
+    "is_shielded_address",
+    "shielded_minimum_fee",
 ]

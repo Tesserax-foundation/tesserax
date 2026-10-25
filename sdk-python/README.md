@@ -109,6 +109,23 @@ for event in token.watch_events():
     print(event.name, event.args)
 ```
 
+## Private transactions
+
+Every account has a shielded account, restored by its recovery phrase. Proofs are generated
+locally by the shielded wallet compiled to WebAssembly, the same module on every platform, run
+by wasmtime: install the extra, `pip install "tesserax[shielded]"` (`docs/privacy.md`).
+
+```python
+from tesserax import Amount, ShieldedAccount
+
+shielded = ShieldedAccount.create(alice)
+shielded.sync(client)                                  # reads the chain since its last block
+shielded.shield(client, alice, Amount.from_tess("10"))  # public balance -> private
+shielded.send(client, "zte...", Amount.from_tess("4"))  # private, to a shielded address
+shielded.unshield(client, "te...", Amount.from_tess("3"))  # private -> a public address
+state = shielded.state()                               # ShieldedAccount.restore(alice, state)
+```
+
 ## Tests
 
 ```bash

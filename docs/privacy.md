@@ -48,6 +48,44 @@ reads the chain again from the genesis after a reorganization below its last blo
 `shielded-wallet` (keys, notes, synchronization and proving, native and WebAssembly) and the
 `shielded` feature of the Rust SDK (`ShieldedAccount`).
 
+The three SDKs have the same `ShieldedAccount`: `create` from a key, `sync` with the chain,
+`shield`, `send`, `unshield`, its `balance`, and a `state` to store and `restore`. A state saved by
+the TypeScript SDK opens in the Python SDK, and the other way round.
+
+```ts
+// TypeScript, @tesserax/sdk: proofs by the WebAssembly build of shielded-wasm, in Node.js and
+// browsers.
+import { Amount, Keypair, ShieldedAccount, TesseraxClient } from "@tesserax/sdk";
+
+const client = new TesseraxClient("wss://rpc.tesserax.app:21207");
+const alice = Keypair.fromUri(phrase);
+const shielded = await ShieldedAccount.create(alice);
+await shielded.sync(client);
+await shielded.shield(client, alice, Amount.fromTess("10"));
+await shielded.send(client, "zte...", Amount.fromTess("4"));
+await shielded.unshield(client, "te...", Amount.fromTess("3"));
+const state = shielded.state(); // ShieldedAccount.restore(alice, state) later
+```
+
+```python
+# Python, pip install "tesserax[shielded]": proofs by the same wallet compiled for WASI
+# (shielded-wasi), run by wasmtime: one module for every platform.
+from tesserax import Amount, Client, Keypair, ShieldedAccount
+
+client = Client("wss://rpc.tesserax.app:21207")
+alice = Keypair.from_uri(phrase)
+shielded = ShieldedAccount.create(alice)
+shielded.sync(client)
+shielded.shield(client, alice, Amount.from_tess("10"))
+shielded.send(client, "zte...", Amount.from_tess("4"))
+shielded.unshield(client, "te...", Amount.from_tess("3"))
+state = shielded.state()  # ShieldedAccount.restore(alice, state) later
+```
+
+The state holds no key, but tells which notes are the account's: keep it as private as the
+account. `scripts/build-shielded-wasm.sh` builds the WebAssembly module of the TypeScript SDK and
+of the web wallet, `scripts/build-shielded-wasi.sh` the one of the Python SDK.
+
 The web wallet, its extension and its desktop application have a Private page: proofs are
 generated in the browser by `shielded-wasm` (`scripts/build-shielded-wasm.sh`), in about 0.1
 second. They read the transactions of the pool from the explorer database

@@ -1,6 +1,6 @@
 /**
  * TypeScript SDK of Tesserax: ML-DSA accounts, transfers, AI agent delegations, the agent
- * registry and smart contracts.
+ * registry, smart contracts and private transactions.
  *
  * ```ts
  * import { Amount, Keypair, TesseraxClient } from "@tesserax/sdk";
@@ -51,6 +51,7 @@ export {
   type DeployOptions,
   type DryRun,
 } from "./contracts.js";
+export { ShieldedAccount, isShieldedAddress, loadShielded, shieldedMinimumFee, type Synced } from "./shielded.js";
 export { StorageError } from "./store.js";
 export { Tasks, blocksFor, type NewTask, type TaskInfo, type TaskStatus } from "./tasks.js";
 export {

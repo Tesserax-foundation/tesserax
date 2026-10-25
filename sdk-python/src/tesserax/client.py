@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
 import time
 from dataclasses import dataclass, field
 from typing import Any, Optional, Sequence
 
 from substrateinterface import SubstrateInterface
+from substrateinterface.base import ExtrinsicReceipt
 from substrateinterface.exceptions import SubstrateRequestException
 from websocket import WebSocket, WebSocketConnectionClosedException
 
 from .amount import DECIMALS, Amount
-from .contracts import Contract, Contracts
+from .contracts import Contract, Contracts, _compact
 from .errors import InvalidInput, TransactionFailed
 from .keys import SS58_PREFIX, Keypair, format_address, parse_address
 
@@ -220,31 +222,82 @@ class Client:
 
     def submit(self, signer: Keypair, module: str, function: str, params: dict) -> TxOutcome:
         """Sign a call with `signer`, submit it and wait until a block includes it successfully."""
+        call = self.substrate.compose_call(call_module=module, call_function=function, call_params=params)
+        return self._submit_call(signer, call)
+
+    def _submit_call(self, signer: Keypair, call, call_data: Optional[bytes] = None) -> TxOutcome:
+        """Sign `call`, a call of `substrate-interface`, submit it and wait for its block.
+
+        With `call_data`, the encoded call, the extrinsic carries these bytes as they are: some
+        calls decode but do not encode again with `substrate-interface`, such as the shielding of
+        TESS, whose digests are tuples of one array."""
         s = self.substrate
-        call = s.compose_call(call_module=module, call_function=function, call_params=params)
         nonce = s.rpc_request("system_accountNextIndex", [signer.address])["result"]
         era = {"period": MORTALITY, "current": s.get_block_number(None)}
         payload = s.generate_signature_payload(call=call, era=era, nonce=nonce, tip=0)
         signature = signer.sign(payload.data)
 
+        # The call is the last field of an extrinsic: a placeholder takes its place, then its bytes.
+        placeholder = s.compose_call("System", "remark", {"remark": "0x"}) if call_data is not None else call
         extrinsic = s.runtime_config.create_scale_object(type_string="Extrinsic", metadata=s.metadata)
         extrinsic.encode(
             {
                 "account_id": _hex(signer.account_id),
                 "signature": {"signer": _hex(signer.public_key), "signature": _hex(signature)},
-                "call_function": call.value["call_function"],
-                "call_module": call.value["call_module"],
-                "call_args": call.value["call_args"],
+                "call_function": placeholder.value["call_function"],
+                "call_module": placeholder.value["call_module"],
+                "call_args": placeholder.value["call_args"],
                 "nonce": nonce,
                 "era": era,
                 "tip": 0,
                 "mode": "Disabled",
             }
         )
+        if call_data is not None:
+            encoded = bytes(extrinsic.data.data)
+            mode = encoded[0] & 3
+            body = encoded[{0: 1, 1: 2, 2: 4}.get(mode, 1 + (encoded[0] >> 2) + 4) :]
+            removed = bytes(placeholder.data.data)
+            if not body.endswith(removed):
+                raise InvalidInput("unexpected encoding of the extrinsic")
+            body = body[: len(body) - len(removed)] + call_data
+            return self._submit_unsigned(_compact(len(body)) + body)
         try:
             receipt = s.submit_extrinsic(extrinsic, wait_for_inclusion=True)
         except SubstrateRequestException as error:
             raise TransactionFailed(f"transaction refused: {error}") from None
+        return self._outcome(receipt.block_hash, receipt.extrinsic_hash)
+
+    def _submit_unsigned(self, extrinsic: bytes) -> TxOutcome:
+        """Submit an encoded extrinsic, such as a private transaction its proof authorizes without
+        signer, and wait until a block includes it."""
+
+        def included(message, _update, subscription):
+            result = message.get("params", {}).get("result")
+            if isinstance(result, dict):
+                status = {k.lower(): v for k, v in result.items()}
+                if "inblock" in status or "finalized" in status:
+                    self.substrate.rpc_request("author_unwatchExtrinsic", [subscription])
+                    return status.get("inblock") or status["finalized"]
+            elif result in ("dropped", "invalid", "usurped"):
+                raise TransactionFailed(f"transaction {result}")
+
+        try:
+            block_hash = self.substrate.rpc_request("author_submitAndWatchExtrinsic", [_hex(extrinsic)], result_handler=included)
+        except SubstrateRequestException as error:
+            raise TransactionFailed(f"transaction refused: {error}") from None
+        return self._outcome(block_hash, _hex(hashlib.blake2b(extrinsic, digest_size=32).digest()))
+
+    def _outcome(self, block_hash: str, extrinsic_hash: str) -> TxOutcome:
+        """The outcome of the extrinsic `extrinsic_hash` in the block `block_hash`, read from the
+        events of the block. The extrinsics of the block are not decoded: `substrate-interface`
+        cannot decode all of them, such as private transactions."""
+        s = self.substrate
+        extrinsics = s.rpc_request("chain_getBlock", [block_hash])["result"]["block"]["extrinsics"]
+        hashes = [_hex(hashlib.blake2b(bytes.fromhex(x[2:]), digest_size=32).digest()) for x in extrinsics]
+        if extrinsic_hash not in hashes:
+            raise TransactionFailed(f"transaction {extrinsic_hash} not found in block {block_hash}")
+        receipt = ExtrinsicReceipt(substrate=s, extrinsic_hash=extrinsic_hash, block_hash=block_hash, extrinsic_idx=hashes.index(extrinsic_hash))
         if not receipt.is_success:
             message = receipt.error_message or {}
             name = message.get("name")

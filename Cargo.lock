@@ -13923,6 +13923,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tesserax-shielded-wasi"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "tesserax-shielded-wallet",
+]
+
+[[package]]
 name = "tesserax-shielded-wasm"
 version = "0.1.0"
 dependencies = [

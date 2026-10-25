@@ -139,6 +139,11 @@ class Keypair:
     def account_id(self) -> bytes:
         return account_id(self.public_key)
 
+    def seed(self) -> bytes:
+        """The 32-byte seed of the key. It is secret: it derives the key, and the shielded key of
+        the account."""
+        return self._seed
+
     @property
     def address(self) -> str:
         return format_address(self.account_id)

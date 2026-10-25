@@ -1,0 +1,19 @@
+[package]
+name = "tesserax-shielded-wasi"
+description = "The shielded wallet of Tesserax as a WebAssembly module for WASI hosts, such as the Python SDK through wasmtime."
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+codec = { workspace = true, default-features = true }
+tesserax-shielded-wallet = { workspace = true }

@@ -28,6 +28,7 @@ members = [
 	"runtime",
 	"sdk",
 	"shielded-wallet",
+	"shielded-wasi",
 	"shielded-wasm",
 	"wallet",
 ]
