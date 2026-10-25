@@ -28,6 +28,8 @@ from a node: it holds nothing that is not on chain.
 - Keeps accounts, agents, delegations, channels and tasks as their state on chain, read again
   after each block that touches them, and the head, supply, emission, shielded pool, constants
   and genesis allocations in `chain_state`.
+- Keeps the open offers of atomic swaps (`swap_offers`), read again after each block with a swap
+  event; the trades come from the events of the swaps pallet (`swap_trades`).
 - Writes a batch of blocks in one transaction, its statements pipelined: catching up costs a
   round trip to the database per batch, not per statement. Byte strings over 512 bytes (shielded
   proofs) are stored as their length and Blake2 hash.
@@ -69,10 +71,29 @@ docker build -f indexer/Dockerfile -t tesserax-indexer .
 docker run --env-file indexer/.env tesserax-indexer
 ```
 
+## Market API
+
+The web deployment serves the market of TESS (atomic swaps against ETH, USDC and USDT, see
+[docs/swaps.md](../docs/swaps.md)) in the formats price aggregators read, from the database
+functions of `supabase/migrations/*_market.sql`. Answers are public and cached 30 seconds.
+
+| Path | Answer |
+|---|---|
+| `/api/coingecko/pairs` | Pairs: `TESS_ETH`, `TESS_USDC`, `TESS_USDT` once they have an offer or a trade |
+| `/api/coingecko/tickers` | Last price, 24-hour volumes, high and low of the trades claimed, best ask of the open offers |
+| `/api/coingecko/orderbook?ticker_id=TESS_USDC&depth=100` | The open offers by price; offers sell TESS, so there are no bids |
+| `/api/coingecko/historical_trades?ticker_id=TESS_USDC&limit=500&start_time=&end_time=` | Trades claimed, the latest first; takers buy TESS, so every trade is a buy |
+| `/api/supply` | Total, circulating and maximum supply of TESS, as JSON |
+| `/api/supply/total`, `/api/supply/circulating`, `/api/supply/max` | One of them as a plain number |
+
+The circulating supply is the issuance without what the genesis allocations still vest.
+
 ## Deploy
 
 - Web application: `npm run build -w web` produces `web/dist`, a static site. `web/vercel.json`
-  and `web/public/_redirects` send every path to `index.html` on Vercel and Netlify.
+  and `web/public/_redirects` send every path to `index.html` on Vercel and Netlify. On Vercel,
+  `web/api/` serves the market API, with the variables of the build (`VITE_SUPABASE_URL`,
+  `VITE_SUPABASE_ANON_KEY`).
 - Indexer: one process per database, next to the node, restarted on failure (systemd, Docker).
   It resumes where it stopped. The indexer of the testnet runs on Railway next to its node: see
   [docs/testnet.md](../docs/testnet.md).

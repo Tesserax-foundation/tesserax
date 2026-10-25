@@ -118,3 +118,88 @@ test("shielded transactions follow the canonical chain", async () => {
   }
 });
 
+
+test("the market: pairs, tickers, order book, trades and supply", async () => {
+  const database = await testDatabase();
+  const sql = db.connect(database.url);
+  const TESS = 10n ** 12n;
+  const filled = (trade: number, amount: bigint, price: bigint, asset = "Usdc") => ({
+    pallet: "Swaps",
+    name: "Filled",
+    data: { trade: String(trade), offer: "0", maker: "teMaker", taker: "teTaker", amount: amount.toString(), price: price.toString(), payment: { chain: "Base", asset }, hash: "0x00", payment_lock: "0x01", expires: "1300" },
+  });
+  try {
+    await db.saveBlock(sql, block(0, "0xb0", "0x00"));
+    await db.saveBlock(
+      sql,
+      block(1, "0xb1", "0xb0", {
+        events: [
+          { index: 0, extrinsicIndex: 0, ...filled(0, 100n * TESS, 50_000n) },
+          { index: 1, extrinsicIndex: 1, ...filled(1, 3n * TESS + 1n, 60_000n) },
+          { index: 2, extrinsicIndex: 2, ...filled(2, 5n * TESS, 10n ** 14n, "Native") },
+        ],
+      }),
+    );
+    await db.saveBlock(
+      sql,
+      block(2, "0xb2", "0xb1", {
+        events: [
+          { index: 0, extrinsicIndex: 0, pallet: "Swaps", name: "Claimed", data: { trade: "0", taker: "teTaker", amount: (100n * TESS).toString(), secret: "0x02" } },
+          { index: 1, extrinsicIndex: 1, pallet: "Swaps", name: "Claimed", data: { trade: "1", taker: "teTaker", amount: (3n * TESS + 1n).toString(), secret: "0x03" } },
+          { index: 2, extrinsicIndex: null, pallet: "Swaps", name: "Refunded", data: { trade: "2", maker: "teMaker", amount: (5n * TESS).toString() } },
+        ],
+      }),
+    );
+    await db.replaceSwapOffers(
+      sql,
+      [
+        { id: 0, maker: "teMaker", chain: "Base", asset: "Usdc", price: 70_000n, available: 400n * TESS, minFill: TESS, payout: "0xaa", fills: 2, completed: 2 },
+        { id: 1, maker: "teOther", chain: "Arbitrum", asset: "Usdc", price: 65_000n, available: 10n * TESS, minFill: TESS, payout: "0xbb", fills: 0, completed: 0 },
+        { id: 2, maker: "teOther", chain: "Arbitrum", asset: "Usdc", price: 70_000n, available: 5n * TESS, minFill: TESS, payout: "0xbb", fills: 0, completed: 0 },
+        { id: 3, maker: "teOther", chain: "Ethereum", asset: "Usdt", price: 80_000n, available: 0n, minFill: TESS, payout: "0xcc", fills: 1, completed: 1 },
+      ],
+      2,
+    );
+
+    const [{ pairs }] = await sql`select market_pairs() as pairs`;
+    assert.deepEqual(pairs, [{ ticker_id: "TESS_USDC", base: "TESS", target: "USDC" }]);
+
+    const [{ tickers }] = await sql`select market_tickers() as tickers`;
+    assert.deepEqual(tickers, [
+      {
+        ticker_id: "TESS_USDC",
+        base_currency: "TESS",
+        target_currency: "USDC",
+        last_price: "0.06",
+        // 100 TESS at 0.05 and 3.000000000001 TESS at 0.06, the payment rounded up.
+        base_volume: "103.000000000001",
+        target_volume: "5.180001",
+        bid: "0",
+        ask: "0.065",
+        high: "0.06",
+        low: "0.05",
+      },
+    ]);
+
+    const [{ book }] = await sql`select market_orderbook('TESS_USDC', 10) as book`;
+    assert.deepEqual(book.asks, [["0.065", "10"], ["0.07", "405"]]);
+    assert.deepEqual(book.bids, []);
+
+    const [{ trades }] = await sql`select market_trades('TESS_USDC') as trades`;
+    assert.deepEqual(trades.buy.map((t: { trade_id: number; price: string }) => [t.trade_id, t.price]), [[1, "0.06"], [0, "0.05"]]);
+    const [{ none }] = await sql`select market_trades('TESS_USDC', 'sell') as none`;
+    assert.deepEqual(none.buy, []);
+
+    // 14 million TESS at most; 1,000 still vesting at block 100 of a schedule of 2,000 from 0.
+    await db.setState(sql, "head", { best: 100 });
+    await db.setState(sql, "supply", { total_issuance: (5_000_000n * TESS).toString(), mining_supply: (11_900_000n * TESS).toString() });
+    await db.setState(sql, "allocations", [
+      { account: "teTeam", amount: (2_100_000n * TESS).toString(), vesting: [{ locked: (2_000n * TESS).toString(), per_block: (10n * TESS).toString(), starting_block: 0 }] },
+    ]);
+    const [{ supply }] = await sql`select market_supply() as supply`;
+    assert.deepEqual(supply, { total: "5000000", circulating: "4999000", max: "14000000" });
+  } finally {
+    await sql.end();
+    await database.close();
+  }
+});

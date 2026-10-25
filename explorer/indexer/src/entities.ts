@@ -15,9 +15,11 @@ export class Touched {
   readonly delegations = new Set<string>();
   readonly channels = new Set<number>();
   readonly tasks = new Set<number>();
+  /** A swap event happened: the open offers are read again, all of them. */
+  offers = false;
 
   get size(): number {
-    return this.accounts.size + this.agents.size + this.delegations.size + this.channels.size + this.tasks.size;
+    return this.accounts.size + this.agents.size + this.delegations.size + this.channels.size + this.tasks.size + (this.offers ? 1 : 0);
   }
 
   account(address: string | null | undefined): void {
@@ -47,6 +49,9 @@ export class Touched {
       case "Tasks":
         if (data.id != null) this.tasks.add(Number(data.id));
         break;
+      case "Swaps":
+        this.offers = true;
+        break;
     }
   }
 
@@ -56,8 +61,15 @@ export class Touched {
     other.delegations.forEach((d) => this.delegations.add(d));
     other.channels.forEach((c) => this.channels.add(c));
     other.tasks.forEach((t) => this.tasks.add(t));
+    this.offers ||= other.offers;
   }
 }
+
+const hexOf = (bytes: unknown): string =>
+  bytes instanceof Uint8Array ? "0x" + Buffer.from(bytes).toString("hex")
+  : typeof bytes === "string" ? bytes
+  : typeof (bytes as { asHex?: unknown })?.asHex === "function" ? (bytes as { asHex(): string }).asHex()
+  : String(bytes);
 
 const text = (bytes: unknown): string =>
   bytes instanceof Uint8Array ? Buffer.from(bytes).toString("utf8") : typeof bytes === "string" ? bytes : "";
@@ -225,6 +237,28 @@ export async function refresh(
       },
       block,
     );
+  }
+
+  if (touched.offers) {
+    const storage = runtime.builder.buildStorage("Swaps", "Offers");
+    const keys = await storageKeys(rpc, runtime.storageKey("Swaps", "Offers"), at);
+    const raw = await readStorage(rpc, keys, at);
+    const offers: db.SwapOfferRow[] = keys.map((key) => {
+      const o = runtime.decodeStorage("Swaps", "Offers", raw.get(key) ?? null);
+      return {
+        id: Number(storage.keys.dec(key)[0]),
+        maker: o.maker,
+        chain: o.payment.chain.type,
+        asset: o.payment.asset.type,
+        price: BigInt(o.price),
+        available: BigInt(o.available),
+        minFill: BigInt(o.min_fill),
+        payout: hexOf(o.payout),
+        fills: Number(o.fills),
+        completed: Number(o.completed),
+      };
+    });
+    await db.replaceSwapOffers(sql, offers, block);
   }
 
   for (const id of touched.tasks) {

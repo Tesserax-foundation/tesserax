@@ -448,3 +448,39 @@ export async function finishTask(sql: Sql, id: number, block: number): Promise<v
       paid = ${data.paid ?? null}, refunded = ${data.refunded ?? null}, updated_block = ${block}
     where id = ${id}`;
 }
+
+export interface SwapOfferRow {
+  id: number;
+  maker: string;
+  chain: string;
+  asset: string;
+  price: bigint;
+  available: bigint;
+  minFill: bigint;
+  payout: string;
+  fills: number;
+  completed: number;
+}
+
+/** The open offers of swaps at `block`: those no longer in storage are gone. */
+export async function replaceSwapOffers(sql: Sql, offers: SwapOfferRow[], block: number): Promise<void> {
+  await sql.begin(async (tx) => {
+    await tx`delete from swap_offers`;
+    if (offers.length === 0) return;
+    await tx`insert into swap_offers ${tx(
+      offers.map((o) => ({
+        id: o.id,
+        maker: o.maker,
+        chain: o.chain,
+        asset: o.asset,
+        price: num(o.price),
+        available: num(o.available),
+        min_fill: num(o.minFill),
+        payout: o.payout,
+        fills: o.fills,
+        completed: o.completed,
+        updated_block: block,
+      })) as any,
+    )}`;
+  });
+}

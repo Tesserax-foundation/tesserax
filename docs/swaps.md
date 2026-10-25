@@ -78,6 +78,14 @@ same operations: `tesserax_sdk::swaps`, and `tesserax_sdk::swaps::evm` with the 
 the TypeScript SDK `client.swaps` and `EvmSwaps`, with any viem wallet client. Both refuse to lock
 a payment on a chain where the contract is not deployed.
 
+## Market data
+
+The explorer serves the prices, volumes, order book and trades of the market for price
+aggregators, in the format of CoinGecko, and the supply of TESS: `/api/coingecko/tickers`,
+`/api/coingecko/orderbook?ticker_id=TESS_USDC`, `/api/supply/circulating` and the others of
+[explorer/README.md](../explorer/README.md#market-api). They count the trades their taker
+claimed, the ones whose payment the maker can collect.
+
 ## Risks
 
 - A maker must be online to fill: a taker whose payment is not filled waits 24 hours for its
