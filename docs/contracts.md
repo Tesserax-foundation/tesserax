@@ -213,6 +213,26 @@ Values are `alloy` `DynSolValue`s. A contract can also be called with input enco
 as by the `sol!` macro of `alloy`: `Client::call_contract` takes the encoded input,
 `Client::dry_run_call` returns the raw output.
 
+## In the wallet
+
+The Contracts page of the wallet (web, extension and desktop) deploys and calls contracts without
+code:
+
+- **Deploy**: the `.polkavm` file of `resolc --bin` and the ABI; the constructor gets a field per
+  argument. The review shows the exact fee, or the revert reason of the constructor before
+  anything is signed.
+- **Add**: a contract deployed by others, from its address and its ABI.
+- **Read**: every `view` and `pure` function, called as a dry run from the address of the active
+  account, without fee; functions without arguments are read when the page opens.
+- **Write**: the other functions, with the TESS sent to `payable` ones, through the review and
+  signature of every transaction.
+- **Events**: those of the calls made in the wallet, and the latest ones from the explorer
+  database when the network has one.
+
+Fields of type `address` take `0x` addresses and Tesserax addresses (`te...`), mapped to their
+address in contracts; integers are decimal or `0x`, arrays and tuples JSON. Contracts are listed
+per network, in the browser.
+
 ## Reads, writes and fees
 
 - **Reads** are dry runs: the node executes the call on the state of the best block and returns its
