@@ -26,6 +26,7 @@ pub mod keys;
 #[cfg(feature = "shielded")]
 pub mod shielded;
 mod store;
+pub mod swaps;
 pub mod tasks;
 
 pub use amount::Amount;
@@ -81,6 +82,9 @@ pub enum Error {
 	ContractReverted(String),
 	#[error("not found: {0}")]
 	NotFound(String),
+	/// An EVM chain of a swap answered with an error.
+	#[error("EVM chain: {0}")]
+	Evm(String),
 	#[error("state file: {0}")]
 	Storage(String),
 }

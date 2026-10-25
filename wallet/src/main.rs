@@ -5,6 +5,7 @@
 //! agent registry, payment channels and the task market.
 
 mod keystore;
+mod swap;
 
 use clap::{Args, Parser, Subcommand};
 use keystore::Keystore;
@@ -79,6 +80,9 @@ enum Command {
 	/// Governance: referenda, votes and the technical committee.
 	#[command(subcommand)]
 	Governance(GovernanceCommand),
+	/// Atomic swaps: offers of TESS paid in ETH, USDC or USDT on EVM chains.
+	#[command(subcommand)]
+	Swap(swap::SwapCommand),
 	/// Information about the chain.
 	Chain,
 }
@@ -602,6 +606,7 @@ async fn run(cli: Cli) -> Result<()> {
 		Command::Task(command) => task(&mut w, command).await,
 		Command::Shielded(command) => shielded(&mut w, command).await,
 		Command::Governance(command) => governance(&mut w, command).await,
+		Command::Swap(command) => swap::swap(&mut w, command).await,
 	}
 }
 

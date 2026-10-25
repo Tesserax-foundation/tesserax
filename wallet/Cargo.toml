@@ -25,6 +25,6 @@ rpassword = { workspace = true }
 serde = { workspace = true }
 hex = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-tesserax-sdk = { workspace = true, features = ["shielded"] }
+tesserax-sdk = { workspace = true, features = ["shielded", "swaps"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

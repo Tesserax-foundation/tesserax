@@ -24,6 +24,8 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 | `pallets/difficulty/` | Difficulty adjustment (LWMA over 120 blocks, 18 s target) |
 | `pallets/emission/` | Block rewards: 0.85 TESS per block to the miner, halving every 7 000 000 blocks |
 | `pallets/shielded/` | Shielded pool: private transfers proven with zero-knowledge STARKs, see `docs/privacy.md` |
+| `pallets/swaps/` | Atomic swaps of TESS against ETH, USDC and USDT on EVM chains, see `docs/swaps.md` |
+| `swaps/evm/` | Hash time-locked contract of the swaps on Ethereum, Base and Arbitrum |
 | `consensus/pow/` | RandomTESS proof of work: seal verification, key schedule, built-in miner, stratum server for XMRig, confirmation depth |
 | `primitives/crypto/` | ML-DSA-87 keys, signatures and accounts |
 | `primitives/shielded/` | Notes, note tree, note encryption and the STARK circuit of the shielded pool |
@@ -156,6 +158,13 @@ conviction, and TESS still vesting do not vote, so that the allocations of the t
 foundation decide nothing while they vest. The technical committee, the three signatories of the
 foundation, can only whitelist a fix for a shorter referendum, and its members never change. See
 [docs/governance.md](docs/governance.md).
+
+## Swaps
+
+TESS trade against ETH, USDC and USDT on Ethereum, Base and Arbitrum without an exchange: makers
+offer TESS on Tesserax, takers lock their payment on the EVM chain, and one secret releases both
+sides, or both return to their owners. A taker needs no TESS to receive them. See
+[docs/swaps.md](docs/swaps.md).
 
 ## Security
 

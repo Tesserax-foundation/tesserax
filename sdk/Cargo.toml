@@ -12,6 +12,7 @@ publish = false
 workspace = true
 
 [dependencies]
+alloy = { workspace = true, optional = true, features = ["std", "contract", "network", "provider-http", "reqwest-rustls-tls", "rpc-types-eth", "signer-local", "sol-types"] }
 alloy-core = { workspace = true, features = ["dyn-abi", "json-abi", "std"] }
 base64 = { workspace = true }
 bip39 = { workspace = true }
@@ -24,6 +25,7 @@ rustls-platform-verifier = "0.7.1"
 serde = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
 subxt = { workspace = true }
 tesserax-crypto = { workspace = true, default-features = true }
 tesserax-shielded-wallet = { workspace = true, optional = true }
@@ -33,6 +35,8 @@ tokio = { workspace = true, features = ["sync"] }
 [features]
 # Private transactions with the shielded pool: proofs and note encryption.
 shielded = ["dep:tesserax-shielded-wallet"]
+# Atomic swaps: the payment side on the EVM chains.
+swaps = ["dep:alloy"]
 
 [dev-dependencies]
 tesserax-runtime = { workspace = true, default-features = true }
