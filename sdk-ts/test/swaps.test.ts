@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createWalletClient, http, zeroAddress } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
-import { Amount, EvmSwaps, Keypair, TesseraxClient, hashOf, newSecret, paymentDue, tessFor, type EvmNetwork } from "../src/index.js";
+import { Amount, EvmSwaps, Keypair, SWAP_CONTRACT, TesseraxClient, hashOf, newSecret, paymentDue, tessFor, type EvmNetwork } from "../src/index.js";
 import { PLANCK_PER_TESS } from "../src/amount.js";
 
 const url = process.env.TESSERAX_URL;
@@ -97,4 +97,29 @@ test("a swap of TESS against ETH", { skip: (!url || !evmUrl) && "set TESSERAX_UR
   } finally {
     client.destroy();
   }
+});
+
+test("no payment is locked where the contract is missing", { skip: !evmUrl && "set EVM_URL", timeout: 60_000 }, async () => {
+  const network: EvmNetwork = {
+    chain: "Base",
+    name: "Local EVM",
+    chainId: 31_337,
+    rpcUrl: evmUrl!,
+    usdc: zeroAddress,
+    explorer: "",
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  };
+  const account = mnemonicToAccount("test test test test test test test test test test test junk", { addressIndex: 4 });
+  const evm = new EvmSwaps(network, { walletClient: createWalletClient({ account, transport: http(evmUrl) }) });
+  const rpc = (method: string, params: unknown[]) => evm.public.request({ method, params } as never);
+  const code = await evm.public.getCode({ address: SWAP_CONTRACT });
+  const snapshot = await rpc("evm_snapshot", []);
+  try {
+    await rpc("anvil_setCode", [SWAP_CONTRACT, "0x"]);
+    const lock = { asset: "Native" as const, recipient: account.address, amount: 1n, hash: new Uint8Array(32), timelock: 4_000_000_000, offer: 0, taker: Keypair.fromUri("//Alice").address };
+    await assert.rejects(evm.lockPayment(lock), /not deployed on Local EVM/);
+  } finally {
+    await rpc("evm_revert", [snapshot]);
+  }
+  assert.equal(await evm.public.getCode({ address: SWAP_CONTRACT }), code);
 });

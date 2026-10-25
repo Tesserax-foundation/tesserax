@@ -47,8 +47,14 @@ with the deterministic CREATE2 deployer ([swaps/evm](../swaps/evm/README.md)).
 
 ## Using it
 
-With the command line wallet; the EVM key is a file holding a private key in hexadecimal, which
-pays the locks and the gas:
+In the web wallet, the **Market** page: buyers pick an offer and pay from their browser EVM
+wallet (MetaMask, Rabby or any EIP-1193 wallet), whose keys never reach Tesserax; the wallet
+claims the TESS as soon as the maker fills, and takes the payment back if it never does. Sellers
+create offers there and run the maker of their account, which fills them while the wallet is
+open and lists the payments to collect.
+
+With the command line wallet, which runs a maker without a browser; the EVM key is a file
+holding a private key in hexadecimal, which pays the locks and the gas:
 
 ```bash
 # Makers: offer 10,000 TESS at 0.05 USDC on Base, paid to an EVM address.
@@ -68,7 +74,9 @@ tesserax-wallet swap refund-payment 0x<lock> --evm-key-file taker.key
 
 The secret of a buy is saved in the wallet directory before the payment is locked, and deleted
 once the TESS are claimed: losing it before the claim only delays the refund. The Rust SDK has the
-same operations: `tesserax_sdk::swaps`, and `tesserax_sdk::swaps::evm` with the `swaps` feature.
+same operations: `tesserax_sdk::swaps`, and `tesserax_sdk::swaps::evm` with the `swaps` feature;
+the TypeScript SDK `client.swaps` and `EvmSwaps`, with any viem wallet client. Both refuse to lock
+a payment on a chain where the contract is not deployed.
 
 ## Risks
 

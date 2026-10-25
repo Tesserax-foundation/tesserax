@@ -572,6 +572,8 @@ export class EvmSwaps {
     taker: string;
   }): Promise<Hex> {
     const owner = await this.sender();
+    // A payment sent to an address without the contract would be lost.
+    if (!(await this.public.getCode({ address: SWAP_CONTRACT }))) throw new Error(`the swap contract is not deployed on ${this.network.name}`);
     const token = tokenOf(this.network, payment.asset);
     if (!token) throw new Error(`${payment.asset} is not on ${this.network.name}`);
     if (token !== zeroAddress) {

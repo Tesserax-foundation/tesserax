@@ -321,6 +321,10 @@ impl Evm {
 		taker: &AccountId,
 	) -> Result<B256> {
 		let owner = self.signer.ok_or_else(|| Error::Evm("no key to sign with".into()))?;
+		// A payment sent to an address without the contract would be lost.
+		if self.provider.get_code_at(SWAP_CONTRACT).await.map_err(evm)?.is_empty() {
+			return Err(Error::Evm(format!("the swap contract is not deployed on {}", self.network.name)));
+		}
 		let token = self.network.token(asset).ok_or_else(|| Error::Evm(format!("{asset:?} is not on {}", self.network.name)))?;
 		if token != Address::ZERO {
 			let erc20 = IERC20::new(token, &self.provider);
