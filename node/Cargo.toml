@@ -73,6 +73,8 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = ["tesserax-runtime/std"]
+# Governance periods of minutes, for development chains only.
+fast-runtime = ["tesserax-runtime/fast-runtime"]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",

@@ -10,6 +10,8 @@ pub mod apis;
 mod benchmarks;
 pub mod configs;
 pub mod genesis_config_presets;
+pub mod governance;
+mod migrations;
 pub mod precompiles;
 pub mod weights;
 #[cfg(test)]
@@ -55,7 +57,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("tesserax"),
 	impl_name: alloc::borrow::Cow::Borrowed("tesserax-node"),
 	authoring_version: 1,
-	spec_version: 102,
+	spec_version: 103,
 	impl_version: 1,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -186,6 +188,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
+	migrations::Migrations,
 >;
 
 #[frame_support::runtime]
@@ -220,9 +223,6 @@ mod runtime {
 	#[runtime::pallet_index(4)]
 	pub type TransactionPayment = pallet_transaction_payment;
 
-	#[runtime::pallet_index(5)]
-	pub type Sudo = pallet_sudo;
-
 	#[runtime::pallet_index(6)]
 	pub type Revive = pallet_revive;
 
@@ -252,4 +252,26 @@ mod runtime {
 
 	#[runtime::pallet_index(15)]
 	pub type Tasks = pallet_tasks;
+
+	// On-chain governance; index 5 was sudo.
+	#[runtime::pallet_index(16)]
+	pub type Preimage = pallet_preimage;
+
+	#[runtime::pallet_index(17)]
+	pub type Scheduler = pallet_scheduler;
+
+	#[runtime::pallet_index(18)]
+	pub type Referenda = pallet_referenda;
+
+	#[runtime::pallet_index(19)]
+	pub type ConvictionVoting = pallet_conviction_voting;
+
+	#[runtime::pallet_index(20)]
+	pub type Origins = governance::origins;
+
+	#[runtime::pallet_index(21)]
+	pub type Whitelist = pallet_whitelist;
+
+	#[runtime::pallet_index(22)]
+	pub type TechnicalCommittee = pallet_collective<Instance1>;
 }

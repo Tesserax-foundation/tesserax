@@ -35,14 +35,19 @@ pallet-balances = { workspace = true }
 pallet-channels = { workspace = true }
 pallet-difficulty = { workspace = true }
 pallet-emission = { workspace = true }
+pallet-collective = { workspace = true }
+pallet-conviction-voting = { workspace = true }
 pallet-multisig = { workspace = true }
+pallet-preimage = { workspace = true }
+pallet-referenda = { workspace = true }
+pallet-scheduler = { workspace = true }
 pallet-revive = { workspace = true }
 pallet-shielded = { workspace = true }
-pallet-sudo = { workspace = true }
 pallet-tasks = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-vesting = { workspace = true }
+pallet-whitelist = { workspace = true }
 
 # primitives
 sp-api = { workspace = true }
@@ -93,16 +98,21 @@ std = [
 	"pallet-channels/std",
 	"pallet-difficulty/std",
 	"pallet-emission/std",
+	"pallet-collective/std",
+	"pallet-conviction-voting/std",
 	"pallet-multisig/std",
+	"pallet-preimage/std",
+	"pallet-referenda/std",
+	"pallet-scheduler/std",
 	"pallet-revive/std",
 	"pallet-shielded/std",
 	"alloy-core/std",
-	"pallet-sudo/std",
 	"pallet-tasks/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"pallet-vesting/std",
+	"pallet-whitelist/std",
 	"scale-info/std",
 	"serde_json/std",
 	"sp-api/std",
@@ -121,6 +131,9 @@ std = [
 	"substrate-wasm-builder",
 	"tesserax-crypto/std",
 ]
+# Governance periods of minutes instead of days, for development chains only: never for the
+# runtime of a public network.
+fast-runtime = []
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -132,14 +145,19 @@ runtime-benchmarks = [
 	"pallet-channels/runtime-benchmarks",
 	"pallet-difficulty/runtime-benchmarks",
 	"pallet-emission/runtime-benchmarks",
+	"pallet-collective/runtime-benchmarks",
+	"pallet-conviction-voting/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-referenda/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
 	"pallet-shielded/runtime-benchmarks",
-	"pallet-sudo/runtime-benchmarks",
 	"pallet-tasks/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
+	"pallet-whitelist/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
@@ -154,14 +172,19 @@ try-runtime = [
 	"pallet-channels/try-runtime",
 	"pallet-difficulty/try-runtime",
 	"pallet-emission/try-runtime",
+	"pallet-collective/try-runtime",
+	"pallet-conviction-voting/try-runtime",
 	"pallet-multisig/try-runtime",
+	"pallet-preimage/try-runtime",
+	"pallet-referenda/try-runtime",
+	"pallet-scheduler/try-runtime",
 	"pallet-revive/try-runtime",
 	"pallet-shielded/try-runtime",
-	"pallet-sudo/try-runtime",
 	"pallet-tasks/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-vesting/try-runtime",
+	"pallet-whitelist/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 

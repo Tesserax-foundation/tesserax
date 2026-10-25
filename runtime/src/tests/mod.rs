@@ -1,11 +1,12 @@
-//! Runtime tests: ML-DSA transactions, block rewards, allocations, AI agents, smart contracts and
-//! private transfers.
+//! Runtime tests: ML-DSA transactions, block rewards, allocations, AI agents, smart contracts,
+//! private transfers and governance.
 
 mod agents;
 mod allocations;
 mod channels;
 mod contracts;
 mod emission;
+mod governance;
 mod shielded;
 mod signatures;
 mod tasks;

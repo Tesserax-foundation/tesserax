@@ -128,8 +128,8 @@ impl FindAuthor<AccountId> for PowAuthor {
 }
 
 /// Sends value that would otherwise be burned to the miner of the current block: transaction fees
-/// and tips, the dust of accounts removed below the existential deposit, and the rounding of
-/// contract gas. Nothing is burned.
+/// and tips, the dust of accounts removed below the existential deposit, the rounding of contract
+/// gas, and the deposits governance slashes. Nothing is burned.
 pub struct ToAuthor;
 
 impl OnUnbalanced<Credit<AccountId, Balances>> for ToAuthor {
@@ -141,6 +141,18 @@ impl OnUnbalanced<Credit<AccountId, Balances>> for ToAuthor {
 			// The block reward, minted before any transaction, has created the account of the
 			// miner: this can only fail for an amount it cannot hold, which is then dropped.
 			let _ = <Balances as Balanced<AccountId>>::resolve(&author, amount);
+		}
+	}
+}
+
+/// Deposits slashed by governance, such as the one of a referendum killed, go to the miner too.
+impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for ToAuthor {
+	fn on_nonzero_unbalanced(amount: pallet_balances::NegativeImbalance<Runtime>) {
+		let digest = System::digest();
+		let author =
+			PowAuthor::find_author(digest.logs.iter().filter_map(|item| item.as_pre_runtime()));
+		if let Some(author) = author {
+			<Balances as frame_support::traits::Currency<AccountId>>::resolve_creating(&author, amount);
 		}
 	}
 }
@@ -211,12 +223,6 @@ impl pallet_transaction_payment::BenchmarkConfig for Runtime {
 	}
 }
 
-impl pallet_sudo::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-	type WeightInfo = weights::pallet_sudo::WeightInfo<Runtime>;
-}
-
 parameter_types! {
 	pub const MinVestedTransfer: Balance = UNIT;
 	/// Vested funds cannot be transferred or reserved before they are released.
@@ -260,7 +266,7 @@ impl pallet_allocations::Config for Runtime {
 
 /// What agents may do for their owners: transfers, payments to registered agents, payment
 /// channels, tasks and calls of contracts. Every other call is refused, including the management of delegations, multisig,
-/// vesting and sudo.
+/// vesting and governance: an agent never votes with the TESS of its owner.
 pub struct AgentCalls;
 
 impl pallet_agents::ClassifyCall<RuntimeCall, AccountId> for AgentCalls {

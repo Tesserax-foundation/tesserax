@@ -2,7 +2,8 @@
 //!
 //! Connects to a Tesserax node, signs transactions with ML-DSA-87 keys and covers what an AI
 //! agent needs: balances and transfers, delegations from an owner to an agent key, the agent
-//! registry with its reputation, and smart contracts ([`contracts`]).
+//! registry with its reputation, smart contracts ([`contracts`]) and governance
+//! ([`governance`]).
 //!
 //! ```no_run
 //! # async fn example() -> Result<(), tesserax_sdk::Error> {
@@ -20,6 +21,7 @@ pub mod amount;
 pub mod channels;
 pub mod client;
 pub mod contracts;
+pub mod governance;
 pub mod keys;
 #[cfg(feature = "shielded")]
 pub mod shielded;

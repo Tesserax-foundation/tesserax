@@ -20,7 +20,7 @@ fn preset_ext() -> sp_io::TestExternalities {
 	ext_of(sp_genesis_builder::DEV_RUNTIME_PRESET)
 }
 
-fn ext_of(preset: &str) -> sp_io::TestExternalities {
+pub(super) fn ext_of(preset: &str) -> sp_io::TestExternalities {
 	let patch = genesis_config_presets::get_preset(&preset.into()).expect("the preset exists");
 	let mut config = serde_json::to_value(RuntimeGenesisConfig::default()).unwrap();
 	merge(&mut config, serde_json::from_slice(&patch).unwrap());
@@ -38,7 +38,7 @@ fn spendable(who: &AccountId) -> Balance {
 	Balances::reducible_balance(who, Preservation::Expendable, Fortitude::Polite)
 }
 
-fn foundation() -> AccountId {
+pub(super) fn foundation() -> AccountId {
 	genesis_config_presets::foundation_account(
 		&[Keyring::Alice, Keyring::Bob, Keyring::Charlie].map(|k| k.to_account_id()),
 		2,
@@ -139,8 +139,12 @@ fn foundation_spends_with_two_of_three_signatures() {
 #[test]
 fn testnet_genesis_creates_the_allocations() {
 	ext_of(genesis_config_presets::TESTNET_RUNTIME_PRESET).execute_with(|| {
-		let sudo = pallet_sudo::Key::<Runtime>::get().expect("the testnet has a sudo key");
-		assert_eq!(Balances::free_balance(&sudo), 100_000 * UNIT);
+		// The faucet funds, held by the operator, and the technical committee, the signatories of the
+		// foundation.
+		let committee = pallet_collective::Members::<Runtime, crate::governance::TechnicalCollective>::get();
+		let mut expected = genesis_config_presets::testnet_committee().to_vec();
+		expected.sort();
+		assert_eq!(committee, expected);
 		// The faucet funds, the team and the foundation, and the existential deposits pallets create.
 		let issued = 100_000 * UNIT + TEAM_ALLOCATION + FOUNDATION_ALLOCATION;
 		assert!((issued..issued + UNIT).contains(&Balances::total_issuance()));
@@ -173,7 +177,10 @@ fn mainnet_genesis_creates_the_allocations_only() {
 		}
 		assert_eq!(Balances::free_balance(&foundation), FOUNDATION_ALLOCATION);
 		assert!(spendable(&foundation) <= FOUNDATION_LIQUID);
-		assert_eq!(pallet_sudo::Key::<Runtime>::get(), Some(foundation));
+		// No sudo: the technical committee is the three signatories of the foundation.
+		let mut members = vec![team[0].clone(), team[1].clone(), account("terN4gSZpiFpeERvb1PoaJiiBRqSEmXw56xF5MqqjLbp7eH3x")];
+		members.sort();
+		assert_eq!(pallet_collective::Members::<Runtime, crate::governance::TechnicalCollective>::get(), members);
 		assert_eq!(pallet_difficulty::CurrentDifficulty::<Runtime>::get(), sp_core::U256::from(1_000_000));
 	});
 }

@@ -4,7 +4,6 @@ frame_benchmarking::define_benchmarks!(
 	[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 	[pallet_balances, Balances]
 	[pallet_timestamp, Timestamp]
-	[pallet_sudo, Sudo]
 	[pallet_multisig, Multisig]
 	[pallet_vesting, Vesting]
 	[pallet_transaction_payment, TransactionPayment]

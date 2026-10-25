@@ -92,7 +92,14 @@ fn agents_may_only_pay_and_call_contracts() {
 		);
 
 		for forbidden in [
-			RuntimeCall::Sudo(pallet_sudo::Call::sudo { call: Box::new(transfer.clone()) }),
+			RuntimeCall::ConvictionVoting(pallet_conviction_voting::Call::vote {
+				poll_index: 0,
+				vote: pallet_conviction_voting::AccountVote::Standard {
+					vote: pallet_conviction_voting::Vote { aye: true, conviction: pallet_conviction_voting::Conviction::None },
+					balance: UNIT,
+				},
+			}),
+			RuntimeCall::Referenda(pallet_referenda::Call::place_decision_deposit { index: 0 }),
 			RuntimeCall::Balances(BalancesCall::transfer_all { dest: bob.clone().into(), keep_alive: false }),
 			RuntimeCall::Agents(pallet_agents::Call::revoke { agent: bob.clone() }),
 			RuntimeCall::Vesting(pallet_vesting::Call::vest {}),
