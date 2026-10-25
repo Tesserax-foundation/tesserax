@@ -201,6 +201,11 @@ impl<T: Config> ContractInfo<T> {
 		if <AccountInfo<T>>::is_contract(address) {
 			return Err(Error::<T>::DuplicateContract.into());
 		}
+		// An address mapped to an account belongs to it: a contract created there would act
+		// with its balances in other contracts.
+		if crate::OriginalAccount::<T>::contains_key(address) {
+			return Err(Error::<T>::DuplicateContract.into());
+		}
 
 		// Reject reuse of an address whose previous occupant still has unflushed
 		// `NativeDepositOf` rows in the deletion queue. The on_idle drain will eventually

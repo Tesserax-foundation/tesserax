@@ -33,6 +33,20 @@ compute it with `h160` (Rust), `toH160` (TypeScript) and `to_h160` (Python).
 te5Gr...  (account, SS58)  ->  0x8e2a...c4f1  (its address in contracts)
 ```
 
+Solidity fixes addresses at 160 bits, fewer than the 256 bits of accounts. Two keys whose
+addresses collide can be found with about 2^80 hash computations, within reach of a large
+attacker, so an address is owned by one account or one contract only, the first one:
+
+- an account acts in contracts only with an address mapped to it; a second account with the
+  same address cannot call or deploy contracts (`Revive::AccountUnmapped`);
+- no contract is created at the address of an account (`Revive::DuplicateContract`), and no
+  account is mapped to the address of a contract.
+
+Taking the address of a given account then means finding a second key for that very address: a
+second preimage of 160 bits, about 2^160 computations, and about 2^80 for a quantum computer
+running Grover's algorithm sequentially. The account itself, its balance and its transactions
+stay protected by ML-DSA-87 and 256-bit hashes.
+
 Amounts sent to a contract (`value`) are in TESS, as everywhere on the chain. Inside the contract,
 `msg.value` and balances count in 18 decimals, as Solidity code expects: 1 TESS is `1e18` there.
 

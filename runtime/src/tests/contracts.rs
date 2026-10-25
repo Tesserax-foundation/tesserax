@@ -32,8 +32,8 @@ fn revive_call(call: pallet_revive::Call<Runtime>) -> RuntimeCall {
 	RuntimeCall::Revive(call)
 }
 
-/// Deploy the counter contract from Alice and return its address.
-fn deploy_counter() -> H160 {
+/// Deploy the counter contract from Alice.
+fn instantiate_counter() -> ApplyExtrinsicResult {
 	let alice = Keyring::Alice;
 	let xt = signed(
 		revive_call(pallet_revive::Call::instantiate_with_code {
@@ -48,8 +48,12 @@ fn deploy_counter() -> H160 {
 		&alice.pair(),
 		System::account_nonce(alice.to_account_id()),
 	);
-	assert_eq!(apply(xt), Ok(Ok(())));
+	apply(xt)
+}
 
+/// Deploy the counter contract from Alice and return its address.
+fn deploy_counter() -> H160 {
+	assert_eq!(instantiate_counter(), Ok(Ok(())));
 	System::events()
 		.into_iter()
 		.find_map(|record| match record.event {
@@ -80,7 +84,7 @@ fn call_contract(sender: Keyring, contract: H160, data: Vec<u8>) -> ApplyExtrins
 /// Read-only call returning the raw output.
 fn dry_run(contract: H160, data: Vec<u8>) -> Vec<u8> {
 	let result = Revive::bare_call(
-		RuntimeOrigin::signed(Keyring::Bob.to_account_id()),
+		RuntimeOrigin::signed(Keyring::Alice.to_account_id()),
 		contract,
 		U256::zero(),
 		TransactionLimits::WeightAndDeposit {
@@ -250,3 +254,81 @@ fn ml_dsa_accounts_are_mapped_automatically() {
 		assert_eq!(Mapper::to_account_id(&Mapper::to_address(&alice)), alice);
 	});
 }
+
+type Mapper = <Runtime as pallet_revive::Config>::AddressMapper;
+
+/// Raw storage key of the map `Revive.<item>`, whose keys are addresses hashed with `Identity`.
+fn revive_key(item: &[u8], address: &H160) -> Vec<u8> {
+	let mut key = frame_support::storage::storage_prefix(b"Revive", item).to_vec();
+	key.extend_from_slice(address.as_bytes());
+	key
+}
+
+/// Give the address of `account` to `owner`, as if both had the same 160 bits and `owner` had
+/// been mapped first.
+fn take_address(account: &AccountId, owner: &AccountId) -> H160 {
+	use pallet_revive::AddressMapper;
+	let address = Mapper::to_address(account);
+	sp_io::storage::set(&revive_key(b"OriginalAccount", &address), &owner.encode());
+	address
+}
+
+#[test]
+fn an_address_acts_only_for_the_account_it_belongs_to() {
+	new_test_ext().execute_with(|| {
+		use pallet_revive::AddressMapper;
+		let contract = deploy_counter();
+		let alice = Keyring::Alice.to_account_id();
+		let bob = Keyring::Bob.to_account_id();
+		let address = take_address(&bob, &alice);
+
+		// Bob has the address of Alice: he must not act with it in contracts.
+		assert!(!Mapper::is_mapped(&bob));
+		assert!(Mapper::is_mapped(&alice));
+		assert_eq!(Mapper::to_account_id(&address), alice);
+		let call = call_contract(Keyring::Bob, contract, ICounter::incrementCall {}.abi_encode());
+		assert!(matches!(call, Ok(Err(_))), "{call:?}");
+		assert_eq!(count(contract), SolU256::ZERO);
+
+		// Removing the mapping of Bob, as when his account is reaped, keeps the one of Alice.
+		assert_eq!(Mapper::unmap(&bob), Ok(()));
+		assert_eq!(Mapper::to_account_id(&address), alice);
+		assert_eq!(Mapper::map_no_deposit_unchecked(&bob), Err(pallet_revive::Error::<Runtime>::AccountAlreadyMapped.into()));
+	});
+}
+
+#[test]
+fn contracts_are_not_created_at_the_address_of_an_account() {
+	new_test_ext().execute_with(|| {
+		use pallet_revive::AddressMapper;
+		let alice = Keyring::Alice.to_account_id();
+		let next = pallet_revive::create1(&Mapper::to_address(&alice), u64::from(System::account_nonce(&alice)));
+		sp_io::storage::set(&revive_key(b"OriginalAccount", &next), &Keyring::Bob.to_account_id().encode());
+
+		let result = instantiate_counter();
+		assert!(matches!(result, Ok(Err(_))), "{result:?}");
+		assert!(!System::events()
+			.iter()
+			.any(|record| matches!(record.event, RuntimeEvent::Revive(pallet_revive::Event::Instantiated { .. }))));
+	});
+}
+
+#[test]
+fn accounts_are_not_mapped_to_the_address_of_a_contract() {
+	new_test_ext().execute_with(|| {
+		use pallet_revive::AddressMapper;
+		let contract = deploy_counter();
+		let charlie = Keyring::Charlie.to_account_id();
+		// A contract at the address of Charlie, before his account exists.
+		let address = Mapper::to_address(&charlie);
+		let info = sp_io::storage::get(&revive_key(b"AccountInfoOf", &contract)).expect("the contract is stored");
+		sp_io::storage::set(&revive_key(b"AccountInfoOf", &address), &info);
+
+		let alice = Keyring::Alice;
+		let xt = signed(transfer_call(&Keyring::Charlie, 10 * UNIT), alice.to_account_id(), &alice.pair(), System::account_nonce(alice.to_account_id()));
+		assert_eq!(apply(xt), Ok(Ok(())));
+		assert!(!Mapper::is_mapped(&charlie));
+		assert_ne!(Mapper::to_account_id(&address), charlie);
+	});
+}
+

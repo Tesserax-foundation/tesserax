@@ -67,3 +67,9 @@ authentication. The crates below are forks of the published Polkadot SDK crates,
 - The benchmarks of the removed precompiles and of `ecdsa_to_eth_address` are removed.
 - EVM bytecode and Ethereum transactions are disabled by the runtime configuration
   (`AllowEVMBytecode = false`, Ethereum calls filtered).
+- An address in contracts belongs to one owner, the first one: addresses are 160 bits, and two
+  accounts, or an account and a contract, could otherwise share one by a collision. An account
+  acts in contracts only if the address it maps to is mapped to it (`is_mapped`); an account is
+  not mapped to an address that belongs to another account or to a contract; a contract is not
+  created at an address mapped to an account; removing the mapping of an account never removes
+  the mapping of another one.

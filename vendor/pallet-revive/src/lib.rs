@@ -601,7 +601,8 @@ pub mod pallet {
 		///
 		/// Call [`Pallet::map_account`] in order to create a mapping for the account.
 		AccountUnmapped = 0x2B,
-		/// Tried to map an account that is already mapped.
+		/// Tried to map an account that is already mapped, or whose address belongs to another
+		/// account or to a contract.
 		AccountAlreadyMapped = 0x2C,
 		/// The transaction used to dry-run a contract is invalid.
 		InvalidGenericTransaction = 0x2D,

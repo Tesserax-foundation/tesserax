@@ -148,6 +148,7 @@ where
 
 	fn map(account_id: &T::AccountId) -> DispatchResult {
 		ensure!(!Self::is_mapped(account_id), <Error<T>>::AccountAlreadyMapped);
+		Self::ensure_address_free(account_id)?;
 
 		// each mapping entry stores the address (20 bytes) and the account id (32 bytes)
 		let deposit = T::DepositPerByte::get()
@@ -161,13 +162,17 @@ where
 
 	fn map_no_deposit_unchecked(account_id: &T::AccountId) -> DispatchResult {
 		ensure!(!Self::is_mapped(account_id), <Error<T>>::AccountAlreadyMapped);
+		Self::ensure_address_free(account_id)?;
 		<OriginalAccount<T>>::insert(Self::to_address(account_id), account_id);
 		Ok(())
 	}
 
 	fn unmap(account_id: &T::AccountId) -> DispatchResult {
-		// will do nothing if address is not mapped so no check required
-		<OriginalAccount<T>>::remove(Self::to_address(account_id));
+		// Only the mapping of this account: another account whose address is the same owns it.
+		let address = Self::to_address(account_id);
+		if <OriginalAccount<T>>::get(address).as_ref() == Some(account_id) {
+			<OriginalAccount<T>>::remove(address);
+		}
 		T::Currency::release_all(
 			&HoldReason::AddressMapping.into(),
 			account_id,
@@ -177,8 +182,10 @@ where
 	}
 
 	fn is_mapped(account_id: &T::AccountId) -> bool {
+		// The address must be mapped to this very account. Addresses are 160 bits: another
+		// account whose address is the same must not act with it.
 		Self::is_eth_derived(account_id) ||
-			<OriginalAccount<T>>::contains_key(Self::to_address(account_id))
+			<OriginalAccount<T>>::get(Self::to_address(account_id)).as_ref() == Some(account_id)
 	}
 
 	/// This is a stateless check that just compares the last 12 bytes. Please note that it is
@@ -188,6 +195,20 @@ where
 	fn is_eth_derived(account_id: &T::AccountId) -> bool {
 		let account_bytes: &[u8; 32] = account_id.as_ref();
 		&account_bytes[20..] == &[0xEE; 12]
+	}
+}
+
+impl<T> AccountId32Mapper<T>
+where
+	T: Config<AccountId = AccountId32>,
+{
+	/// Fail if the address of `account_id` belongs to another account or to a contract: an
+	/// address has one owner, the first one, whatever the collisions of its 160 bits.
+	fn ensure_address_free(account_id: &AccountId32) -> DispatchResult {
+		let address = Self::to_address(account_id);
+		ensure!(!<OriginalAccount<T>>::contains_key(address), <Error<T>>::AccountAlreadyMapped);
+		ensure!(!crate::AccountInfo::<T>::is_contract(&address), <Error<T>>::AccountAlreadyMapped);
+		Ok(())
 	}
 }
 

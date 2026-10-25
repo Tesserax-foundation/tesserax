@@ -88,6 +88,18 @@ tesserax export-chain-spec --chain testnet-genesis --raw > chain-specs/testnet.j
 
 Generating it again with another runtime gives another genesis, so another chain.
 
+## Runtime upgrades
+
+The runtime of the testnet changes through the sudo key, without a new genesis: a
+`sudo.sudo(system.set_code(code))` transaction with the WebAssembly runtime, whose
+`spec_version` is higher than the one on chain. Nodes run the runtime of the chain whatever their
+version, and a node syncing from the genesis applies the upgrades in their blocks.
+
+| `spec_version` | Date | Change |
+|---|---|---|
+| 100 | 2026-10-23 | Genesis |
+| 101 | 2026-10-25 | An address in contracts belongs to its first owner ([contracts.md](contracts.md#addresses)) |
+
 ## Hosting
 
 The testnet runs on Railway, project `tesserax`, region `us-west2` next to the Supabase database of
