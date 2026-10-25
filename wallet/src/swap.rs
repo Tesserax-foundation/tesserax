@@ -1,12 +1,13 @@
-//! Atomic swaps: offers of TESS, buying them with a payment locked on an EVM chain, and the maker
-//! that fills offers and collects their payments (`docs/swaps.md`).
+//! Atomic swaps: offers of TESS, buying them with a payment locked on Bitcoin or an EVM chain, and
+//! the maker that fills offers and collects their payments (`docs/swaps.md`).
 
 use super::{error, tess, Result, Wallet};
 use clap::Subcommand;
 use std::{collections::BTreeMap, path::PathBuf, time::Duration};
 use tesserax_sdk::{
-	format_address,
+	format_address, parse_address,
 	swaps::{
+		bitcoin::{self as btc, BitcoinKey, BitcoinLock, CompressedPublicKey, Esplora, Htlc, OutPoint, Secp256k1},
 		evm::{self, Evm, EvmAddress, LockState, PrivateKeySigner, B256, U256},
 		hash_of, new_secret, payment_due, tess_for, Asset, Chain, Payment, SwapEvent,
 	},
@@ -24,13 +25,13 @@ const MIN_REMAINING_SECONDS: u64 = 12 * 3600;
 pub enum SwapCommand {
 	/// The open offers.
 	Offers,
-	/// Offer TESS of an account for a payment on an EVM chain.
+	/// Offer TESS of an account for a payment on Bitcoin or an EVM chain.
 	Offer {
 		account: String,
-		/// ethereum, base or arbitrum.
+		/// bitcoin, ethereum, base or arbitrum.
 		#[arg(long)]
 		chain: String,
-		/// eth, usdc or usdt.
+		/// btc on Bitcoin; eth, usdc or usdt on the EVM chains.
 		#[arg(long)]
 		asset: String,
 		/// Price of one TESS in the asset, such as 0.05.
@@ -42,9 +43,12 @@ pub enum SwapCommand {
 		/// Smallest trade in TESS.
 		#[arg(long, default_value = "1")]
 		min: String,
-		/// EVM address the payments go to.
+		/// EVM address the payments go to; on Bitcoin, the compressed public key claiming them,
+		/// that of --btc-key-file by default.
 		#[arg(long)]
-		payout: String,
+		payout: Option<String>,
+		#[command(flatten)]
+		pay: PayArgs,
 	},
 	/// Withdraw an offer: what remains returns to the account.
 	Cancel { account: String, offer: u64 },
@@ -56,22 +60,22 @@ pub enum SwapCommand {
 		/// TESS to buy.
 		amount: String,
 		#[command(flatten)]
-		evm: EvmArgs,
+		pay: PayArgs,
 	},
 	/// Claim the TESS of a payment already locked, once the maker filled it.
 	Claim {
 		account: String,
-		/// The id of the payment lock, 0x...
+		/// The id of the payment lock, 0x..., or its Bitcoin output, txid:vout.
 		lock: String,
 		#[command(flatten)]
-		evm: EvmArgs,
+		pay: PayArgs,
 	},
 	/// Take back a payment the maker never filled, once its lock expired.
 	RefundPayment {
-		/// The id of the payment lock, 0x...
+		/// The id of the payment lock, 0x..., or its Bitcoin output, txid:vout.
 		lock: String,
 		#[command(flatten)]
-		evm: EvmArgs,
+		pay: PayArgs,
 	},
 	/// Run the maker of an account: fill its offers for the payments locked for them, collect the
 	/// payments once their secrets are revealed, and take back trades that expired.
@@ -81,12 +85,12 @@ pub enum SwapCommand {
 		#[arg(long, default_value_t = 20)]
 		interval: u64,
 		#[command(flatten)]
-		evm: EvmArgs,
+		pay: PayArgs,
 	},
 }
 
 #[derive(clap::Args)]
-pub struct EvmArgs {
+pub struct PayArgs {
 	/// File holding the private key of the EVM account, in hexadecimal: it pays the locks and the
 	/// gas.
 	#[arg(long, env = "TESSERAX_EVM_KEY_FILE")]
@@ -97,25 +101,36 @@ pub struct EvmArgs {
 	/// Use one local EVM chain (anvil, chain id 31337) for every chain, at this RPC: for tests.
 	#[arg(long)]
 	evm_local: Option<String>,
+	/// File holding the Bitcoin private key, in WIF: it pays the locks of buys from its P2WPKH
+	/// address, and the maker claims the payments with it.
+	#[arg(long, env = "TESSERAX_BTC_KEY_FILE")]
+	btc_key_file: Option<PathBuf>,
+	/// Esplora API of the Bitcoin network, instead of the one of mempool.space.
+	#[arg(long)]
+	esplora: Option<String>,
 }
 
 fn chain_named(name: &str) -> Result<Chain> {
 	match name.to_lowercase().as_str() {
+		"bitcoin" => Ok(Chain::Bitcoin),
 		"ethereum" => Ok(Chain::Ethereum),
 		"base" => Ok(Chain::Base),
 		"arbitrum" => Ok(Chain::Arbitrum),
-		"bitcoin" => Err("Bitcoin offers come with the Bitcoin support of swaps".into()),
-		other => Err(format!("unknown chain {other}: ethereum, base or arbitrum")),
+		other => Err(format!("unknown chain {other}: bitcoin, ethereum, base or arbitrum")),
 	}
 }
 
-fn asset_named(name: &str) -> Result<Asset> {
-	match name.to_lowercase().as_str() {
-		"eth" => Ok(Asset::Native),
-		"usdc" => Ok(Asset::Usdc),
-		"usdt" => Ok(Asset::Usdt),
-		other => Err(format!("unknown asset {other}: eth, usdc or usdt")),
-	}
+fn payment_named(chain: &str, asset: &str) -> Result<Payment> {
+	let chain = chain_named(chain)?;
+	let asset = match (chain, asset.to_lowercase().as_str()) {
+		(Chain::Bitcoin, "btc") => Asset::Native,
+		(Chain::Bitcoin, other) => return Err(format!("{other} is not paid on Bitcoin: btc")),
+		(_, "eth") => Asset::Native,
+		(_, "usdc") => Asset::Usdc,
+		(_, "usdt") => Asset::Usdt,
+		(_, other) => return Err(format!("unknown asset {other}: eth, usdc or usdt")),
+	};
+	Ok(Payment { chain, asset })
 }
 
 /// `text`, a decimal amount, in units of `decimals`.
@@ -145,7 +160,73 @@ fn hex32(text: &str) -> Result<[u8; 32]> {
 	bytes.try_into().map_err(|_| "expected 0x and 64 digits".to_string())
 }
 
-impl EvmArgs {
+/// A lock as given on the command line: 0x and 32 bytes on an EVM chain, txid:vout on Bitcoin.
+fn lock_named(text: &str) -> Result<(Option<Chain>, Vec<u8>)> {
+	match text.trim().split_once(':') {
+		Some((txid, vout)) => {
+			let outpoint = OutPoint {
+				txid: txid.parse().map_err(|_| format!("{txid} is not a Bitcoin transaction id"))?,
+				vout: vout.parse().map_err(|_| format!("{vout} is not an output index"))?,
+			};
+			Ok((Some(Chain::Bitcoin), btc::outpoint_bytes(&outpoint)))
+		},
+		None => Ok((None, hex32(text)?.to_vec())),
+	}
+}
+
+/// What a buy paid in BTC keeps to take its payment back: the script and its output.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct SavedBitcoinLock {
+	hash: String,
+	maker: String,
+	taker: String,
+	timelock: u32,
+	amount: u64,
+	offer: u64,
+	account: String,
+	outpoint: Option<String>,
+}
+
+impl SavedBitcoinLock {
+	fn lock(&self) -> Result<BitcoinLock> {
+		let key = |text: &str| -> Result<CompressedPublicKey> {
+			CompressedPublicKey::from_slice(&hex::decode(text).map_err(error)?).map_err(error)
+		};
+		let outpoint: OutPoint = self.outpoint.as_deref().ok_or("the payment was never broadcast")?.parse().map_err(error)?;
+		Ok(BitcoinLock {
+			outpoint,
+			amount: self.amount,
+			htlc: Htlc { hash: hex32(&self.hash)?, maker: key(&self.maker)?, taker: key(&self.taker)?, timelock: self.timelock },
+			offer: self.offer,
+			taker: parse_address(&self.account).map_err(error)?,
+		})
+	}
+}
+
+fn bitcoin_lock_path(w: &Wallet, hash: &[u8; 32]) -> PathBuf {
+	w.dir.join("swaps").join(format!("{}.btc.json", hex::encode(hash)))
+}
+
+fn save_json(path: &PathBuf, value: &impl serde::Serialize) -> Result<()> {
+	std::fs::create_dir_all(path.parent().expect("a directory; qed")).map_err(error)?;
+	let partial = path.with_extension("partial");
+	std::fs::write(&partial, serde_json::to_vec_pretty(value).map_err(error)?).map_err(error)?;
+	std::fs::rename(&partial, path).map_err(error)
+}
+
+impl PayArgs {
+	fn btc_key(&self) -> Result<BitcoinKey> {
+		let path = self.btc_key_file.as_ref().ok_or("give the Bitcoin key with --btc-key-file")?;
+		let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+		BitcoinKey::from_wif(text.trim()).map_err(|_| format!("{}: not a Bitcoin private key in WIF", path.display()))
+	}
+
+	/// The Bitcoin network of the Tesserax network of `client`, through its Esplora API.
+	async fn bitcoin(&self, client: &Client) -> Result<Esplora> {
+		let info = client.chain_info().await.map_err(error)?;
+		Ok(Esplora::new(btc::network_for(info.chain != "Tesserax"), self.esplora.as_deref()))
+	}
+
 	fn key(&self) -> Result<Option<PrivateKeySigner>> {
 		let Some(path) = &self.evm_key_file else { return Ok(None) };
 		let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -255,13 +336,24 @@ pub async fn swap(w: &mut Wallet, command: SwapCommand) -> Result<()> {
 				}
 			});
 		},
-		SwapCommand::Offer { account, chain, asset, price, amount, min, payout } => {
-			let payment = Payment { chain: chain_named(&chain)?, asset: asset_named(&asset)? };
+		SwapCommand::Offer { account, chain, asset, price, amount, min, payout, pay } => {
+			let payment = payment_named(&chain, &asset)?;
 			let price = units(&price, payment.decimals())?;
 			let (amount, min) = (tess(&amount)?, tess(&min)?);
-			let payout = hex::decode(payout.trim().trim_start_matches("0x")).map_err(|_| "the payout is an EVM address, 0x...")?;
-			if payout.len() != 20 {
-				return Err("the payout is an EVM address: 0x and 40 digits".into());
+			let payout = match (payment.chain, payout) {
+				(Chain::Bitcoin, None) => {
+					let key = pay.btc_key()?;
+					CompressedPublicKey::from_private_key(&Secp256k1::new(), &key).map_err(error)?.to_bytes().to_vec()
+				},
+				(_, None) => return Err("give the EVM address paid with --payout".into()),
+				(_, Some(payout)) => hex::decode(payout.trim().trim_start_matches("0x")).map_err(|_| "the payout is hexadecimal")?,
+			};
+			match payment.chain {
+				Chain::Bitcoin if CompressedPublicKey::from_slice(&payout).is_err() =>
+					return Err("the payout on Bitcoin is a compressed public key: 66 digits".into()),
+				Chain::Bitcoin => {},
+				_ if payout.len() != 20 => return Err("the payout is an EVM address: 0x and 40 digits".into()),
+				_ => {},
 			}
 			w.confirm(&format!(
 				"Offer {amount} TESS of {account} at {}, paid to 0x{}; the TESS are held until sold or withdrawn",
@@ -280,14 +372,11 @@ pub async fn swap(w: &mut Wallet, command: SwapCommand) -> Result<()> {
 			let outcome = w.client().await?.cancel_offer(&key, offer).await.map_err(error)?;
 			w.sent(outcome);
 		},
-		SwapCommand::Buy { account, offer, amount, evm } => {
+		SwapCommand::Buy { account, offer, amount, pay } => {
 			let taker = w.resolve(&account)?;
 			let amount = tess(&amount)?;
 			let client = w.client().await?.clone();
 			let o = client.offer(offer).await.map_err(error)?.ok_or("no such offer")?;
-			if o.payment.chain == Chain::Bitcoin {
-				return Err("Bitcoin offers come with the Bitcoin support of swaps".into());
-			}
 			if amount.0 > o.available.0 {
 				return Err(format!("the offer has {} TESS", o.available));
 			}
@@ -295,7 +384,11 @@ pub async fn swap(w: &mut Wallet, command: SwapCommand) -> Result<()> {
 				return Err(format!("the offer sells at least {} TESS", o.min_fill));
 			}
 			let due = payment_due(amount.0, o.price).ok_or("amount too large")?;
-			let chain = evm.connect(&client, o.payment.chain, true).await?;
+			if o.payment.chain == Chain::Bitcoin {
+				let lock = buy_with_bitcoin(w, &client, &o, amount, due, &taker, &pay).await?;
+				return claim_when_filled(w, &client, Chain::Bitcoin, &lock, &taker, Some(amount)).await;
+			}
+			let chain = pay.connect(&client, o.payment.chain, true).await?;
 			w.confirm(&format!(
 				"Lock {} {} on {} for {amount} TESS of offer #{offer}, to {}; it returns to you in 24 hours if the maker does not fill it",
 				decimal(due, o.payment.decimals()),
@@ -315,28 +408,35 @@ pub async fn swap(w: &mut Wallet, command: SwapCommand) -> Result<()> {
 			if !w.json {
 				eprintln!("Payment locked: {lock}. Waiting for the maker to fill it…");
 			}
-			claim_when_filled(w, &client, o.payment.chain, lock.0, &taker, Some(amount)).await?;
+			claim_when_filled(w, &client, o.payment.chain, lock.as_slice(), &taker, Some(amount)).await?;
 		},
-		SwapCommand::Claim { account, lock, evm: _ } => {
+		SwapCommand::Claim { account, lock, pay: _ } => {
 			let taker = w.resolve(&account)?;
-			let lock = hex32(&lock)?;
+			let (chain, lock) = lock_named(&lock)?;
 			let client = w.client().await?.clone();
-			let chain = [Chain::Ethereum, Chain::Base, Chain::Arbitrum];
+			let chains = match chain {
+				Some(chain) => vec![chain],
+				None => vec![Chain::Ethereum, Chain::Base, Chain::Arbitrum],
+			};
 			let mut found = None;
-			for c in chain {
+			for c in chains {
 				if client.trade_of_lock(c, &lock).await.map_err(error)?.is_some() {
 					found = Some(c);
 				}
 			}
 			let chain = found.ok_or("the maker has not filled this payment yet")?;
-			claim_when_filled(w, &client, chain, lock, &taker, None).await?;
+			claim_when_filled(w, &client, chain, &lock, &taker, None).await?;
 		},
-		SwapCommand::RefundPayment { lock, evm } => {
-			let lock = B256::from(hex32(&lock)?);
+		SwapCommand::RefundPayment { lock, pay } => {
+			let (chain, bytes) = lock_named(&lock)?;
+			if chain == Some(Chain::Bitcoin) {
+				return refund_bitcoin(w, &bytes, &pay).await;
+			}
+			let lock = B256::from_slice(&bytes);
 			let client = w.client().await?.clone();
 			let mut last = String::from("no lock with this id on the EVM chains");
 			for chain in [Chain::Base, Chain::Arbitrum, Chain::Ethereum] {
-				let Ok(evm_chain) = evm.connect(&client, chain, true).await else { continue };
+				let Ok(evm_chain) = pay.connect(&client, chain, true).await else { continue };
 				match evm_chain.lock_status(lock).await {
 					Ok(Some(status)) if status.state == LockState::Locked => {
 						let (_, now) = evm_chain.head().await.map_err(error)?;
@@ -356,8 +456,100 @@ pub async fn swap(w: &mut Wallet, command: SwapCommand) -> Result<()> {
 			}
 			return Err(last);
 		},
-		SwapCommand::Make { account, interval, evm } => make(w, &account, interval, evm).await?,
+		SwapCommand::Make { account, interval, pay } => make(w, &account, interval, pay).await?,
 	}
+	Ok(())
+}
+
+/// Lock the payment `due` in satoshis of offer `o` from the Bitcoin key, for `amount` TESS to
+/// `taker`. Returns the payment lock: the outpoint of the script.
+async fn buy_with_bitcoin(
+	w: &mut Wallet,
+	client: &Client,
+	o: &tesserax_sdk::swaps::Offer,
+	amount: Amount,
+	due: u128,
+	taker: &AccountId,
+	pay: &PayArgs,
+) -> Result<Vec<u8>> {
+	let key = pay.btc_key()?;
+	let esplora = pay.bitcoin(client).await?;
+	let refund = CompressedPublicKey::from_private_key(&Secp256k1::new(), &key).map_err(error)?;
+	let maker = CompressedPublicKey::from_slice(&o.payout).map_err(|_| "the payout of this offer is not a Bitcoin key")?;
+	let due = u64::try_from(due).map_err(|_| "amount too large")?;
+	let from = btc::address_of(&refund, esplora.network);
+	let utxos = esplora.utxos(&from).await.map_err(error)?;
+	if utxos.is_empty() {
+		return Err(format!("{from} has no bitcoin: send it the payment and its fee first"));
+	}
+	let fee_rate = esplora.fee_rate(2).await.map_err(error)?;
+	let now = esplora.median_time().await.map_err(error)?;
+	let timelock = u32::try_from(now + PAYMENT_LOCK_SECONDS).map_err(error)?;
+	w.confirm(&format!(
+		"Lock {} BTC from {from} for {amount} TESS of offer #{}, to {}, at about {fee_rate:.1} sat/vB; it returns to you after 24 hours if the maker does not fill it",
+		decimal(u128::from(due), 8),
+		o.id,
+		format_address(taker),
+	))?;
+	let (secret, hash) = new_secret().map_err(error)?;
+	let htlc = Htlc { hash, maker, taker: refund, timelock };
+	let announcement = btc::Announcement { offer: o.id, taker: taker.clone(), hash, timelock };
+	let tx = btc::lock_transaction(&key, &utxos, &htlc, &announcement, due, fee_rate, esplora.network).map_err(error)?;
+	let lock = btc::find_lock(&tx, &maker).ok_or("the payment built cannot be found again")?;
+	// The secret and the script are saved before anything is broadcast: they claim the TESS and
+	// take the payment back.
+	save_secret(w, &secret)?;
+	let saved = SavedBitcoinLock {
+		hash: hex::encode(hash),
+		maker: hex::encode(maker.to_bytes()),
+		taker: hex::encode(refund.to_bytes()),
+		timelock,
+		amount: due,
+		offer: o.id,
+		account: format_address(taker),
+		outpoint: Some(lock.outpoint.to_string()),
+	};
+	save_json(&bitcoin_lock_path(w, &hash), &saved)?;
+	let txid = esplora.broadcast(&tx).await.map_err(error)?;
+	if !w.json {
+		eprintln!(
+			"Payment locked in {txid}, output {}. The maker fills it after {} confirmations, about {} minutes…",
+			lock.outpoint.vout,
+			btc::MIN_CONFIRMATIONS,
+			btc::MIN_CONFIRMATIONS * 10
+		);
+	}
+	Ok(lock.lock_bytes())
+}
+
+/// Take back the Bitcoin payment of outpoint `bytes`, once its timelock passed.
+async fn refund_bitcoin(w: &mut Wallet, bytes: &[u8], pay: &PayArgs) -> Result<()> {
+	let outpoint = btc::outpoint_of(bytes).ok_or("not a Bitcoin output")?;
+	let saved = std::fs::read_dir(w.dir.join("swaps"))
+		.map_err(|_| "no Bitcoin payment in this wallet")?
+		.filter_map(|e| e.ok())
+		.filter(|e| e.file_name().to_string_lossy().ends_with(".btc.json"))
+		.filter_map(|e| serde_json::from_slice::<SavedBitcoinLock>(&std::fs::read(e.path()).ok()?).ok())
+		.find(|s| s.outpoint.as_deref() == Some(outpoint.to_string().as_str()))
+		.ok_or("this wallet did not lock this Bitcoin payment")?;
+	let lock = saved.lock()?;
+	let key = pay.btc_key()?;
+	let client = w.client().await?.clone();
+	let esplora = pay.bitcoin(&client).await?;
+	if esplora.is_spent(&outpoint).await.map_err(error)? {
+		return Err("the payment is already claimed or taken back".into());
+	}
+	let now = esplora.median_time().await.map_err(error)?;
+	if now <= u64::from(lock.htlc.timelock) {
+		let hours = (u64::from(lock.htlc.timelock) + 1 - now).div_ceil(3600);
+		return Err(format!("the payment can be taken back in about {hours} hour(s), once the median time of Bitcoin passes its lock"));
+	}
+	let fee_rate = esplora.fee_rate(6).await.map_err(error)?;
+	let tx = btc::refund_transaction(&lock, &key, fee_rate, esplora.network).map_err(error)?;
+	let txid = esplora.broadcast(&tx).await.map_err(error)?;
+	let _ = std::fs::remove_file(secret_path(w, &lock.htlc.hash));
+	let _ = std::fs::remove_file(bitcoin_lock_path(w, &lock.htlc.hash));
+	w.print(serde_json::json!({ "transaction": txid.to_string() }), || format!("Payment taken back in {txid}"));
 	Ok(())
 }
 
@@ -367,12 +559,12 @@ async fn claim_when_filled(
 	w: &mut Wallet,
 	client: &Client,
 	chain: Chain,
-	lock: [u8; 32],
+	lock: &[u8],
 	taker: &AccountId,
 	expected: Option<Amount>,
 ) -> Result<()> {
 	let trade = loop {
-		if let Some(id) = client.trade_of_lock(chain, &lock).await.map_err(error)? {
+		if let Some(id) = client.trade_of_lock(chain, lock).await.map_err(error)? {
 			match client.trade(id).await.map_err(error)? {
 				Some(trade) => break trade,
 				None => return Err(format!("trade #{id} of this payment is already claimed or refunded")),
@@ -395,6 +587,7 @@ async fn claim_when_filled(
 	}
 	w.sent(outcome);
 	let _ = std::fs::remove_file(secret_path(w, &trade.hash));
+	let _ = std::fs::remove_file(bitcoin_lock_path(w, &trade.hash));
 	Ok(())
 }
 
@@ -407,13 +600,16 @@ struct MakerState {
 	trades: BTreeMap<u64, (String, String)>,
 	/// Payments to collect: their trade, chain, lock and the secret its claim revealed.
 	collect: BTreeMap<u64, (String, String, String)>,
+	/// Bitcoin transactions to the maker already read: filled, or not a payment that fits.
+	#[serde(default)]
+	bitcoin_seen: std::collections::BTreeSet<String>,
 }
 
 fn maker_state_path(w: &Wallet, account: &str) -> PathBuf {
 	w.dir.join("swaps").join(format!("maker-{account}.json"))
 }
 
-async fn make(w: &mut Wallet, account: &str, interval: u64, args: EvmArgs) -> Result<()> {
+async fn make(w: &mut Wallet, account: &str, interval: u64, args: PayArgs) -> Result<()> {
 	let key = w.key(account)?;
 	let maker = key.account_id();
 	let client = w.client().await?.clone();
@@ -439,7 +635,7 @@ async fn round(
 	client: &Client,
 	key: &tesserax_sdk::Keypair,
 	maker: &AccountId,
-	args: &EvmArgs,
+	args: &PayArgs,
 	chains: &mut BTreeMap<String, Evm>,
 	state: &mut MakerState,
 ) -> Result<()> {
@@ -453,10 +649,22 @@ async fn round(
 		}
 		let name = format!("{chain:?}");
 		if !chains.contains_key(&name) {
-			chains.insert(name.clone(), args.connect(client, chain, true).await?);
+			match args.connect(client, chain, true).await {
+				Ok(evm) => chains.insert(name.clone(), evm),
+				Err(e) => {
+					eprintln!("{chain:?} offers: {e}");
+					continue;
+				},
+			};
 		}
 		let evm = &chains[&name];
-		let (head, now) = evm.head().await.map_err(error)?;
+		let (head, now) = match evm.head().await {
+			Ok(head) => head,
+			Err(e) => {
+				eprintln!("{chain:?}: {e}");
+				continue;
+			},
+		};
 		let from = state.evm_blocks.get(&name).map_or(head.saturating_sub(1_000), |b| b + 1);
 		if from > head {
 			continue;
@@ -499,6 +707,13 @@ async fn round(
 		state.evm_blocks.insert(name, head);
 	}
 
+	let bitcoin: Vec<_> = offers.iter().filter(|o| o.payment.chain == Chain::Bitcoin).collect();
+	if !bitcoin.is_empty() {
+		if let Err(e) = fill_bitcoin(client, key, args, &bitcoin, state).await {
+			eprintln!("Bitcoin offers: {e}");
+		}
+	}
+
 	// Secrets revealed by claims: collect the payments. Trades expired: take them back.
 	let best = client.best_block_number().await.map_err(error)?;
 	for trade in client.trades().await.map_err(error)? {
@@ -532,15 +747,44 @@ async fn round(
 
 	// Collected until they succeed: the lock of a payment lasts hours after the claim.
 	for (trade, (chain, lock, secret)) in state.collect.clone() {
+		if chain == "Bitcoin" {
+			match collect_bitcoin(client, args, &lock, hex32(&secret)?).await {
+				Ok(Some(txid)) => {
+					state.collect.remove(&trade);
+					eprintln!("Collected the payment of trade #{trade} in {txid}");
+				},
+				Ok(None) => {
+					state.collect.remove(&trade);
+					eprintln!("The payment of trade #{trade} is already spent");
+				},
+				Err(e) => eprintln!("Collecting the payment of trade #{trade}, again next round: {e} (secret {secret})"),
+			}
+			continue;
+		}
 		if !chains.contains_key(&chain) {
 			let Some(c) = [Chain::Ethereum, Chain::Base, Chain::Arbitrum].into_iter().find(|c| format!("{c:?}") == chain)
 			else {
 				continue;
 			};
-			chains.insert(chain.clone(), args.connect(client, c, true).await?);
+			match args.connect(client, c, true).await {
+				Ok(evm) => chains.insert(chain.clone(), evm),
+				Err(e) => {
+					eprintln!("Collecting the payment of trade #{trade}, again next round: {e}");
+					continue;
+				},
+			};
 		}
 		let evm = &chains[&chain];
-		match evm.claim(B256::from(hex32(&lock)?), hex32(&secret)?).await {
+		let id = B256::from(hex32(&lock)?);
+		// Anyone may collect a payment for its maker.
+		if let Ok(Some(status)) = evm.lock_status(id).await {
+			if status.state != LockState::Locked {
+				state.collect.remove(&trade);
+				eprintln!("The payment of trade #{trade} is already {:?}", status.state);
+				continue;
+			}
+		}
+		match evm.claim(id, hex32(&secret)?).await {
 			Ok(tx) => {
 				state.collect.remove(&trade);
 				eprintln!("Collected the payment of trade #{trade} in {tx}");
@@ -549,4 +793,102 @@ async fn round(
 		}
 	}
 	Ok(())
+}
+
+/// Fill the Bitcoin offers `mine` for the payments locked for them: the maker reads the
+/// transactions to its own address, which every payment notifies, once confirmed.
+async fn fill_bitcoin(
+	client: &Client,
+	key: &tesserax_sdk::Keypair,
+	args: &PayArgs,
+	mine: &[&tesserax_sdk::swaps::Offer],
+	state: &mut MakerState,
+) -> Result<()> {
+	let btc_key = args.btc_key().map_err(|e| format!("Bitcoin offers: {e}"))?;
+	let own = CompressedPublicKey::from_private_key(&Secp256k1::new(), &btc_key).map_err(error)?;
+	let esplora = args.bitcoin(client).await?;
+	let height = esplora.height().await.map_err(error)?;
+	let now = esplora.median_time().await.map_err(error)?;
+	let mut payouts: Vec<_> = mine.iter().map(|o| o.payout.clone()).collect();
+	payouts.dedup();
+	for payout in payouts {
+		if payout != own.to_bytes() {
+			eprintln!("Bitcoin offers paid to 0x{} need its key: --btc-key-file holds another one", hex::encode(&payout));
+			continue;
+		}
+		let address = btc::address_of(&own, esplora.network);
+		let mut after = None;
+		// The latest transactions, back to those older than a payment lock.
+		for _ in 0..8 {
+			let txs = esplora.address_txs(&address, after).await.map_err(error)?;
+			let mut older = false;
+			for t in &txs {
+				if t.time.is_some_and(|time| time + PAYMENT_LOCK_SECONDS < now) {
+					older = true;
+					continue;
+				}
+				let txid = t.txid.to_string();
+				let Some(block) = t.height else { continue };
+				if state.bitcoin_seen.contains(&txid) || height.saturating_sub(block) + 1 < btc::MIN_CONFIRMATIONS {
+					continue;
+				}
+				let tx = esplora.transaction(&t.txid).await.map_err(error)?;
+				let Some(lock) = btc::find_lock(&tx, &own) else {
+					state.bitcoin_seen.insert(txid);
+					continue;
+				};
+				let Some(offer) = mine.iter().find(|o| o.id == lock.offer && o.payout == payout) else {
+					state.bitcoin_seen.insert(txid);
+					continue;
+				};
+				let lock_bytes = lock.lock_bytes();
+				if u64::from(lock.htlc.timelock) < now + MIN_REMAINING_SECONDS
+					|| esplora.is_spent(&lock.outpoint).await.map_err(error)?
+					|| client.trade_of_lock(Chain::Bitcoin, &lock_bytes).await.map_err(error)?.is_some()
+				{
+					state.bitcoin_seen.insert(txid);
+					continue;
+				}
+				let amount = tess_for(u128::from(lock.amount), offer.price);
+				let Some(current) = client.offer(offer.id).await.map_err(error)? else { continue };
+				if amount == 0 || amount > current.available.0 || (amount < current.min_fill.0 && amount != current.available.0) {
+					eprintln!("Payment {} does not fit offer #{}: left for its sender to take back", lock.outpoint, offer.id);
+					state.bitcoin_seen.insert(txid);
+					continue;
+				}
+				match client.fill_offer(key, offer.id, &lock.taker, Amount(amount), lock.htlc.hash, lock_bytes.clone()).await {
+					Ok(trade) => {
+						state.trades.insert(trade, ("Bitcoin".into(), format!("0x{}", hex::encode(&lock_bytes))));
+						state.bitcoin_seen.insert(txid);
+						eprintln!("Filled trade #{trade}: {} TESS for {} BTC in {}", Amount(amount), decimal(u128::from(lock.amount), 8), lock.outpoint);
+					},
+					Err(e) => eprintln!("Filling payment {}: {e}", lock.outpoint),
+				}
+			}
+			// Esplora gives 25 confirmed transactions a page.
+			after = txs.iter().rev().find(|t| t.height.is_some()).map(|t| t.txid);
+			if older || txs.len() < 25 || after.is_none() {
+				break;
+			}
+		}
+	}
+	Ok(())
+}
+
+/// Claim the Bitcoin payment of outpoint `lock` with `secret`, to the address of the maker.
+/// Returns the transaction, or nothing if the payment is already spent.
+async fn collect_bitcoin(client: &Client, args: &PayArgs, lock: &str, secret: [u8; 32]) -> Result<Option<btc::Txid>> {
+	let bytes = hex::decode(lock.trim_start_matches("0x")).map_err(error)?;
+	let outpoint = btc::outpoint_of(&bytes).ok_or("not a Bitcoin output")?;
+	let key = args.btc_key()?;
+	let own = CompressedPublicKey::from_private_key(&Secp256k1::new(), &key).map_err(error)?;
+	let esplora = args.bitcoin(client).await?;
+	if esplora.is_spent(&outpoint).await.map_err(error)? {
+		return Ok(None);
+	}
+	let tx = esplora.transaction(&outpoint.txid).await.map_err(error)?;
+	let lock = btc::find_lock(&tx, &own).filter(|l| l.outpoint == outpoint).ok_or("this payment is not locked for the Bitcoin key")?;
+	let fee_rate = esplora.fee_rate(2).await.map_err(error)?;
+	let claim = btc::claim_transaction(&lock, secret, &key, fee_rate, esplora.network).map_err(error)?;
+	Ok(Some(esplora.broadcast(&claim).await.map_err(error)?))
 }

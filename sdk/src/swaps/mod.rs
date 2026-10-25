@@ -3,9 +3,11 @@
 //! A maker offers TESS; a taker locks its payment on the other chain under the SHA-256 hash of a
 //! secret; the maker checks it and fills the offer, which locks the TESS for the taker under the
 //! same hash; the taker claims them with the secret, without fee, and the secret pays the maker on
-//! the other chain. This module is the Tesserax side; [`evm`], with the `swaps` feature, the side
-//! of the EVM chains.
+//! the other chain. This module is the Tesserax side; with the `swaps` feature, [`evm`] is the side
+//! of the EVM chains and [`bitcoin`] the side of Bitcoin.
 
+#[cfg(feature = "swaps")]
+pub mod bitcoin;
 #[cfg(feature = "swaps")]
 pub mod evm;
 

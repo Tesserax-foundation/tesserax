@@ -85,6 +85,9 @@ pub enum Error {
 	/// An EVM chain of a swap answered with an error.
 	#[error("EVM chain: {0}")]
 	Evm(String),
+	/// Bitcoin, or the Esplora API of a swap, answered with an error.
+	#[error("Bitcoin: {0}")]
+	Bitcoin(String),
 	#[error("state file: {0}")]
 	Storage(String),
 }

@@ -1,6 +1,6 @@
 [package]
 name = "tesserax-sdk"
-description = "Rust SDK of Tesserax: ML-DSA accounts, transfers, agent delegations, the agent registry and smart contracts."
+description = "Rust SDK of Tesserax: ML-DSA accounts, transfers, agent delegations, the agent registry, smart contracts and atomic swaps."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -15,10 +15,12 @@ workspace = true
 alloy = { workspace = true, optional = true, features = ["std", "contract", "network", "provider-http", "reqwest-rustls-tls", "rpc-types-eth", "signer-local", "sol-types"] }
 alloy-core = { workspace = true, features = ["dyn-abi", "json-abi", "std"] }
 base64 = { workspace = true }
+bitcoin = { workspace = true, optional = true }
 bip39 = { workspace = true }
 codec = { workspace = true, default-features = true, features = ["derive"] }
 futures = { workspace = true }
 getrandom = { workspace = true, default-features = true }
+reqwest = { workspace = true, optional = true }
 jsonrpsee = { workspace = true, features = ["async-client", "client-ws-transport-tls"] }
 rustls = { version = "0.23.46", default-features = false, features = ["aws_lc_rs", "std"] }
 rustls-platform-verifier = "0.7.1"
@@ -30,15 +32,17 @@ subxt = { workspace = true }
 tesserax-crypto = { workspace = true, default-features = true }
 tesserax-shielded-wallet = { workspace = true, optional = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["sync", "time"] }
 
 [features]
 # Private transactions with the shielded pool: proofs and note encryption.
 shielded = ["dep:tesserax-shielded-wallet"]
-# Atomic swaps: the payment side on the EVM chains.
-swaps = ["dep:alloy"]
+# Atomic swaps: the payment side on the EVM chains and on Bitcoin.
+swaps = ["dep:alloy", "dep:bitcoin", "dep:reqwest"]
 
 [dev-dependencies]
+# Bitcoin Core verifies the scripts of the tests.
+bitcoin = { workspace = true, features = ["bitcoinconsensus"] }
 tesserax-runtime = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
