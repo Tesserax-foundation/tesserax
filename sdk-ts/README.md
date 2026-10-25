@@ -140,10 +140,39 @@ await shielded.unshield(client, "te...", Amount.fromTess("3")); // private -> a 
 const state = shielded.state();                                 // ShieldedAccount.restore(alice, state)
 ```
 
+## Swaps
+
+TESS against ETH, USDC and USDT on Ethereum, Base and Arbitrum, with atomic swaps
+(`docs/swaps.md` of the chain). `client.swaps` is the Tesserax side; `EvmSwaps` the EVM side, with
+any viem wallet client, a browser wallet included:
+
+```ts
+import { EvmSwaps, evmNetworks, newSecret, paymentDue } from "@tesserax/sdk";
+
+const offer = (await client.swaps.offers())[0];
+const evm = new EvmSwaps(evmNetworks(true).find((n) => n.chain === offer.payment.chain)!, { walletClient });
+const { secret, hash } = newSecret();                       // keep the secret until the claim
+const amount = Amount.fromTess("50");
+const lock = await evm.lockPayment({
+  asset: offer.payment.asset,
+  recipient: `0x${Buffer.from(offer.payout).toString("hex")}`,
+  amount: paymentDue(amount.planck, offer.price),
+  hash,
+  timelock: (await evm.head()).time + 86_400,
+  offer: offer.id,
+  taker: "te...",                                           // receives the TESS, needs none
+});
+// Once the maker filled it:
+const trade = await client.swaps.tradeOfLock(offer.payment.chain, lockBytes);
+await client.swaps.claim(trade!, secret);                   // unsigned, without fee
+```
+
 ## Tests
 
 ```bash
 npm test
 # Against a development chain (tesserax --dev --tmp --mine --author <address>):
 TESSERAX_URL=ws://127.0.0.1:9944 npm test
+# The swap test also needs a local EVM chain with the swap contract (swaps/evm/deploy.sh):
+TESSERAX_URL=ws://127.0.0.1:9944 EVM_URL=http://127.0.0.1:8545 npm test
 ```

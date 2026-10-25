@@ -8,6 +8,7 @@ import { fromHex, Keypair, formatAddress, parseAddress, SS58_PREFIX, toHex } fro
 import { Contract, Contracts, type ContractTxOutcome, type DeployOptions } from "./contracts.js";
 import { chainError, TransactionFailed } from "./errors.js";
 import { mlDsaTxCreator } from "./signer.js";
+import { Swaps } from "./swaps.js";
 
 export { chainError, TransactionFailed };
 
@@ -117,11 +118,14 @@ export class TesseraxClient {
   readonly api: any;
   /** Smart contracts: dry runs, deployments, calls and events. */
   readonly contracts: Contracts;
+  /** Atomic swaps of TESS: offers, trades and their calls. */
+  readonly swaps: Swaps;
 
   constructor(url = "ws://127.0.0.1:9944") {
     this.client = createClient(getWsProvider(url));
     this.api = this.client.getUnsafeApi();
     this.contracts = new Contracts(this);
+    this.swaps = new Swaps(this);
   }
 
   destroy(): void {

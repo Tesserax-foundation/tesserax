@@ -1,7 +1,7 @@
 /**
  * TypeScript SDK of Tesserax: ML-DSA accounts, transfers, AI agent delegations, the agent
- * registry, smart contracts and private transactions (`@tesserax/sdk/shielded`, with its
- * WebAssembly module).
+ * registry, smart contracts, atomic swaps and private transactions (`@tesserax/sdk/shielded`,
+ * with its WebAssembly module).
  *
  * ```ts
  * import { Amount, Keypair, TesseraxClient } from "@tesserax/sdk";
@@ -53,6 +53,33 @@ export {
   type DryRun,
 } from "./contracts.js";
 export { StorageError } from "./store.js";
+export {
+  EVM_CHAINS,
+  EvmSwaps,
+  LOG_RANGE,
+  SWAP_ABI,
+  SWAP_CONTRACT,
+  Swaps,
+  assetOf,
+  evmNetworks,
+  hashOf,
+  newSecret,
+  paymentDecimals,
+  paymentDue,
+  paymentSymbol,
+  tessFor,
+  tokenOf,
+  type EvmNetwork,
+  type LockState,
+  type LockStatus,
+  type Offer,
+  type Payment,
+  type PaymentLock,
+  type SwapAsset,
+  type SwapChain,
+  type SwapEvent,
+  type Trade,
+} from "./swaps.js";
 export { Tasks, blocksFor, type NewTask, type TaskInfo, type TaskStatus } from "./tasks.js";
 export {
   MORTALITY,

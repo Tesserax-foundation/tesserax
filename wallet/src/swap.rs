@@ -532,7 +532,14 @@ async fn round(
 
 	// Collected until they succeed: the lock of a payment lasts hours after the claim.
 	for (trade, (chain, lock, secret)) in state.collect.clone() {
-		let Some(evm) = chains.get(&chain) else { continue };
+		if !chains.contains_key(&chain) {
+			let Some(c) = [Chain::Ethereum, Chain::Base, Chain::Arbitrum].into_iter().find(|c| format!("{c:?}") == chain)
+			else {
+				continue;
+			};
+			chains.insert(chain.clone(), args.connect(client, c, true).await?);
+		}
+		let evm = &chains[&chain];
 		match evm.claim(B256::from(hex32(&lock)?), hex32(&secret)?).await {
 			Ok(tx) => {
 				state.collect.remove(&trade);
