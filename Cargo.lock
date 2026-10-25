@@ -7758,6 +7758,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-swaps"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-tasks"
 version = "0.1.0"
 dependencies = [
@@ -13926,6 +13941,7 @@ dependencies = [
  "pallet-revive",
  "pallet-scheduler",
  "pallet-shielded",
+ "pallet-swaps",
  "pallet-tasks",
  "pallet-timestamp",
  "pallet-transaction-payment",

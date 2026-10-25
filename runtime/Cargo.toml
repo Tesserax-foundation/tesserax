@@ -43,6 +43,7 @@ pallet-referenda = { workspace = true }
 pallet-scheduler = { workspace = true }
 pallet-revive = { workspace = true }
 pallet-shielded = { workspace = true }
+pallet-swaps = { workspace = true }
 pallet-tasks = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
@@ -106,6 +107,7 @@ std = [
 	"pallet-scheduler/std",
 	"pallet-revive/std",
 	"pallet-shielded/std",
+	"pallet-swaps/std",
 	"alloy-core/std",
 	"pallet-tasks/std",
 	"pallet-timestamp/std",
@@ -153,6 +155,7 @@ runtime-benchmarks = [
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
 	"pallet-shielded/runtime-benchmarks",
+	"pallet-swaps/runtime-benchmarks",
 	"pallet-tasks/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
@@ -180,6 +183,7 @@ try-runtime = [
 	"pallet-scheduler/try-runtime",
 	"pallet-revive/try-runtime",
 	"pallet-shielded/try-runtime",
+	"pallet-swaps/try-runtime",
 	"pallet-tasks/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",

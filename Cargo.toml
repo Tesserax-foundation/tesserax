@@ -20,6 +20,7 @@ members = [
 	"pallets/difficulty",
 	"pallets/emission",
 	"pallets/shielded",
+	"pallets/swaps",
 	"pallets/tasks",
 	"pool",
 	"primitives/crypto",
@@ -60,6 +61,7 @@ pallet-channels = { path = "pallets/channels", default-features = false }
 pallet-difficulty = { path = "pallets/difficulty", default-features = false }
 pallet-emission = { path = "pallets/emission", default-features = false }
 pallet-shielded = { path = "pallets/shielded", default-features = false }
+pallet-swaps = { path = "pallets/swaps", default-features = false }
 pallet-tasks = { path = "pallets/tasks", default-features = false }
 randomtess = { path = "crypto/randomtess" }
 tesserax-crypto = { path = "primitives/crypto", default-features = false }

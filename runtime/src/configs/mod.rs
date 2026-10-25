@@ -377,6 +377,27 @@ impl pallet_channels::Config for Runtime {
 }
 
 parameter_types! {
+	/// Six hours, 1,200 blocks of 18 seconds, for the taker to claim: the lock of its payment
+	/// lasts 24 hours, which leaves the maker the time to claim the payment.
+	pub const SwapTradeTimeout: BlockNumber = 1_200;
+	pub const SwapMinOffer: Balance = UNIT;
+	pub const SwapOfferDeposit: Balance = deposit(1, 160);
+	pub const SwapClaimLongevity: u64 = 64;
+}
+
+/// Atomic swaps of TESS against BTC, ETH, USDC and USDT, with hash time-locked contracts.
+impl pallet_swaps::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Currency = Balances;
+	type TradeTimeout = SwapTradeTimeout;
+	type MinOffer = SwapMinOffer;
+	type OfferDeposit = SwapOfferDeposit;
+	type ClaimLongevity = SwapClaimLongevity;
+	type WeightInfo = pallet_swaps::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
 	pub const TasksPalletId: PalletId = PalletId(*b"tess/tsk");
 	pub const TaskMinReward: Balance = 10 * MILLI_UNIT;
 	pub const TaskStorageDeposit: Balance = deposit(1, 800);

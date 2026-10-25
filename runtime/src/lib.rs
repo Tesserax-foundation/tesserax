@@ -57,7 +57,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("tesserax"),
 	impl_name: alloc::borrow::Cow::Borrowed("tesserax-node"),
 	authoring_version: 1,
-	spec_version: 103,
+	spec_version: 104,
 	impl_version: 1,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -274,4 +274,7 @@ mod runtime {
 
 	#[runtime::pallet_index(22)]
 	pub type TechnicalCommittee = pallet_collective<Instance1>;
+
+	#[runtime::pallet_index(23)]
+	pub type Swaps = pallet_swaps;
 }

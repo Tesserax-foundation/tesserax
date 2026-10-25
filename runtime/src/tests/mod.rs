@@ -9,6 +9,7 @@ mod emission;
 mod governance;
 mod shielded;
 mod signatures;
+mod swaps;
 mod tasks;
 
 pub(super) use crate::*;
