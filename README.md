@@ -157,6 +157,12 @@ foundation decide nothing while they vest. The technical committee, the three si
 foundation, can only whitelist a fix for a shorter referendum, and its members never change. See
 [docs/governance.md](docs/governance.md).
 
+## Security
+
+Vulnerabilities are rewarded in TESS, 25,000 TESS to start: report them privately with
+**Security → Report a vulnerability** on this repository. See [SECURITY.md](SECURITY.md) and
+[docs/bug-bounty.md](docs/bug-bounty.md).
+
 ## Building
 
 Requirements: Rust (installed through `rustup`, the toolchain is pinned by `rust-toolchain.toml`),
