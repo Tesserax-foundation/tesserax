@@ -55,7 +55,8 @@ the TypeScript SDK opens in the Python SDK, and the other way round.
 ```ts
 // TypeScript, @tesserax/sdk: proofs by the WebAssembly build of shielded-wasm, in Node.js and
 // browsers.
-import { Amount, Keypair, ShieldedAccount, TesseraxClient } from "@tesserax/sdk";
+import { Amount, Keypair, TesseraxClient } from "@tesserax/sdk";
+import { ShieldedAccount } from "@tesserax/sdk/shielded";
 
 const client = new TesseraxClient("wss://rpc.tesserax.app:21207");
 const alice = Keypair.fromUri(phrase);

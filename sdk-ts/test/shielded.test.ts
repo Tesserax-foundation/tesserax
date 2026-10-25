@@ -4,7 +4,8 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { Amount, isShieldedAddress, Keypair, loadShielded, ShieldedAccount, shieldedMinimumFee, TesseraxClient } from "../src/index.js";
+import { Amount, Keypair, TesseraxClient } from "../src/index.js";
+import { isShieldedAddress, loadShielded, ShieldedAccount, shieldedMinimumFee } from "../src/shielded.js";
 
 const url = process.env.TESSERAX_URL;
 

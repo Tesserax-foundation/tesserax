@@ -125,10 +125,12 @@ const stop = token.watchEvents((event) => console.log(event.name, event.args));
 
 Every account has a shielded account, restored by its recovery phrase. Proofs are generated
 locally by the WebAssembly shielded wallet the package ships (`wasm/`), in Node.js and browsers
-(`docs/privacy.md`).
+(`docs/privacy.md`). They have their own entry point, so that applications without them do not
+bundle the module.
 
 ```ts
-import { Amount, ShieldedAccount } from "@tesserax/sdk";
+import { Amount } from "@tesserax/sdk";
+import { ShieldedAccount } from "@tesserax/sdk/shielded";
 
 const shielded = await ShieldedAccount.create(alice);
 await shielded.sync(client);                                   // reads the chain since its last block
