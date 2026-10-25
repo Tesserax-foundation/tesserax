@@ -12,7 +12,7 @@ once, at the launch, from the runtime of the release, then frozen in `chain-spec
 | Mining | 0.85 TESS a block of 18 seconds, halving every 7,000,000 blocks |
 | Team | 1,400,000 TESS, half to each member, released from a six-month cliff to 48 months |
 | Foundation | 700,000 TESS to a 2-of-3 multisig, 140,000 liquid and the rest released over 36 months |
-| Sudo | the multisig of the foundation |
+| Sudo | none: referenda decide, the technical committee is the three signatories of the foundation |
 | Difficulty | 1,000,000 at genesis, about 55 kH/s at 18 seconds a block |
 | Other balances | none: every other TESS is mined |
 
@@ -23,13 +23,15 @@ Accounts:
 | Team member 1, foundation signatory | `tetTtAxXxBzRTTsc5otocLgRrGZVCcxzBeK4NSGwdqAsee7XM` |
 | Team member 2, foundation signatory | `tetBiN5GwskQqq8ykcMUQbqCPdWPRaE5PoYwfazsJ2jHGtTZw` |
 | Backup key, foundation signatory | `terN4gSZpiFpeERvb1PoaJiiBRqSEmXw56xF5MqqjLbp7eH3x` |
-| Foundation, sudo | the 2-of-3 multisig of the three signatories |
+| Foundation | the 2-of-3 multisig of the three signatories |
 
-Any two of the three keys approve a spending of the foundation or a sudo call; losing one key
-blocks nothing, and one stolen key is not enough. Keep the backup key offline.
+Any two of the three keys approve a spending of the foundation, or whitelist a call as the
+technical committee; losing one key blocks nothing, and one stolen key is not enough. Keep the
+backup key offline.
 
 The test `mainnet_genesis_creates_the_allocations_only` (`runtime/src/tests/allocations.rs`)
-checks these balances, the cliff of the team, the liquid part of the foundation and the sudo key.
+checks these balances, the cliff of the team, the liquid part of the foundation and the technical
+committee.
 
 ## Initial difficulty
 
@@ -66,8 +68,9 @@ measure.
 5. Announce the genesis hash and the launch time; the first block is mined by whoever starts
    first.
 
-## Sudo through the multisig
+## Governance
 
-A sudo call, such as a runtime upgrade (`system.set_code`), is wrapped twice: `sudo.sudo(call)`,
-then `multisig.as_multi` by a first signatory and `multisig.approve_as_multi` or `as_multi` by a
-second one. The foundation can later remove sudo (`sudo.remove_key`) for an on-chain governance.
+The mainnet starts without a sudo key: referenda decide from the first block
+([governance.md](governance.md)), and the technical committee is the three signatories of the
+foundation, fixed at genesis. The allocations of the team and of the foundation do not vote while
+they vest.

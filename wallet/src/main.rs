@@ -11,7 +11,9 @@ use keystore::Keystore;
 use serde::Serialize;
 use std::{io::IsTerminal, path::PathBuf};
 use tesserax_sdk::{
-	format_address, parse_address, shielded::ShieldedAccount, AccountId, Amount, Client, Keypair, NewTask, Permissions,
+	format_address,
+	governance::{Conviction, Referendum, Status, Track},
+	parse_address, shielded::ShieldedAccount, AccountId, Amount, Client, Keypair, NewTask, Permissions,
 	Policy, Profile, Voucher, BLOCKS_PER_HOUR,
 };
 
@@ -74,6 +76,9 @@ enum Command {
 	/// Private transactions: the shielded pool.
 	#[command(subcommand)]
 	Shielded(ShieldedCommand),
+	/// Governance: referenda, votes and the technical committee.
+	#[command(subcommand)]
+	Governance(GovernanceCommand),
 	/// Information about the chain.
 	Chain,
 }
@@ -367,6 +372,78 @@ enum ShieldedCommand {
 	},
 }
 
+#[derive(Subcommand)]
+enum GovernanceCommand {
+	/// List the referenda, the latest first.
+	List,
+	/// Show a referendum.
+	Show { index: u32 },
+	/// Propose a runtime upgrade on the root track: its preimage, the referendum and its decision
+	/// deposit of 1,000 TESS.
+	ProposeUpgrade {
+		account: String,
+		/// The WebAssembly runtime, `.compact.compressed.wasm`.
+		wasm: PathBuf,
+	},
+	/// Propose an encoded call, `0x...`, on a track: root, or urgent for a call the technical
+	/// committee whitelisted.
+	Propose {
+		account: String,
+		/// The encoded call, in hexadecimal.
+		call: String,
+		#[arg(long, default_value = "root")]
+		track: String,
+	},
+	/// Propose to cancel a referendum, refunding its deposits, or to kill it with `--kill`,
+	/// slashing them.
+	Cancel {
+		account: String,
+		index: u32,
+		#[arg(long)]
+		kill: bool,
+	},
+	/// Vote on a referendum. TESS still vesting do not vote.
+	Vote {
+		account: String,
+		index: u32,
+		/// `aye` or `nay`.
+		choice: String,
+		/// Amount in TESS.
+		amount: String,
+		/// 0 to 6: 0 counts a tenth and locks nothing more; 1 to 6 lock the vote 1, 2, 4, 8, 16
+		/// or 32 weeks after the referendum and multiply it as much.
+		#[arg(long, default_value_t = 1)]
+		conviction: u8,
+	},
+	/// Remove the vote of an account on a referendum.
+	Unvote { account: String, index: u32 },
+	/// Release the TESS of an account whose vote locks have expired.
+	Unlock { account: String },
+	/// Delegate the votes of an account on a track to another account.
+	Delegate {
+		account: String,
+		/// Address or account name of the delegate.
+		to: String,
+		/// Amount in TESS.
+		amount: String,
+		#[arg(long, default_value_t = 1)]
+		conviction: u8,
+		#[arg(long, default_value = "root")]
+		track: String,
+	},
+	/// Stop delegating the votes of an account on a track.
+	Undelegate {
+		account: String,
+		#[arg(long, default_value = "root")]
+		track: String,
+	},
+	/// The members of the technical committee.
+	Committee,
+	/// As a member of the technical committee, approve the whitelisting of a call: its hash or
+	/// the encoded call, `0x...`. The approval of a second member whitelists it.
+	Whitelist { account: String, call: String },
+}
+
 type Result<T> = core::result::Result<T, String>;
 
 fn error(e: impl std::fmt::Display) -> String {
@@ -524,6 +601,7 @@ async fn run(cli: Cli) -> Result<()> {
 		Command::Channel(command) => channel(&mut w, command).await,
 		Command::Task(command) => task(&mut w, command).await,
 		Command::Shielded(command) => shielded(&mut w, command).await,
+		Command::Governance(command) => governance(&mut w, command).await,
 	}
 }
 
@@ -554,6 +632,169 @@ fn save_shielded(w: &Wallet, name: &str, account: &ShieldedAccount) -> Result<()
 	let partial = path.with_extension("partial");
 	std::fs::write(&partial, account.state()).map_err(error)?;
 	std::fs::rename(&partial, &path).map_err(error)
+}
+
+fn hex_bytes(text: &str) -> Result<Vec<u8>> {
+	hex::decode(text.trim().trim_start_matches("0x")).map_err(|_| "expected hexadecimal, 0x...".to_string())
+}
+
+fn track(name: &str) -> Result<Track> {
+	match name {
+		"root" => Ok(Track::Root),
+		"urgent" => Ok(Track::Urgent),
+		"cancellation" => Ok(Track::Cancellation),
+		other => Err(format!("unknown track {other}: root, urgent or cancellation")),
+	}
+}
+
+fn conviction(n: u8) -> Result<Conviction> {
+	Conviction::from_number(n).ok_or_else(|| "the conviction is 0 to 6".to_string())
+}
+
+fn referendum_json(r: &Referendum) -> serde_json::Value {
+	serde_json::json!({
+		"index": r.index,
+		"status": format!("{:?}", r.status),
+		"track": r.track.map(|t| format!("{t:?}").to_lowercase()),
+		"proposal": r.proposal.map(|h| format!("0x{}", hex::encode(h))),
+		"ayes": r.ayes,
+		"nays": r.nays,
+		"support": r.support,
+		"submitted": r.submitted,
+		"deciding_since": r.deciding_since,
+		"decision_deposit_placed": r.decision_deposit_placed,
+	})
+}
+
+fn referendum_text(r: &Referendum) -> String {
+	let status = match &r.status {
+		Status::Preparing if !r.decision_deposit_placed => "waiting for its decision deposit".to_string(),
+		Status::Preparing => "preparing".to_string(),
+		Status::Deciding => "voting".to_string(),
+		Status::Confirming { until } => format!("passing, confirmed at block {until} if it keeps passing"),
+		other => format!("{other:?}").to_lowercase().replace(" { at: ", " at block ").replace(" }", ""),
+	};
+	let track = r.track.map(|t| format!("{t:?}").to_lowercase()).unwrap_or_else(|| "ended".into());
+	format!("#{} [{track}] {status} · aye {} · nay {} · support {} TESS", r.index, r.ayes, r.nays, r.support)
+}
+
+async fn governance(w: &mut Wallet, command: GovernanceCommand) -> Result<()> {
+	match command {
+		GovernanceCommand::List => {
+			let referenda = w.client().await?.referenda().await.map_err(error)?;
+			let json: Vec<_> = referenda.iter().map(referendum_json).collect();
+			w.print(json, || {
+				if referenda.is_empty() {
+					"No referendum yet.".to_string()
+				} else {
+					referenda.iter().map(referendum_text).collect::<Vec<_>>().join("\n")
+				}
+			});
+		},
+		GovernanceCommand::Show { index } => {
+			let r = w.client().await?.referendum(index).await.map_err(error)?.ok_or("no such referendum")?;
+			w.print(referendum_json(&r), || referendum_text(&r));
+		},
+		GovernanceCommand::ProposeUpgrade { account, wasm } => {
+			let code = std::fs::read(&wasm).map_err(|e| format!("{}: {e}", wasm.display()))?;
+			w.confirm(&format!(
+				"Propose the runtime {} ({} KiB) with a decision deposit of 1,000 TESS from {account}",
+				wasm.display(),
+				code.len() / 1024
+			))?;
+			let key = w.key(&account)?;
+			let index = w.client().await?.propose_runtime_upgrade(&key, code).await.map_err(error)?;
+			w.print(serde_json::json!({ "index": index }), || format!("Referendum #{index} submitted on the root track"));
+		},
+		GovernanceCommand::Propose { account, call, track: name } => {
+			let call = hex_bytes(&call)?;
+			let track = track(&name)?;
+			w.confirm(&format!("Propose this call on the {name} track from {account}"))?;
+			let key = w.key(&account)?;
+			let client = w.client().await?;
+			let index = match track {
+				Track::Urgent => client.propose_whitelisted(&key, call).await,
+				Track::Root => client.propose(&key, track, call).await,
+				Track::Cancellation => Err(tesserax_sdk::Error::InvalidInput("use the cancel command".into())),
+			}
+			.map_err(error)?;
+			w.print(serde_json::json!({ "index": index }), || format!("Referendum #{index} submitted on the {name} track"));
+		},
+		GovernanceCommand::Cancel { account, index, kill } => {
+			let what = if kill { "kill" } else { "cancel" };
+			w.confirm(&format!("Propose to {what} referendum #{index} from {account}"))?;
+			let key = w.key(&account)?;
+			let proposal = w.client().await?.propose_cancellation(&key, index, kill).await.map_err(error)?;
+			w.print(serde_json::json!({ "index": proposal }), || format!("Referendum #{proposal} submitted to {what} #{index}"));
+		},
+		GovernanceCommand::Vote { account, index, choice, amount, conviction: n } => {
+			let aye = match choice.as_str() {
+				"aye" | "yes" => true,
+				"nay" | "no" => false,
+				_ => return Err("vote aye or nay".into()),
+			};
+			let amount = tess(&amount)?;
+			let conviction = conviction(n)?;
+			w.confirm(&format!("Vote {choice} on referendum #{index} with {amount} TESS of {account}, conviction {n}"))?;
+			let key = w.key(&account)?;
+			let outcome = w.client().await?.vote(&key, index, aye, amount, conviction).await.map_err(error)?;
+			w.sent(outcome);
+		},
+		GovernanceCommand::Unvote { account, index } => {
+			let key = w.key(&account)?;
+			let outcome = w.client().await?.remove_vote(&key, index).await.map_err(error)?;
+			w.sent(outcome);
+		},
+		GovernanceCommand::Unlock { account } => {
+			let key = w.key(&account)?;
+			w.client().await?.unlock_votes(&key).await.map_err(error)?;
+			w.print(serde_json::json!({ "unlocked": true }), || "Expired vote locks released".to_string());
+		},
+		GovernanceCommand::Delegate { account, to, amount, conviction: n, track: name } => {
+			let to = w.resolve(&to)?;
+			let amount = tess(&amount)?;
+			let (conviction, track) = (conviction(n)?, track(&name)?);
+			w.confirm(&format!(
+				"Delegate the votes of {account} on the {name} track to {}, {amount} TESS, conviction {n}",
+				format_address(&to)
+			))?;
+			let key = w.key(&account)?;
+			let outcome = w.client().await?.delegate_votes(&key, track, &to, amount, conviction).await.map_err(error)?;
+			w.sent(outcome);
+		},
+		GovernanceCommand::Undelegate { account, track: name } => {
+			let track = track(&name)?;
+			let key = w.key(&account)?;
+			let outcome = w.client().await?.undelegate_votes(&key, track).await.map_err(error)?;
+			w.sent(outcome);
+		},
+		GovernanceCommand::Committee => {
+			let members = w.client().await?.committee().await.map_err(error)?;
+			let addresses: Vec<_> = members.iter().map(format_address).collect();
+			w.print(serde_json::json!({ "members": addresses, "threshold": 2 }), || {
+				format!("Two of these three whitelist a call:\n{}", addresses.join("\n"))
+			});
+		},
+		GovernanceCommand::Whitelist { account, call } => {
+			let bytes = hex_bytes(&call)?;
+			let hash: [u8; 32] = if bytes.len() == 32 {
+				bytes.try_into().expect("32 bytes; qed")
+			} else {
+				tesserax_sdk::governance::call_hash(&bytes)
+			};
+			w.confirm(&format!("Approve, as {account}, the whitelisting of the call 0x{}", hex::encode(hash)))?;
+			let key = w.key(&account)?;
+			let whitelisted = w.client().await?.whitelist(&key, hash).await.map_err(error)?;
+			w.print(serde_json::json!({ "call": format!("0x{}", hex::encode(hash)), "whitelisted": whitelisted }), || {
+				if whitelisted {
+					"Whitelisted: propose it on the urgent track".to_string()
+				} else {
+					"Approved: a second member must approve it".to_string()
+				}
+			});
+		},
+	}
+	Ok(())
 }
 
 async fn shielded(w: &mut Wallet, command: ShieldedCommand) -> Result<()> {

@@ -149,6 +149,14 @@ The Rust, TypeScript and Python SDKs deploy contracts, call them by function nam
 without a transaction and follow their events: see [docs/contracts.md](docs/contracts.md), from the
 Solidity to the deployment.
 
+## Governance
+
+There is no sudo key. Referenda decide, a runtime upgrade included: holders of TESS vote with
+conviction, and TESS still vesting do not vote, so that the allocations of the team and of the
+foundation decide nothing while they vest. The technical committee, the three signatories of the
+foundation, can only whitelist a fix for a shorter referendum, and its members never change. See
+[docs/governance.md](docs/governance.md).
+
 ## Building
 
 Requirements: Rust (installed through `rustup`, the toolchain is pinned by `rust-toolchain.toml`),

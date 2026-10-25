@@ -23,6 +23,7 @@ clap = { workspace = true, features = ["derive", "env"] }
 getrandom = { workspace = true, default-features = true }
 rpassword = { workspace = true }
 serde = { workspace = true }
+hex = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 tesserax-sdk = { workspace = true, features = ["shielded"] }
 thiserror = { workspace = true }

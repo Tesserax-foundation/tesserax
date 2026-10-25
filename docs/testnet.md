@@ -72,13 +72,13 @@ tesserax --chain testnet --stratum --author <your address>
 - Team: 1,400,000 TESS, with a six-month cliff then linear vesting to 48 months.
 - Foundation: 700,000 TESS to a 2-of-3 multisig, 140,000 liquid and the rest vested over 36
   months.
-- Faucet: 100,000 test TESS to the sudo key, which funds the faucet. This one exists only on the
+- Faucet: 100,000 test TESS to the operator, which funds the faucet. This one exists only on the
   testnet.
 - Difficulty: 1,000 at genesis, the minimum; it follows the miners who join.
 
-The sudo key, the team account and the three foundation signatories are derived from the secret
-phrase of the operator of the testnet: `//sudo`, `//team` and `//foundation//1` to
-`//foundation//3`. Their addresses are in `runtime/src/genesis_config_presets.rs`.
+The operator account, the team account and the three foundation signatories are derived from the
+secret phrase of the operator of the testnet: `//sudo` (the sudo key until runtime 103), `//team`
+and `//foundation//1` to `//foundation//3`. Their addresses are in `runtime/src/genesis_config_presets.rs`.
 
 The specification was generated once from the `testnet` preset of the runtime, then frozen:
 
@@ -90,16 +90,19 @@ Generating it again with another runtime gives another genesis, so another chain
 
 ## Runtime upgrades
 
-The runtime of the testnet changes through the sudo key, without a new genesis: a
-`sudo.sudo(system.set_code(code))` transaction with the WebAssembly runtime, whose
-`spec_version` is higher than the one on chain. Nodes run the runtime of the chain whatever their
-version, and a node syncing from the genesis applies the upgrades in their blocks.
+The testnet started with a sudo key; since runtime 103 it has none, and its runtime changes by
+referendum like the mainnet's ([governance.md](governance.md)): `tesserax-wallet governance
+propose-upgrade` with the WebAssembly runtime, whose `spec_version` is higher than the one on
+chain. Its technical committee is the three signatories of its foundation. Nodes run the runtime
+of the chain whatever their version, and a node syncing from the genesis applies the upgrades in
+their blocks.
 
 | `spec_version` | Date | Change |
 |---|---|---|
 | 100 | 2026-10-23 | Genesis |
 | 101 | 2026-10-25 | An address in contracts belongs to its first owner ([contracts.md](contracts.md#addresses)) |
 | 102 | 2026-10-25 | The same runtime, built with the paths of the build machine remapped |
+| 103 | 2026-10-25 | Governance in place of sudo: referenda, conviction votes, the technical committee ([governance.md](governance.md)) |
 
 ## Hosting
 

@@ -41,6 +41,11 @@ fn blake2_256(bytes: &[u8]) -> [u8; 32] {
 	BlakeTwo256.hash(bytes).0
 }
 
+/// Hash of the encoded call `call`, by which preimages and whitelists name it.
+pub fn call_hash(call: &[u8]) -> [u8; 32] {
+	blake2_256(call)
+}
+
 /// A call of `pallet` with its arguments already encoded: for the calls that carry another call,
 /// which the generated types cannot decode.
 struct RawCall {
@@ -265,17 +270,16 @@ impl Client {
 		Ok(found)
 	}
 
-	/// Fail unless `call` starts with the index of a pallet of the runtime and of one of its calls.
+	/// Fail unless `call` is a whole call of the runtime, decoded with its types.
 	fn check_call(&self, call: &[u8]) -> Result<()> {
 		let metadata = self.api().metadata();
-		let known = call.len() >= 2 &&
-			metadata
-				.pallets()
-				.any(|p| p.index() == call[0] && p.call_variants().is_some_and(|c| c.iter().any(|v| v.index == call[1])));
-		if known {
+		let mut input = call;
+		subxt::ext::scale_value::scale::decode_as_type(&mut input, metadata.outer_enums().call_enum_ty(), metadata.types())
+			.map_err(|e| Error::InvalidInput(format!("not a call of the runtime: {e}")))?;
+		if input.is_empty() {
 			Ok(())
 		} else {
-			Err(Error::InvalidInput("not a call of the runtime".into()))
+			Err(Error::InvalidInput(format!("not a call of the runtime: {} bytes too many", input.len())))
 		}
 	}
 
@@ -418,7 +422,8 @@ impl Client {
 		}
 		let votes = self.storage().await?.fetch(&voting).await?;
 		if votes.is_some_and(|v| v.ayes.len() as u32 >= v.threshold) {
-			let weight = runtime::runtime_types::sp_weights::weight_v2::Weight { ref_time: u64::MAX / 4, proof_size: u64::MAX / 4 };
+			// Bound of the weight of the whitelisting, far above it and far below a block.
+			let weight = runtime::runtime_types::sp_weights::weight_v2::Weight { ref_time: 100_000_000_000, proof_size: 1_000_000 };
 			self.submit(&runtime::tx().technical_committee().close(H256(motion), index, weight, length), member).await?;
 		}
 		let whitelisted = runtime::storage().whitelist().whitelisted_call(H256(call_hash));

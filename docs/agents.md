@@ -31,7 +31,7 @@ dispatched as the owner only if:
 - the runtime classifies it as a transfer (`Balances::transfer_keep_alive`,
   `Balances::transfer_allow_death`, `AgentRegistry::pay`) or a contract call (`Revive::call`)
   allowed by the permissions. Every other call is refused: an agent can never change
-  delegations, use multisig, vesting or sudo, or empty an account with `transfer_all`;
+  delegations, use multisig, vesting or governance, or empty an account with `transfer_all`;
 - the recipient or contract is in the targets, if any;
 - the delegation has not expired;
 - the owner's balance loses no more than `max_per_call` in the call, and no more than what is
