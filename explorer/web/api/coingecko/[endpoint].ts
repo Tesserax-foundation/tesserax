@@ -1,6 +1,6 @@
 // CoinGecko market data of TESS: /api/coingecko/pairs, tickers, orderbook, historical_trades.
 
-import { coingecko, deploymentRpc, respond } from "../../src/lib/marketApi";
+import { coingecko, deploymentRpc, respond } from "../../src/lib/marketApi.js";
 
 declare const process: { env: Record<string, string | undefined> };
 

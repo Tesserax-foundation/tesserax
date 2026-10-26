@@ -1,6 +1,6 @@
 // The supply of TESS: total, circulating and maximum, as JSON.
 
-import { deploymentRpc, respond, supply } from "../../src/lib/marketApi";
+import { deploymentRpc, respond, supply } from "../../src/lib/marketApi.js";
 
 declare const process: { env: Record<string, string | undefined> };
 
