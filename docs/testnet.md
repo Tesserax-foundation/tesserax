@@ -31,7 +31,7 @@ The quickest way to mine: no node to run, only the miner.
 
 1. Create an account in the [wallet](https://wallet.tesserax.app) and copy its address.
 2. Download the Tesserax build of XMRig for your system from the
-   [releases of `tesserax-miner`](https://github.com/Wayleyy/tesserax-miner/releases) and unpack
+   [releases of `tesserax-miner`](https://github.com/Tesserax-labs/tesserax-miner/releases) and unpack
    it. On macOS, allow it once: `xattr -d com.apple.quarantine xmrig`.
 3. Start it with your address and a name for the machine:
 
@@ -92,8 +92,8 @@ Generating it again with another runtime gives another genesis, so another chain
 
 The testnet started with a sudo key; since runtime 103 it has none, and its runtime changes by
 referendum like the mainnet's ([governance.md](governance.md)): `tesserax-wallet governance
-propose-upgrade` with the WebAssembly runtime, whose `spec_version` is higher than the one on
-chain. Its technical committee is the three signatories of its foundation. Nodes run the runtime
+propose-upgrade` authorizes the WebAssembly runtime, whose `spec_version` is higher than the one on
+chain, and `apply-upgrade` submits it once the referendum is enacted. Its technical committee is the three signatories of its foundation. Nodes run the runtime
 of the chain whatever their version, and a node syncing from the genesis applies the upgrades in
 their blocks.
 
@@ -103,6 +103,7 @@ their blocks.
 | 101 | 2026-10-25 | An address in contracts belongs to its first owner ([contracts.md](contracts.md#addresses)) |
 | 102 | 2026-10-25 | The same runtime, built with the paths of the build machine remapped |
 | 103 | 2026-10-25 | Governance in place of sudo: referenda, conviction votes, the technical committee ([governance.md](governance.md)) |
+| 104 | 2026-10-26 | Atomic swaps of TESS against BTC, ETH, USDC and USDT ([swaps.md](swaps.md)): the first upgrade by referendum, #0 on the urgent track, whitelisted by the committee |
 
 ## Hosting
 
