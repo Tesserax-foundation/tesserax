@@ -8,7 +8,7 @@
 //! let client = Client::connect("wss://rpc.tesserax.app:21207").await?;
 //! let alice = Keypair::from_uri("<24 words>")?;
 //! let code = std::fs::read("tesserax_runtime.compact.compressed.wasm").unwrap();
-//! let index = client.propose_runtime_upgrade(&alice, code).await?;
+//! let index = client.propose_runtime_upgrade(&alice, &code).await?;
 //! client.vote(&alice, index, true, Amount::from_tess("100")?, Conviction::Locked3x).await?;
 //! # Ok(()) }
 //! ```

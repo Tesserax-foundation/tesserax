@@ -28,6 +28,8 @@ The public repositories and the services of the testnet:
   shielded pool, governance), the post-quantum cryptography and networking (`primitives/`,
   `vendor/`), the forked smart contract pallet, the SDKs, the command line wallet, the RPC gateway,
   the faucet, the pool and the explorer indexer;
+- [`tesserax-wallet`](https://github.com/Tesserax-foundation/tesserax-wallet): the web wallet, its browser
+  extension and its desktop application;
 - [`tesserax-miner`](https://github.com/Tesserax-foundation/tesserax-miner): the `rx/tess` miner, for issues
   that affect the chain, such as a hash the network accepts but should not;
 - the testnet and its services: `wss://rpc.tesserax.app:21207`, https://wallet.tesserax.app,
@@ -73,7 +75,8 @@ These are documented and need no report, unless you find a way to make them wors
 ## Report
 
 Report on GitHub, privately: **Security → Report a vulnerability** on the repository
-[`tesserax`](https://github.com/Tesserax-foundation/tesserax/security), or on `tesserax-miner` for the miner.
+[`tesserax`](https://github.com/Tesserax-foundation/tesserax/security), on `tesserax-wallet` for the wallet, or on
+`tesserax-miner` for the miner.
 Do not open a public issue.
 
 We answer within 3 days, assess the severity within 10, and keep you informed until the fix.
