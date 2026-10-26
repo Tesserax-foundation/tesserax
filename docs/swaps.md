@@ -123,6 +123,27 @@ the TypeScript SDK `client.swaps` and `EvmSwaps`, with any viem wallet client; t
 `client.swaps` and `EvmSwaps`, with web3.py. Both refuse to lock
 a payment on a chain where the contract is not deployed.
 
+## Testing on one's own machine
+
+A development chain, anvil for the EVM side and Bitcoin Core in regtest for the Bitcoin side run
+a whole swap without any public network. `swaps/bitcoin/esplora-regtest.mjs` serves the Esplora
+API the wallets read, over the regtest node:
+
+```bash
+tesserax --dev --tmp --mine --author <address>
+anvil &
+RPC_URL=http://127.0.0.1:8545 swaps/evm/deploy.sh --private-key <a key of anvil>
+bitcoind -regtest -txindex=1 -fallbackfee=0.0001 -server -datadir=<dir> -daemon
+node swaps/bitcoin/esplora-regtest.mjs --datadir <dir>          # http://127.0.0.1:3002
+tesserax-wallet swap make alice --btc-key-file maker.wif --btc-network regtest \
+  --evm-local http://127.0.0.1:8545 --evm-key-file maker.key
+```
+
+The web wallet takes `VITE_DEVELOPMENT_BITCOIN_NETWORK=regtest` and
+`VITE_ESPLORA_URL=http://127.0.0.1:3002`, the command line wallet `--btc-network regtest`.
+Blocks of regtest are mined on demand (`bitcoin-cli -regtest generatetoaddress`), and its clock
+moved with `setmocktime`, to reach the timelock of a refund.
+
 ## Market data
 
 The explorer serves the prices, volumes, order book and trades of the market for price

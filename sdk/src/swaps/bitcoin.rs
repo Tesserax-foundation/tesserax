@@ -80,6 +80,8 @@ pub fn default_esplora(network: BitcoinNetwork) -> &'static str {
 		BitcoinNetwork::Bitcoin => "https://mempool.space/api",
 		BitcoinNetwork::Testnet => "https://mempool.space/testnet/api",
 		BitcoinNetwork::Testnet4 => "https://mempool.space/testnet4/api",
+		// For tests on one's own machine: swaps/bitcoin/esplora-regtest.mjs.
+		BitcoinNetwork::Regtest => "http://127.0.0.1:3002",
 		_ => "https://mempool.space/signet/api",
 	}
 }

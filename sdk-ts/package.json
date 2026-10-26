@@ -1,6 +1,6 @@
 {
   "name": "@tesserax/sdk",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "TypeScript SDK of Tesserax: ML-DSA accounts, transfers, AI agent delegations, the agent registry, smart contracts, private transactions and atomic swaps.",
   "license": "Apache-2.0",
   "type": "module",

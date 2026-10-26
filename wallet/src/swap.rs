@@ -108,6 +108,10 @@ pub struct PayArgs {
 	/// Esplora API of the Bitcoin network, instead of the one of mempool.space.
 	#[arg(long)]
 	esplora: Option<String>,
+	/// Bitcoin network, instead of the one of the Tesserax network (Bitcoin for the mainnet,
+	/// testnet4 otherwise): regtest, for tests with --esplora (swaps/bitcoin/esplora-regtest.mjs).
+	#[arg(long)]
+	btc_network: Option<String>,
 }
 
 fn chain_named(name: &str) -> Result<Chain> {
@@ -223,8 +227,14 @@ impl PayArgs {
 
 	/// The Bitcoin network of the Tesserax network of `client`, through its Esplora API.
 	async fn bitcoin(&self, client: &Client) -> Result<Esplora> {
-		let info = client.chain_info().await.map_err(error)?;
-		Ok(Esplora::new(btc::network_for(info.chain != "Tesserax"), self.esplora.as_deref()))
+		let network = match self.btc_network.as_deref() {
+			Some("bitcoin") => btc::BitcoinNetwork::Bitcoin,
+			Some("testnet4") => btc::BitcoinNetwork::Testnet4,
+			Some("regtest") => btc::BitcoinNetwork::Regtest,
+			Some(other) => return Err(format!("unknown Bitcoin network {other}: bitcoin, testnet4 or regtest")),
+			None => btc::network_for(client.chain_info().await.map_err(error)?.chain != "Tesserax"),
+		};
+		Ok(Esplora::new(network, self.esplora.as_deref()))
 	}
 
 	fn key(&self) -> Result<Option<PrivateKeySigner>> {

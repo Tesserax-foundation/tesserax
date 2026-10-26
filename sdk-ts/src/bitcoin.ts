@@ -25,16 +25,20 @@ export const MIN_CONFIRMATIONS = 2;
 /** Seconds a payment stays locked: 24 hours, compared to the median time of the last blocks. */
 export const BITCOIN_LOCK_SECONDS = 24 * 3600;
 
-export type BitcoinNetwork = "bitcoin" | "testnet4";
+/** Regtest is for tests on one's own machine (`swaps/bitcoin/esplora-regtest.mjs` of the chain). */
+export type BitcoinNetwork = "bitcoin" | "testnet4" | "regtest";
 
 /** The Bitcoin network of a Tesserax network: Bitcoin for the mainnet, testnet4 otherwise, the test
  * network browser wallets such as MetaMask support. */
 export const bitcoinNetworkFor = (testnet: boolean): BitcoinNetwork => (testnet ? "testnet4" : "bitcoin");
 
-const params = (network: BitcoinNetwork) => (network === "bitcoin" ? btc.NETWORK : btc.TEST_NETWORK);
+const REGTEST = { ...btc.TEST_NETWORK, bech32: "bcrt" };
+
+const params = (network: BitcoinNetwork) => (network === "bitcoin" ? btc.NETWORK : network === "regtest" ? REGTEST : btc.TEST_NETWORK);
 
 /** A public Esplora API of `network`. */
-export const defaultEsplora = (network: BitcoinNetwork) => (network === "bitcoin" ? "https://mempool.space/api" : "https://mempool.space/testnet4/api");
+export const defaultEsplora = (network: BitcoinNetwork) =>
+  network === "bitcoin" ? "https://mempool.space/api" : network === "regtest" ? "http://127.0.0.1:3002" : "https://mempool.space/testnet4/api";
 
 /** The parameters of a hash time-locked script; keys are compressed, 33 bytes. */
 export interface Htlc {
