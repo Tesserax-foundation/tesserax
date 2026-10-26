@@ -382,10 +382,20 @@ enum GovernanceCommand {
 	List,
 	/// Show a referendum.
 	Show { index: u32 },
-	/// Propose a runtime upgrade on the root track: its preimage, the referendum and its decision
-	/// deposit of 1,000 TESS.
+	/// Propose a runtime upgrade: a referendum authorizing its hash, on the root track (decision
+	/// deposit of 1,000 TESS), or on the urgent track (500 TESS) once the technical committee
+	/// whitelisted it. Once enacted, `apply-upgrade` submits the code.
 	ProposeUpgrade {
 		account: String,
+		/// The WebAssembly runtime, `.compact.compressed.wasm`.
+		wasm: PathBuf,
+		/// On the urgent track: the technical committee whitelisted it (`whitelist <member> <wasm>`).
+		#[arg(long)]
+		urgent: bool,
+	},
+	/// Submit the runtime a referendum authorized, without signature nor fee: the chain runs it from
+	/// the next block.
+	ApplyUpgrade {
 		/// The WebAssembly runtime, `.compact.compressed.wasm`.
 		wasm: PathBuf,
 	},
@@ -443,8 +453,9 @@ enum GovernanceCommand {
 	},
 	/// The members of the technical committee.
 	Committee,
-	/// As a member of the technical committee, approve the whitelisting of a call: its hash or
-	/// the encoded call, `0x...`. The approval of a second member whitelists it.
+	/// As a member of the technical committee, approve the whitelisting of a call: its hash, the
+	/// encoded call, `0x...`, or a runtime, `.wasm`, for the authorization of its upgrade. The
+	/// approval of a second member whitelists it.
 	Whitelist { account: String, call: String },
 }
 
@@ -700,16 +711,41 @@ async fn governance(w: &mut Wallet, command: GovernanceCommand) -> Result<()> {
 			let r = w.client().await?.referendum(index).await.map_err(error)?.ok_or("no such referendum")?;
 			w.print(referendum_json(&r), || referendum_text(&r));
 		},
-		GovernanceCommand::ProposeUpgrade { account, wasm } => {
+		GovernanceCommand::ProposeUpgrade { account, wasm, urgent } => {
 			let code = std::fs::read(&wasm).map_err(|e| format!("{}: {e}", wasm.display()))?;
+			let (name, deposit) = if urgent { ("urgent", "500") } else { ("root", "1,000") };
 			w.confirm(&format!(
-				"Propose the runtime {} ({} KiB) with a decision deposit of 1,000 TESS from {account}",
+				"Propose, on the {name} track, the runtime {} ({} KiB, hash 0x{}) with a decision deposit of {deposit} TESS from {account}",
 				wasm.display(),
-				code.len() / 1024
+				code.len() / 1024,
+				hex::encode(tesserax_sdk::governance::call_hash(&code))
 			))?;
 			let key = w.key(&account)?;
-			let index = w.client().await?.propose_runtime_upgrade(&key, code).await.map_err(error)?;
-			w.print(serde_json::json!({ "index": index }), || format!("Referendum #{index} submitted on the root track"));
+			let client = w.client().await?;
+			let index = if urgent {
+				client.propose_whitelisted_runtime_upgrade(&key, &code).await
+			} else {
+				client.propose_runtime_upgrade(&key, &code).await
+			}
+			.map_err(error)?;
+			w.print(serde_json::json!({ "index": index }), || {
+				format!("Referendum #{index} submitted on the {name} track. Once enacted: tesserax-wallet governance apply-upgrade {}", wasm.display())
+			});
+		},
+		GovernanceCommand::ApplyUpgrade { wasm } => {
+			let code = std::fs::read(&wasm).map_err(|e| format!("{}: {e}", wasm.display()))?;
+			let client = w.client().await?.clone();
+			let hash = tesserax_sdk::governance::call_hash(&code);
+			match client.authorized_upgrade().await.map_err(error)? {
+				Some(authorized) if authorized == hash => {},
+				Some(authorized) => return Err(format!("the chain authorized the runtime 0x{}, not this one", hex::encode(authorized))),
+				None => return Err("no runtime upgrade is authorized: its referendum is not enacted yet".into()),
+			}
+			let outcome = client.apply_runtime_upgrade(code).await.map_err(error)?;
+			if !w.json {
+				eprintln!("Runtime 0x{} applied: the chain runs it from the next block", hex::encode(hash));
+			}
+			w.sent(outcome);
 		},
 		GovernanceCommand::Propose { account, call, track: name } => {
 			let call = hex_bytes(&call)?;
@@ -781,7 +817,12 @@ async fn governance(w: &mut Wallet, command: GovernanceCommand) -> Result<()> {
 			});
 		},
 		GovernanceCommand::Whitelist { account, call } => {
-			let bytes = hex_bytes(&call)?;
+			let bytes = if call.ends_with(".wasm") {
+				let code = std::fs::read(&call).map_err(|e| format!("{call}: {e}"))?;
+				w.client().await?.upgrade_authorization(&code).map_err(error)?
+			} else {
+				hex_bytes(&call)?
+			};
 			let hash: [u8; 32] = if bytes.len() == 32 {
 				bytes.try_into().expect("32 bytes; qed")
 			} else {

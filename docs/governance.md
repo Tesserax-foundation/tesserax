@@ -77,7 +77,8 @@ With the command line wallet:
 ```bash
 tesserax-wallet governance list
 tesserax-wallet governance show 4
-tesserax-wallet governance propose-upgrade alice tesserax_runtime.compact.compressed.wasm
+tesserax-wallet governance propose-upgrade alice tesserax_runtime.compact.compressed.wasm [--urgent]
+tesserax-wallet governance apply-upgrade tesserax_runtime.compact.compressed.wasm
 tesserax-wallet governance propose alice 0x<encoded call> --track root
 tesserax-wallet governance vote alice 4 aye 1000 --conviction 3
 tesserax-wallet governance unvote alice 4
@@ -89,6 +90,10 @@ tesserax-wallet governance cancel alice 4 [--kill]
 tesserax-wallet governance whitelist member1 0x<encoded call or its hash>
 tesserax-wallet governance whitelist member2 0x<encoded call or its hash>
 tesserax-wallet governance propose alice 0x<encoded call> --track urgent
+# A runtime upgrade on the urgent track: the committee whitelists its authorization.
+tesserax-wallet governance whitelist member1 tesserax_runtime.compact.compressed.wasm
+tesserax-wallet governance whitelist member2 tesserax_runtime.compact.compressed.wasm
+tesserax-wallet governance propose-upgrade alice tesserax_runtime.compact.compressed.wasm --urgent
 ```
 
 Proposed calls are checked: a call that does not decode as a call of the runtime is refused. The
@@ -100,10 +105,18 @@ votes and unlocking. The Rust SDK has the same operations (`tesserax_sdk::govern
 
 1. Build the runtime reproducibly (`scripts/build-runtime.sh`), with a higher `spec_version`, and
    publish its hash with the sources, so that voters can rebuild it and compare.
-2. Propose it: `tesserax-wallet governance propose-upgrade`.
+2. Propose it: `tesserax-wallet governance propose-upgrade`. The referendum votes
+   `System.authorize_upgrade` with the hash of the runtime, a call of a few bytes: dispatching
+   `System.set_code` with the whole runtime from a referendum would weigh a whole block, more than
+   the scheduler dispatches, and its preimage would cost a deposit for every byte.
 3. Once approved, confirmed and enacted, from two days later with a strong support from the
-   start to sixteen days, the chain runs it from the next block. Nodes need no update: they run
-   the runtime of the chain.
+   start to sixteen days, anyone submits the runtime: `tesserax-wallet governance apply-upgrade`,
+   an unsigned transaction without fee, refused unless its hash is the one authorized. The chain
+   runs it from the next block. Nodes need no update: they run the runtime of the chain.
+
+A fix the technical committee whitelists goes through the urgent track instead: two members
+whitelist the authorization of the runtime (`whitelist <member> <runtime>.wasm`), then
+`propose-upgrade --urgent` proposes it, for a decision from 30 minutes to two days.
 
 The runtime of a development chain can shorten every period to minutes, with the `fast-runtime`
 feature of the node, to try referenda locally; it is never the runtime of a public network.

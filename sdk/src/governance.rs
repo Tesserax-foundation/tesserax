@@ -314,10 +314,45 @@ impl Client {
 		Ok(index)
 	}
 
-	/// Propose to replace the runtime by `code`, on the root track.
-	pub async fn propose_runtime_upgrade(&self, signer: &Keypair, code: Vec<u8>) -> Result<u32> {
-		let call = self.api().tx().call_data(&runtime::tx().system().set_code(code))?;
+	/// The call authorizing the runtime `code`: `System.authorize_upgrade` with its hash. A
+	/// referendum votes this small call, not the code: once it is enacted, anyone submits the code
+	/// with [`Client::apply_runtime_upgrade`], without fee. Dispatching `System.set_code` from a
+	/// referendum would weigh a whole block, more than the scheduler dispatches.
+	pub fn upgrade_authorization(&self, code: &[u8]) -> Result<Vec<u8>> {
+		Ok(self.api().tx().call_data(&runtime::tx().system().authorize_upgrade(H256(blake2_256(code))))?)
+	}
+
+	/// Propose to replace the runtime by `code`, on the root track: a referendum authorizing it.
+	pub async fn propose_runtime_upgrade(&self, signer: &Keypair, code: &[u8]) -> Result<u32> {
+		let call = self.upgrade_authorization(code)?;
 		self.propose(signer, Track::Root, call).await
+	}
+
+	/// Propose to replace the runtime by `code` on the urgent track, once the technical committee
+	/// whitelisted its authorization ([`Client::upgrade_authorization`]).
+	pub async fn propose_whitelisted_runtime_upgrade(&self, signer: &Keypair, code: &[u8]) -> Result<u32> {
+		let call = self.upgrade_authorization(code)?;
+		self.propose_whitelisted(signer, call).await
+	}
+
+	/// Submit the runtime `code` a referendum authorized: an unsigned transaction, without fee,
+	/// which anyone may submit. The chain runs it from the next block.
+	pub async fn apply_runtime_upgrade(&self, code: Vec<u8>) -> Result<TxOutcome> {
+		let call = self.api().tx().call_data(&runtime::tx().system().apply_authorized_upgrade(code))?;
+		// A bare transaction of version 4: the version byte, then the call.
+		let mut body = vec![4u8];
+		body.extend(call);
+		let mut bytes = subxt::ext::codec::Encode::encode(&subxt::ext::codec::Compact(body.len() as u32));
+		bytes.extend(body);
+		let progress =
+			subxt::tx::SubmittableTransaction::from_bytes(self.api().clone(), bytes).submit_and_watch().await?;
+		Ok(self.included(progress).await?.0)
+	}
+
+	/// The hash of the runtime an enacted referendum authorized, waiting for its code.
+	pub async fn authorized_upgrade(&self) -> Result<Option<[u8; 32]>> {
+		let query = runtime::storage().system().authorized_upgrade();
+		Ok(self.storage().await?.fetch(&query).await?.map(|a| a.code_hash.0))
 	}
 
 	/// Propose to dispatch, on the urgent track, the encoded call `call` the technical committee
