@@ -84,7 +84,8 @@ In the web wallet, the **Market** page: buyers pick an offer and pay from their 
 wallet (MetaMask, Rabby or any EIP-1193 wallet), whose keys never reach Tesserax; the wallet
 claims the TESS as soon as the maker fills, and takes the payment back if it never does. Sellers
 create offers there and run the maker of their account, which fills them while the wallet is
-open and lists the payments to collect.
+open and lists the payments to collect. Offers in BTC are paid to a Bitcoin key the wallet derives
+from the account: its maker collects them by itself, to the address chosen with the offer.
 
 With the command line wallet, which runs a maker without a browser and pays in BTC; the EVM key
 is a file holding a private key in hexadecimal, which pays the locks and the gas, and the Bitcoin
