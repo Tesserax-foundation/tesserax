@@ -50,7 +50,7 @@ const config: Config = {
     ],
   ],
   themeConfig: {
-    image: "img/logo.png",
+    image: "img/og.png",
     colorMode: { defaultMode: "dark", respectPrefersColorScheme: false },
     navbar: {
       title: "Tesserax",
