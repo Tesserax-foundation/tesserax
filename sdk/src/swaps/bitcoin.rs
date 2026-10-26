@@ -40,7 +40,7 @@ use bitcoin::{
 use serde::Deserialize;
 
 pub use bitcoin::{
-	secp256k1::Secp256k1, Address as BitcoinAddress, CompressedPublicKey, Network as BitcoinNetwork, OutPoint, PrivateKey as BitcoinKey,
+	secp256k1::{Secp256k1, SecretKey}, Address as BitcoinAddress, CompressedPublicKey, Network as BitcoinNetwork, OutPoint, PrivateKey as BitcoinKey,
 	Transaction as BitcoinTransaction, Txid,
 };
 

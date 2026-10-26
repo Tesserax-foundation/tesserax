@@ -116,6 +116,17 @@ tesserax-wallet swap refund-payment <txid>:<vout> --btc-key-file taker.wif
 
 Bitcoin is read and written through the Esplora API of mempool.space; `--esplora` gives another.
 
+A maker can keep an offer open by itself: with `--keep-offer chain:asset:price:amount:min`, it
+offers `amount` TESS again whenever its open offers for that payment hold less than `min`, while
+the account has them. `--create-btc-key` creates the key of `--btc-key-file` on the first start,
+readable by its owner only. The demo maker of the testnet runs this way
+([testnet.md](testnet.md#demo-maker)):
+
+```bash
+tesserax-wallet swap make alice --btc-key-file maker.wif --create-btc-key \
+  --keep-offer bitcoin:btc:0.00001:1000:10
+```
+
 The secret of a buy is saved in the wallet directory before the payment is locked, and deleted
 once the TESS are claimed: losing it before the claim only delays the refund. A buy in BTC also
 saves its script, which takes the payment back. The Rust SDK has the

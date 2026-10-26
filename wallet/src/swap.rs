@@ -84,6 +84,12 @@ pub enum SwapCommand {
 		/// Seconds between two rounds.
 		#[arg(long, default_value_t = 20)]
 		interval: u64,
+		/// Keep an offer open, `chain:asset:price:amount:min[:payout]` such as
+		/// `bitcoin:btc:0.00001:1000:10`: when the open offers of the account for this payment
+		/// hold less than `min` TESS, offer `amount` TESS again. The payout is that of the Bitcoin
+		/// key on Bitcoin, an EVM address otherwise. Repeated for several payments.
+		#[arg(long = "keep-offer")]
+		keep_offers: Vec<String>,
 		#[command(flatten)]
 		pay: PayArgs,
 	},
@@ -105,6 +111,9 @@ pub struct PayArgs {
 	/// address, and the maker claims the payments with it.
 	#[arg(long, env = "TESSERAX_BTC_KEY_FILE")]
 	btc_key_file: Option<PathBuf>,
+	/// Create the key of --btc-key-file if the file does not exist, readable by its owner only.
+	#[arg(long)]
+	create_btc_key: bool,
 	/// Esplora API of the Bitcoin network, instead of the one of mempool.space.
 	#[arg(long)]
 	esplora: Option<String>,
@@ -207,6 +216,64 @@ impl SavedBitcoinLock {
 	}
 }
 
+/// A new Bitcoin key in WIF at `path`, written once and readable by its owner only.
+fn create_btc_key(path: &PathBuf, mainnet: bool) -> Result<()> {
+	use std::io::Write;
+	let secret = loop {
+		let mut bytes = [0u8; 32];
+		getrandom::fill(&mut bytes).map_err(error)?;
+		if let Ok(secret) = btc::SecretKey::from_slice(&bytes) {
+			break secret;
+		}
+	};
+	let network = if mainnet { btc::BitcoinNetwork::Bitcoin } else { btc::BitcoinNetwork::Testnet4 };
+	if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
+		std::fs::create_dir_all(dir).map_err(error)?;
+	}
+	let mut options = std::fs::OpenOptions::new();
+	options.write(true).create_new(true);
+	#[cfg(unix)]
+	std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+	let mut file = options.open(path).map_err(|e| format!("{}: {e}", path.display()))?;
+	writeln!(file, "{}", BitcoinKey::new(secret, network).to_wif()).map_err(error)?;
+	eprintln!("Created the Bitcoin key {}", path.display());
+	Ok(())
+}
+
+/// An offer the maker keeps open (`--keep-offer`).
+struct KeptOffer {
+	payment: Payment,
+	price: u128,
+	amount: Amount,
+	min: Amount,
+	payout: Vec<u8>,
+}
+
+fn kept_offer(spec: &str, pay: &PayArgs) -> Result<KeptOffer> {
+	let usage = || format!("{spec}: chain:asset:price:amount:min[:payout], such as bitcoin:btc:0.00001:1000:10");
+	let parts: Vec<_> = spec.split(':').collect();
+	let (chain, asset, price, amount, min) = match parts[..] {
+		[chain, asset, price, amount, min] | [chain, asset, price, amount, min, _] => (chain, asset, price, amount, min),
+		_ => return Err(usage()),
+	};
+	let payment = payment_named(chain, asset)?;
+	let payout = match (payment.chain, parts.get(5)) {
+		(Chain::Bitcoin, None) =>
+			CompressedPublicKey::from_private_key(&Secp256k1::new(), &pay.btc_key()?).map_err(error)?.to_bytes().to_vec(),
+		(Chain::Bitcoin, Some(_)) => return Err(format!("{spec}: on Bitcoin, the payout is the key of --btc-key-file")),
+		(_, Some(payout)) => match hex::decode(payout.trim_start_matches("0x")) {
+			Ok(address) if address.len() == 20 => address,
+			_ => return Err(format!("{spec}: the payout is an EVM address, 0x and 40 digits")),
+		},
+		(_, None) => return Err(usage()),
+	};
+	let (amount, min) = (tess(amount)?, tess(min)?);
+	if min.0 == 0 || min.0 > amount.0 {
+		return Err(format!("{spec}: the smallest trade is above zero and at most the amount"));
+	}
+	Ok(KeptOffer { payment, price: units(price, payment.decimals())?, amount, min, payout })
+}
+
 fn bitcoin_lock_path(w: &Wallet, hash: &[u8; 32]) -> PathBuf {
 	w.dir.join("swaps").join(format!("{}.btc.json", hex::encode(hash)))
 }
@@ -221,6 +288,9 @@ fn save_json(path: &PathBuf, value: &impl serde::Serialize) -> Result<()> {
 impl PayArgs {
 	fn btc_key(&self) -> Result<BitcoinKey> {
 		let path = self.btc_key_file.as_ref().ok_or("give the Bitcoin key with --btc-key-file")?;
+		if self.create_btc_key && !path.exists() {
+			create_btc_key(path, self.btc_network.as_deref() == Some("bitcoin"))?;
+		}
 		let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
 		BitcoinKey::from_wif(text.trim()).map_err(|_| format!("{}: not a Bitcoin private key in WIF", path.display()))
 	}
@@ -466,7 +536,10 @@ pub async fn swap(w: &mut Wallet, command: SwapCommand) -> Result<()> {
 			}
 			return Err(last);
 		},
-		SwapCommand::Make { account, interval, pay } => make(w, &account, interval, pay).await?,
+		SwapCommand::Make { account, interval, keep_offers, pay } => {
+			let keep = keep_offers.iter().map(|spec| kept_offer(spec, &pay)).collect::<Result<Vec<_>>>()?;
+			make(w, &account, interval, &keep, pay).await?
+		},
 	}
 	Ok(())
 }
@@ -619,7 +692,7 @@ fn maker_state_path(w: &Wallet, account: &str) -> PathBuf {
 	w.dir.join("swaps").join(format!("maker-{account}.json"))
 }
 
-async fn make(w: &mut Wallet, account: &str, interval: u64, args: PayArgs) -> Result<()> {
+async fn make(w: &mut Wallet, account: &str, interval: u64, keep: &[KeptOffer], args: PayArgs) -> Result<()> {
 	let key = w.key(account)?;
 	let maker = key.account_id();
 	let client = w.client().await?.clone();
@@ -632,6 +705,9 @@ async fn make(w: &mut Wallet, account: &str, interval: u64, args: PayArgs) -> Re
 	let mut chains: BTreeMap<String, Evm> = BTreeMap::new();
 	eprintln!("Maker of {} running: filling offers, collecting payments, refunding expired trades.", format_address(&maker));
 	loop {
+		if let Err(e) = keep_offers(&client, &key, &maker, keep).await {
+			eprintln!("Keeping the offers open: {e}");
+		}
 		if let Err(e) = round(&client, &key, &maker, &args, &mut chains, &mut state).await {
 			eprintln!("{e}");
 		}
@@ -639,6 +715,39 @@ async fn make(w: &mut Wallet, account: &str, interval: u64, args: PayArgs) -> Re
 		std::fs::write(&path, serde_json::to_vec(&state).map_err(error)?).map_err(error)?;
 		tokio::time::sleep(Duration::from_secs(interval)).await;
 	}
+}
+
+/// Offer again what `keep` asks for when the open offers of `maker` for its payment run low.
+async fn keep_offers(client: &Client, key: &tesserax_sdk::Keypair, maker: &AccountId, keep: &[KeptOffer]) -> Result<()> {
+	if keep.is_empty() {
+		return Ok(());
+	}
+	let offers = client.offers().await.map_err(error)?;
+	for kept in keep {
+		let open: u128 = offers
+			.iter()
+			.filter(|o| o.maker == *maker && o.payment == kept.payment && o.payout == kept.payout)
+			.map(|o| o.available.0)
+			.sum();
+		if open >= kept.min.0 {
+			continue;
+		}
+		let transferable = client.balance(maker).await.map_err(error)?.transferable;
+		if transferable.0 <= kept.amount.0 {
+			eprintln!(
+				"Offering {} TESS at {}: the account has {transferable} TESS, not enough with the deposit and the fee",
+				kept.amount,
+				price_text(kept.payment, kept.price)
+			);
+			continue;
+		}
+		let id = client
+			.create_offer(key, kept.payment, kept.price, kept.amount, kept.min, kept.payout.clone())
+			.await
+			.map_err(error)?;
+		eprintln!("Offer #{id} open: {} TESS at {}", kept.amount, price_text(kept.payment, kept.price));
+	}
+	Ok(())
 }
 
 async fn round(

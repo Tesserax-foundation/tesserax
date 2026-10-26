@@ -108,7 +108,7 @@ their blocks.
 ## Hosting
 
 The testnet runs on Railway, project `tesserax`, region `us-west2` next to the Supabase database of
-the explorer, in six services.
+the explorer, in seven services.
 
 ### `node`
 
@@ -232,6 +232,26 @@ the database of shares, balances and payouts (`pool.sqlite`): back both up.
   /bin/sh -c "exec /build/docker/from-source.sh --key-file /data/pool.key --create-key --db /data/pool.sqlite --node-stratum $NODE_HOST:3334 --node-rpc ws://$NODE_HOST:9944 --listen [::]:3333 --api [::]:8080 --behind-proxy --stratum-url $STRATUM_URL --network Testnet --name \"Tesserax Testnet Pool\" --explorer https://explorer.tesserax.app --min-payout 1 --payout-interval 30"
   ```
 
+- Restart policy: always.
+
+### `demo-maker`
+
+A maker selling TESS for testnet4 BTC, so that the market of the wallet always has an offer:
+`tesserax-wallet swap make` with `--keep-offer` ([swaps.md](swaps.md#using-it)). It mines
+nothing. Its account, the password of its keystore and its Bitcoin key are created on its first
+start and kept in its volume; they never leave the service. It offers the TESS sent to its
+account, 1,000 at a time, at 0.00001 BTC each, from 10 TESS, and collects the BTC paid on its
+Bitcoin key.
+
+- Source: `docker/Dockerfile.from-source`, compiled when it starts like the node, and deployed
+  with `railway up --service demo-maker --detach`.
+- Variables: `NODE_URL=ws://${{node.RAILWAY_PRIVATE_DOMAIN}}:9944`, `RAILWAY_RUN_UID=0`,
+  `CARGO_BUILD_JOBS=6`; `KEEP_OFFER` changes its offers (`bitcoin:btc:0.00001:1000:10` by
+  default).
+- Volume: mounted on `/data`, its keystore (`wallet/`), its password (`maker.password`), its
+  Bitcoin key (`btc.wif`) and what it has read (`wallet/swaps/`): back them up.
+- Start command: `/build/docker/demo-maker.sh`. Its log starts with the address of its account,
+  to send TESS to.
 - Restart policy: always.
 
 ### `rig`
