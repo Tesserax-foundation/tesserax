@@ -676,6 +676,14 @@ mod tests {
 		// The refund signed with the key of the Tesserax wallet spends it.
 		let spent = &lock_tx.output[lock.outpoint.vout as usize];
 		bitcoin::consensus::verify_script(&spent.script_pubkey, 0, spent.value, &field("refund_tx")).unwrap();
+
+		// The claim of the maker spends it with the secret, and sweeps the notice to its key.
+		let claim: Transaction = consensus::deserialize(&field("claim_tx")).unwrap();
+		assert_eq!(claim.input[0].previous_output, lock.outpoint);
+		bitcoin::consensus::verify_script(&spent.script_pubkey, 0, spent.value, &field("claim_tx")).unwrap();
+		let notice = &lock_tx.output[1];
+		assert_eq!(claim.input[1].previous_output, OutPoint { txid: lock_tx.compute_txid(), vout: 1 });
+		bitcoin::consensus::verify_script(&notice.script_pubkey, 1, notice.value, &field("claim_tx")).unwrap();
 	}
 
 	/// A payment locked, claimed and taken back by the Python SDK (`sdk-python/tests/test_bitcoin.py`),

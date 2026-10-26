@@ -14,7 +14,7 @@
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import * as btc from "@scure/btc-signer";
-import { parseAddress } from "./keys.js";
+import { formatAddress, parseAddress } from "./keys.js";
 
 /** Satoshis sent to the address of the maker to notify it, above the dust limit of P2WPKH. */
 export const NOTICE_SATS = 330n;
@@ -113,6 +113,106 @@ export function refundKey(seed: Uint8Array, hash: Uint8Array): { secretKey: Uint
   // A digest outside the scalars of the curve is hashed again: about one chance in 2^128.
   while (!secp256k1.utils.isValidSecretKey(secretKey)) secretKey = sha256(secretKey);
   return { secretKey, publicKey: secp256k1.getPublicKey(secretKey, true) };
+}
+
+/** What an announcement says, with the refund key or without it (`TX`, 78 bytes): the refund key
+ * is then the key of the first input. */
+export interface ReadAnnouncement extends Omit<Announcement, "refund"> {
+  refund?: Uint8Array;
+}
+
+/** The announcement of `data`, the bytes of an OP_RETURN output, if it is one. */
+export function decodeAnnouncement(data: Uint8Array): ReadAnnouncement | undefined {
+  const magic = new TextDecoder().decode(data.slice(0, 2));
+  if (!((magic === "TX" && data.length === 78) || (magic === "TR" && data.length === 111))) return undefined;
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  return {
+    offer: Number(view.getBigUint64(2, true)),
+    taker: formatAddress(data.slice(10, 42)),
+    hash: data.slice(42, 74),
+    timelock: view.getUint32(74, true),
+    refund: magic === "TR" ? data.slice(78, 111) : undefined,
+  };
+}
+
+/** The key a maker of the web wallet claims its payments with, derived from the seed of its
+ * account: a browser wallet could not sign the claim of a script. */
+export function makerKey(seed: Uint8Array): { secretKey: Uint8Array; publicKey: Uint8Array } {
+  const domain = new TextEncoder().encode("tesserax-swap-maker");
+  let secretKey = sha256(new Uint8Array([...domain, ...seed]));
+  while (!secp256k1.utils.isValidSecretKey(secretKey)) secretKey = sha256(secretKey);
+  return { secretKey, publicKey: secp256k1.getPublicKey(secretKey, true) };
+}
+
+/** The payment the raw transaction `raw` locks for the maker of key `maker`, if it is one: its
+ * output, the script it rebuilds from the announcement, the offer and the Tesserax account of the
+ * taker. */
+export function findLock(raw: Uint8Array, maker: Uint8Array): (BitcoinLock & { offer: number; taker: string }) | undefined {
+  const tx = btc.Transaction.fromRaw(raw, { allowUnknownInputs: true, allowUnknownOutputs: true, disableScriptCheck: true });
+  let announcement: ReadAnnouncement | undefined;
+  for (let i = 0; i < tx.outputsLength && !announcement; i++) {
+    const script = tx.getOutput(i).script;
+    if (!script || script[0] !== 0x6a) continue;
+    try {
+      const [, data] = btc.Script.decode(script);
+      if (data instanceof Uint8Array) announcement = decodeAnnouncement(data);
+    } catch {
+      // Not a push.
+    }
+  }
+  if (!announcement) return undefined;
+  let taker = announcement.refund;
+  if (!taker) {
+    const witness = tx.inputsLength > 0 ? tx.getInput(0).finalScriptWitness : undefined;
+    if (!witness || witness.length !== 2 || witness[1].length !== 33) return undefined;
+    taker = witness[1];
+  }
+  const htlc: Htlc = { hash: announcement.hash, maker, taker, timelock: announcement.timelock };
+  const expected = htlcOutputScript(htlc);
+  for (let vout = 0; vout < tx.outputsLength; vout++) {
+    const output = tx.getOutput(vout);
+    if (output.script && equal(output.script, expected)) {
+      return { txid: tx.id, vout, amount: output.amount!, htlc, offer: announcement.offer, taker: announcement.taker };
+    }
+  }
+  return undefined;
+}
+
+const equal = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+const signDigest = (digest: Uint8Array, secretKey: Uint8Array) =>
+  new Uint8Array([...secp256k1.sign(digest, secretKey, { prehash: false, format: "der", lowS: true }), btc.SigHash.ALL]);
+
+/** The transaction the maker collects `lock` with `secret`, to `destination`, with its key; it also
+ * sweeps `notices`, outputs paid to the P2WPKH address of that key, such as the notices of
+ * payments. Returns it raw. */
+export function claimTransaction(
+  lock: BitcoinLock,
+  secret: Uint8Array,
+  secretKey: Uint8Array,
+  destination: string,
+  feeRate: number,
+  network: BitcoinNetwork,
+  notices: Array<{ txid: string; vout: number; amount: bigint }> = [],
+): Uint8Array {
+  const script = htlcScript(lock.htlc);
+  const publicKey = secp256k1.getPublicKey(secretKey, true);
+  const own = btc.p2wpkh(publicKey);
+  const total = lock.amount + notices.reduce((sum, n) => sum + n.amount, 0n);
+  // The input of the script with its witness of about 215 bytes, the P2WPKH ones, one output.
+  const fee = BigInt(Math.ceil((11 + 95 + 68 * notices.length + 31) * feeRate));
+  if (total - fee < 294n) throw new Error(`the fee takes the ${total} satoshis collected`);
+  const tx = new btc.Transaction({ allowUnknownInputs: true, allowUnknownOutputs: true });
+  tx.addInput({ txid: lock.txid, index: lock.vout, witnessUtxo: { script: htlcOutputScript(lock.htlc), amount: lock.amount }, witnessScript: script, sequence: 0xfffffffd });
+  for (const n of notices) tx.addInput({ txid: n.txid, index: n.vout, witnessUtxo: { script: own.script, amount: n.amount }, sequence: 0xfffffffd });
+  tx.addOutput({ script: btc.OutScript.encode(btc.Address(params(network)).decode(destination)), amount: total - fee });
+  const claim = signDigest(tx.preimageWitnessV0(0, script, btc.SigHash.ALL, lock.amount), secretKey);
+  // The code of a P2WPKH input: the P2PKH script of its key.
+  const code = btc.OutScript.encode({ type: "pkh", hash: own.hash! });
+  const swept = notices.map((n, i) => signDigest(tx.preimageWitnessV0(i + 1, code, btc.SigHash.ALL, n.amount), secretKey));
+  tx.updateInput(0, { finalScriptWitness: [claim, secret, new Uint8Array([1]), script] }, true);
+  swept.forEach((signature, i) => tx.updateInput(i + 1, { finalScriptWitness: [signature, publicKey] }, true));
+  return tx.extract();
 }
 
 /** An output of the wallet paying, with the transaction that created it. */
@@ -267,6 +367,14 @@ export class Esplora {
   async utxos(address: string): Promise<Array<{ txid: string; vout: number; amount: bigint; confirmed: boolean }>> {
     const found = (await (await this.get(`/address/${address}/utxo`)).json()) as Array<{ txid: string; vout: number; value: number; status: { confirmed: boolean } }>;
     return found.map((u) => ({ txid: u.txid, vout: u.vout, amount: BigInt(u.value), confirmed: u.status.confirmed }));
+  }
+
+  /** Transactions of `address`, the latest first: those of the mempool, then the confirmed ones
+   * after `after`, if given, 25 at a time. */
+  async addressTransactions(address: string, after?: string): Promise<Array<{ txid: string; height?: number; time?: number }>> {
+    const path = after ? `/address/${address}/txs/chain/${after}` : `/address/${address}/txs`;
+    const found = (await (await this.get(path)).json()) as Array<{ txid: string; status: { confirmed: boolean; block_height?: number; block_time?: number } }>;
+    return found.map((t) => ({ txid: t.txid, height: t.status.confirmed ? t.status.block_height : undefined, time: t.status.block_time }));
   }
 
   async rawTransaction(txid: string): Promise<Uint8Array> {

@@ -8,6 +8,8 @@
  */
 
 import { sha256 } from "@noble/hashes/sha2.js";
+import { getDynamicBuilder, getLookupFn } from "@polkadot-api/metadata-builders";
+import { decAnyMetadata, getSs58AddressInfo, unifyMetadata } from "@polkadot-api/substrate-bindings";
 import { Enum, type TxEvent } from "polkadot-api";
 import { filter, lastValueFrom, map, take } from "rxjs";
 import {
@@ -111,7 +113,15 @@ export type SwapEvent =
 const bytes = (value: unknown): Uint8Array =>
   value instanceof Uint8Array ? value : typeof value === "string" ? fromHex(value) : (value as { asBytes(): Uint8Array }).asBytes();
 
-const account = (value: unknown) => formatAddress(parseAddress(value as string));
+/** An account as a Tesserax address, from a decoded value: an address of any SS58 format, or
+ * hexadecimal. */
+const account = (value: unknown) => {
+  const text = value as string;
+  if (text.startsWith("0x")) return formatAddress(fromHex(text));
+  const info = getSs58AddressInfo(text);
+  if (!info.isValid) throw new Error(`invalid address ${text}`);
+  return formatAddress(info.publicKey);
+};
 
 const paymentOf = (p: { chain: { type: string }; asset: { type: string } }): Payment => ({
   chain: p.chain.type as SwapChain,
@@ -282,11 +292,15 @@ export class Swaps {
     return this.client.submit(this.api.tx.Swaps.refund({ id: BigInt(id) }), signer);
   }
 
+  private eventRecords(hash: string): Promise<EventRecord[]> {
+    return eventRecordsAt(this.client, hash);
+  }
+
   /** What happened to trades in block `number` of the best chain. */
   async events(number: number): Promise<SwapEvent[]> {
     const hash = await this.client.contracts.blockHash(number);
     if (!hash) return [];
-    const records = (await this.api.query.System.Events.getValue({ at: hash })) as { event: { type: string; value: { type: string; value: any } } }[];
+    const records = await this.eventRecords(hash);
     const found: SwapEvent[] = [];
     for (const { event } of records) {
       if (event.type !== "Swaps") continue;
@@ -297,6 +311,33 @@ export class Swaps {
       else if (event.value.type === "Refunded") found.push({ type: "Refunded", trade: Number(e.trade), maker: account(e.maker), amount: new Amount(BigInt(e.amount)) });
     }
     return found;
+  }
+}
+
+type EventRecord = { event: { type: string; value: { type: string; value: any } } };
+
+/** Decoders of the events of a chain, from its metadata, by client. */
+const eventCodecs = new WeakMap<object, Promise<{ key: string; decode: (hex: string) => EventRecord[] }>>();
+
+/** The events of the block `hash`. polkadot-api reads only the blocks it follows: the events of an
+ * older block, which an archive node keeps, are read through the legacy RPC and decoded with the
+ * metadata of the chain. */
+async function eventRecordsAt(client: TesseraxClient, hash: string): Promise<EventRecord[]> {
+  try {
+    return (await client.api.query.System.Events.getValue({ at: hash })) as EventRecord[];
+  } catch {
+    let codec = eventCodecs.get(client);
+    if (!codec) {
+      codec = (async () => {
+        const metadata = unifyMetadata(decAnyMetadata(await client.client._request<string>("state_getMetadata", [])));
+        const events = getDynamicBuilder(getLookupFn(metadata)).buildStorage("System", "Events");
+        return { key: events.keys.enc(), decode: (hex: string) => events.value.dec(hex) as EventRecord[] };
+      })();
+      eventCodecs.set(client, codec);
+    }
+    const { key, decode } = await codec;
+    const raw = await client.client._request<string | null>("state_getStorage", [key, hash]);
+    return raw ? decode(raw) : [];
   }
 }
 

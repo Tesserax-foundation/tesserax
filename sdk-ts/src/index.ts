@@ -60,8 +60,12 @@ export {
   NOTICE_SATS,
   addressOfKey,
   bitcoinNetworkFor,
+  claimTransaction,
+  decodeAnnouncement,
   defaultEsplora,
   encodeAnnouncement,
+  findLock,
+  makerKey,
   extractSigned,
   htlcOutputScript,
   htlcScript,
@@ -74,6 +78,7 @@ export {
   type BitcoinNetwork,
   type Htlc,
   type PayingUtxo,
+  type ReadAnnouncement,
 } from "./bitcoin.js";
 export {
   EVM_CHAINS,
