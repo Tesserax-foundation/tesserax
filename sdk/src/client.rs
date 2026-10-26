@@ -16,8 +16,14 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use subxt::{
-	backend::{legacy::LegacyRpcMethods, rpc::RpcClient},
+	backend::{
+		legacy::{LegacyBackend, LegacyRpcMethods},
+		rpc::RpcClient,
+		BackendExt,
+	},
+	client::RuntimeVersion,
 	config::DefaultExtrinsicParamsBuilder,
+	Metadata,
 	tx::{Payload, TxStatus},
 	utils::{MultiAddress, H256},
 	OnlineClient,
@@ -266,8 +272,51 @@ impl Client {
 		} else {
 			RpcClient::from_insecure_url(url).await.map_err(subxt::Error::from)?
 		};
-		let api = OnlineClient::<TesseraxConfig>::from_rpc_client(rpc.clone()).await?;
-		Ok(Client { api, rpc: LegacyRpcMethods::new(rpc) })
+		// The runtime and the metadata of the best block: `subxt` would take the metadata of the
+		// finalized block, 60 blocks deep, and miss the calls of a runtime upgrade for 18 minutes.
+		let backend = std::sync::Arc::new(LegacyBackend::builder().build(rpc.clone()));
+		let methods = LegacyRpcMethods::<TesseraxConfig>::new(rpc);
+		let best = Self::best_hash(&methods).await?;
+		let version = methods.state_get_runtime_version(Some(best)).await.map_err(subxt::Error::from)?;
+		let metadata = Self::metadata_at(&*backend, best).await?;
+		let genesis = methods.genesis_hash().await.map_err(subxt::Error::from)?;
+		let version =
+			RuntimeVersion { spec_version: version.spec_version, transaction_version: version.transaction_version };
+		let api = OnlineClient::from_backend_with(genesis, version, metadata, backend)?;
+		Ok(Client { api, rpc: methods })
+	}
+
+	async fn best_hash(rpc: &LegacyRpcMethods<TesseraxConfig>) -> Result<H256> {
+		rpc.chain_get_block_hash(None)
+			.await
+			.map_err(|e| Error::Node(subxt::Error::from(e)))?
+			.ok_or_else(|| Error::NotFound("best block".into()))
+	}
+
+	/// The metadata of the runtime of the block `at`, in the newest version both sides know.
+	async fn metadata_at(backend: &(impl BackendExt<TesseraxConfig> + ?Sized), at: H256) -> Result<Metadata> {
+		for version in [16, 15] {
+			if let Ok(metadata) = backend.metadata_at_version(version, at).await {
+				return Ok(metadata);
+			}
+		}
+		Ok(backend.legacy_metadata(at).await?)
+	}
+
+	/// Follow a runtime upgrade in the best block `at`: its metadata, for the new calls and storage,
+	/// and its version, which transactions sign.
+	async fn follow_runtime(&self, at: H256) -> Result<()> {
+		let version = self.rpc.state_get_runtime_version(Some(at)).await.map_err(subxt::Error::from)?;
+		let current = self.api.runtime_version();
+		if version.spec_version == current.spec_version && version.transaction_version == current.transaction_version {
+			return Ok(());
+		}
+		self.api.set_metadata(Self::metadata_at(self.api.backend(), at).await?);
+		self.api.set_runtime_version(RuntimeVersion {
+			spec_version: version.spec_version,
+			transaction_version: version.transaction_version,
+		});
+		Ok(())
 	}
 
 	/// The underlying `subxt` client.
@@ -295,15 +344,12 @@ impl Client {
 	}
 
 	/// Hash and number of the best block. Proof-of-work blocks are final only 60 blocks deep, so
-	/// the client reads the state of the best block and builds transactions on top of it.
+	/// the client reads the state of the best block and builds transactions on top of it, and
+	/// follows the runtime of that block, upgraded or not.
 	pub(crate) async fn best(&self) -> Result<(H256, u32)> {
 		let rpc_error = |e| Error::Node(subxt::Error::from(e));
-		let hash = self
-			.rpc
-			.chain_get_block_hash(None)
-			.await
-			.map_err(rpc_error)?
-			.ok_or_else(|| Error::NotFound("best block".into()))?;
+		let hash = Self::best_hash(&self.rpc).await?;
+		self.follow_runtime(hash).await?;
 		let header = self
 			.rpc
 			.chain_get_header(Some(hash))
