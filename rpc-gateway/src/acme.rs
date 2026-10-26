@@ -39,7 +39,7 @@ pub enum Error {
 }
 
 pub struct Acme {
-	pub domain: String,
+	pub domains: Vec<String>,
 	pub directory: String,
 	pub contact: Option<String>,
 	pub state: PathBuf,
@@ -58,11 +58,16 @@ impl Acme {
 		self.state.join(name)
 	}
 
-	/// The certificate of the state directory, if it is there and valid for the domain.
+	/// The names of the certificate, for the logs.
+	fn names(&self) -> String {
+		self.domains.join(", ")
+	}
+
+	/// The certificate of the state directory, if it is there and valid for every domain.
 	pub async fn stored(&self) -> Option<Certificate> {
 		let chain = tokio::fs::read(self.path("certificate.pem")).await.ok()?;
 		let key = tokio::fs::read(self.path("key.pem")).await.ok()?;
-		match Certificate::from_pem(&chain, &key, &self.domain) {
+		match Certificate::from_pem(&chain, &key, &self.domains) {
 			Ok(certificate) if certificate.not_after > now() => Some(certificate),
 			Ok(_) => None,
 			Err(e) => {
@@ -78,7 +83,7 @@ impl Acme {
 		tokio::fs::create_dir_all(&self.state).await.map_err(|e| Error::Io(self.state.clone(), e))?;
 		match self.stored().await {
 			Some(certificate) => {
-				tracing::info!("Certificate of {} valid until {}", self.domain, certificate.not_after);
+				tracing::info!("Certificate of {} valid until {}", self.names(), certificate.not_after);
 				certificates.set(certificate);
 			},
 			None => {
@@ -96,7 +101,7 @@ impl Acme {
 				match self.obtain().await {
 					Ok(certificate) => certificates.set(certificate),
 					// The current certificate stays served; the next round tries again.
-					Err(e) => tracing::error!("Renewing the certificate of {}: {e}", self.domain),
+					Err(e) => tracing::error!("Renewing the certificate of {}: {e}", self.names()),
 				}
 			}
 		});
@@ -131,9 +136,10 @@ impl Acme {
 
 	/// Obtains a new certificate and writes it to the state directory.
 	async fn obtain(&self) -> Result<Certificate, Error> {
-		tracing::info!("Obtaining a certificate for {}", self.domain);
+		tracing::info!("Obtaining a certificate for {}", self.names());
 		let account = self.account().await?;
-		let mut order = account.new_order(&NewOrder::new(&[Identifier::Dns(self.domain.clone())])).await?;
+		let identifiers: Vec<_> = self.domains.iter().cloned().map(Identifier::Dns).collect();
+		let mut order = account.new_order(&NewOrder::new(&identifiers)).await?;
 
 		let mut records = Vec::new();
 		let result = self.authorize(&mut order, &mut records).await;
@@ -146,10 +152,10 @@ impl Acme {
 
 		let key = order.finalize().await?;
 		let chain = order.poll_certificate(&RetryPolicy::new().timeout(Duration::from_secs(180))).await?;
-		let certificate = Certificate::from_pem(chain.as_bytes(), key.as_bytes(), &self.domain)?;
+		let certificate = Certificate::from_pem(chain.as_bytes(), key.as_bytes(), &self.domains)?;
 		write_private(&self.path("key.pem"), key.as_bytes()).await?;
 		write_private(&self.path("certificate.pem"), chain.as_bytes()).await?;
-		tracing::info!("Certificate of {} obtained, valid until {}", self.domain, certificate.not_after);
+		tracing::info!("Certificate of {} obtained, valid until {}", self.names(), certificate.not_after);
 		Ok(certificate)
 	}
 
@@ -159,14 +165,14 @@ impl Acme {
 		let mut authorizations = order.authorizations();
 		while let Some(result) = authorizations.next().await {
 			let mut authorization = result?;
+			let domain = authorization.identifier().identifier_name();
 			match authorization.status {
 				AuthorizationStatus::Pending => {},
 				AuthorizationStatus::Valid => continue,
-				status => return Err(Error::Authorization(self.domain.clone(), status)),
+				status => return Err(Error::Authorization(domain, status)),
 			}
-			let mut challenge = authorization
-				.challenge(ChallengeType::Dns01)
-				.ok_or_else(|| Error::NoDnsChallenge(self.domain.clone()))?;
+			let mut challenge =
+				authorization.challenge(ChallengeType::Dns01).ok_or_else(|| Error::NoDnsChallenge(domain.clone()))?;
 			let name = format!("_acme-challenge.{}", challenge.identifier().identifier_name());
 			let value = challenge.key_authorization().dns_value();
 			records.push(self.dns.add_txt(&name, &value).await?);

@@ -50,6 +50,8 @@ VERCEL_TOKEN=<token> tesserax-rpc-gateway \
   --upstream 127.0.0.1:9945 --state /var/lib/tesserax-rpc-gateway
 ```
 
+- `--domain`: the name of the gateway, or several separated by commas (`rpc.example.com,old.example.com`),
+  all named by one certificate: a service keeps its old name while its clients move.
 - `--upstream`: an RPC endpoint of the node with the safe methods and a rate limit, such as
   `--experimental-rpc-endpoint listen-addr=127.0.0.1:9945,methods=safe,rate-limit=600`.
 - Certificate: obtained from Let's Encrypt with DNS-01 challenges, written in the zone through the

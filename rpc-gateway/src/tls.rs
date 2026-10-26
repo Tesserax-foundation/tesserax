@@ -61,13 +61,13 @@ pub struct Certificate {
 }
 
 impl Certificate {
-	/// A certificate chain and its private key, PEM encoded, for `domain`.
-	pub fn from_pem(chain: &[u8], key: &[u8], domain: &str) -> Result<Self, Error> {
+	/// A certificate chain and its private key, PEM encoded, for every name of `domains`.
+	pub fn from_pem(chain: &[u8], key: &[u8], domains: &[String]) -> Result<Self, Error> {
 		let chain = CertificateDer::pem_slice_iter(chain)
 			.collect::<Result<Vec<_>, _>>()
 			.map_err(|e| Error::Chain(e.to_string()))?;
 		let leaf = chain.first().ok_or_else(|| Error::Chain("no certificate".into()))?;
-		let (not_before, not_after) = check_leaf(leaf, domain)?;
+		let (not_before, not_after) = check_leaf(leaf, domains)?;
 		let key = PrivateKeyDer::from_pem_slice(key).map_err(|e| Error::Key(e.to_string()))?;
 		let key = provider().key_provider.load_private_key(key).map_err(|e| Error::Key(e.to_string()))?;
 		let key = CertifiedKey::new(chain, key);
@@ -82,8 +82,8 @@ impl Certificate {
 	}
 }
 
-/// The validity of the leaf certificate, checked to name `domain`.
-fn check_leaf(leaf: &CertificateDer<'_>, domain: &str) -> Result<(i64, i64), Error> {
+/// The validity of the leaf certificate, checked to name every domain of `domains`.
+fn check_leaf(leaf: &CertificateDer<'_>, domains: &[String]) -> Result<(i64, i64), Error> {
 	let (_, certificate) = x509_parser::parse_x509_certificate(leaf).map_err(|e| Error::Certificate(e.to_string()))?;
 	let names = certificate
 		.subject_alternative_name()
@@ -99,7 +99,7 @@ fn check_leaf(leaf: &CertificateDer<'_>, domain: &str) -> Result<(i64, i64), Err
 				.collect::<Vec<_>>()
 		})
 		.unwrap_or_default();
-	if !names.iter().any(|name| name == &domain.to_ascii_lowercase()) {
+	if let Some(domain) = domains.iter().find(|domain| !names.contains(&domain.to_ascii_lowercase())) {
 		return Err(Error::Certificate(format!("not valid for {domain} (names: {})", names.join(", "))));
 	}
 	let validity = certificate.validity();

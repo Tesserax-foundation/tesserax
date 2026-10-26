@@ -33,9 +33,10 @@ struct Cli {
 	/// RPC of the node, `host:port`: an endpoint serving the safe methods only, with a rate limit.
 	#[arg(long, env = "UPSTREAM")]
 	upstream: String,
-	/// Domain of the gateway, which its certificate names.
-	#[arg(long, env = "DOMAIN")]
-	domain: String,
+	/// Domains of the gateway, which its certificate names: one, or several separated by commas,
+	/// such as the new name of a service and its old one while clients move.
+	#[arg(long = "domain", env = "DOMAIN", value_delimiter = ',', required = true)]
+	domains: Vec<String>,
 	/// Certificate chain, PEM. With `--key`, served instead of obtaining one.
 	#[arg(long, env = "CERTIFICATE", requires = "key")]
 	certificate: Option<PathBuf>,
@@ -90,7 +91,7 @@ async fn run(cli: Cli) -> Result<(), String> {
 		(Some(certificate), Some(key)) => {
 			let chain = std::fs::read(certificate).map_err(|e| format!("{}: {e}", certificate.display()))?;
 			let key = std::fs::read(key).map_err(|e| format!("{}: {e}", key.display()))?;
-			certificates.set(tls::Certificate::from_pem(&chain, &key, &cli.domain).map_err(|e| e.to_string())?);
+			certificates.set(tls::Certificate::from_pem(&chain, &key, &cli.domains).map_err(|e| e.to_string())?);
 		},
 		_ => {
 			let zone = cli.dns_zone.clone().ok_or("set --dns-zone, or --certificate and --key")?;
@@ -98,7 +99,7 @@ async fn run(cli: Cli) -> Result<(), String> {
 			// The secret leaves the environment once read.
 			std::env::remove_var("VERCEL_TOKEN");
 			let acme = acme::Acme {
-				domain: cli.domain.clone(),
+				domains: cli.domains.clone(),
 				directory: cli.acme_directory.clone(),
 				contact: cli.acme_contact.clone(),
 				state: cli.state.clone(),
@@ -118,13 +119,9 @@ async fn run(cli: Cli) -> Result<(), String> {
 		handshake_timeout: Duration::from_secs(cli.handshake_timeout),
 		stats: stats.clone(),
 	});
-	tracing::info!(
-		"Serving https://{} and wss://{} on {}, relayed to {}",
-		cli.domain,
-		cli.domain,
-		cli.listen,
-		cli.upstream
-	);
+	for domain in &cli.domains {
+		tracing::info!("Serving https://{domain} and wss://{domain} on {}, relayed to {}", cli.listen, cli.upstream);
+	}
 
 	tokio::spawn({
 		let proxy = proxy.clone();
