@@ -9,12 +9,12 @@ test TESS: they have no value, and the testnet may be reset.
 |---|---|
 | Chain | `tesserax --chain testnet`, [`chain-specs/testnet.json`](../chain-specs/testnet.json) |
 | Genesis hash | `0xc2f9cb03897c5ad30fff2f93debaa8b4a6e08f37a12270e107c71eb1ad39e5d1` |
-| Bootnode | `/dns/boot.tesserax.app/tcp/28385/p2p/QmUAEp2bK2V3ADJkZym99dAEZZBN6WccwLecjfAFzpDWGo` |
-| Public RPC | `wss://rpc.tesserax.app:21207`, post-quantum TLS ([rpc.md](rpc.md)) |
-| Explorer | https://explorer.tesserax.app |
+| Bootnode | `/dns/testnet-boot.tesserax.app/tcp/28385/p2p/QmUAEp2bK2V3ADJkZym99dAEZZBN6WccwLecjfAFzpDWGo` |
+| Public RPC | `wss://testnet-rpc.tesserax.app:21207`, post-quantum TLS ([rpc.md](rpc.md)) |
+| Explorer | https://testnet-explorer.tesserax.app |
 | Wallet | https://wallet.tesserax.app |
 | Faucet | https://faucet.tesserax.app |
-| Mining pool | https://pool.tesserax.app, stratum `stratum.tesserax.app:25202` |
+| Mining pool | https://testnet-pool.tesserax.app, stratum `testnet-stratum.tesserax.app:25202` |
 
 The specification holds the genesis state itself, runtime included, and the bootnodes: the node
 embeds it, and a node started with `--chain testnet` joins the testnet whatever the runtime it is
@@ -36,12 +36,12 @@ The quickest way to mine: no node to run, only the miner.
 3. Start it with your address and a name for the machine:
 
    ```bash
-   ./xmrig -a rx/tess -o stratum.tesserax.app:25202 -u <your address>.rig1 -p x
+   ./xmrig -a rx/tess -o testnet-stratum.tesserax.app:25202 -u <your address>.rig1 -p x
    ```
 
    On Windows: `xmrig.exe` instead of `./xmrig`. Mining at full speed takes about 2.5 GB of
    memory; on a machine with less, add `--randomx-mode=light`, several times slower.
-4. Follow your hashrate and balance on https://pool.tesserax.app with your address. A block is
+4. Follow your hashrate and balance on https://testnet-pool.tesserax.app with your address. A block is
    credited once it is 60 blocks deep; balances of 1 test TESS or more are paid every 30 minutes.
 
 The pool keeps 1% of each block for the fees of its payouts. See [pool.md](pool.md).

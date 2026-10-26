@@ -261,7 +261,7 @@ async fn post_quantum_client(url: &str) -> Result<jsonrpsee::core::client::Clien
 }
 
 impl Client {
-	/// Connect to the node at `url`, such as `wss://rpc.tesserax.app:21207`, or `ws://127.0.0.1:9944`.
+	/// Connect to the node at `url`, such as `wss://testnet-rpc.tesserax.app:21207`, or `ws://127.0.0.1:9944`.
 	///
 	/// `wss://` connections use TLS 1.3 with ML-KEM-768, alone or in the hybrid X25519MLKEM768, and
 	/// the certificate authorities of the system: a server without ML-KEM is refused. `ws://` is

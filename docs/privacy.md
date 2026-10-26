@@ -56,7 +56,7 @@ the TypeScript SDK opens in the Python SDK, and the other way round.
 import { Amount, Keypair, TesseraxClient } from "@tesserax/sdk";
 import { ShieldedAccount } from "@tesserax/sdk/shielded";
 
-const client = new TesseraxClient("wss://rpc.tesserax.app:21207");
+const client = new TesseraxClient("wss://testnet-rpc.tesserax.app:21207");
 const alice = Keypair.fromUri(phrase);
 const shielded = await ShieldedAccount.create(alice);
 await shielded.sync(client);
@@ -71,7 +71,7 @@ const state = shielded.state(); // ShieldedAccount.restore(alice, state) later
 # (shielded-wasi), run by wasmtime: one module for every platform.
 from tesserax import Amount, Client, Keypair, ShieldedAccount
 
-client = Client("wss://rpc.tesserax.app:21207")
+client = Client("wss://testnet-rpc.tesserax.app:21207")
 alice = Keypair.from_uri(phrase)
 shielded = ShieldedAccount.create(alice)
 shielded.sync(client)

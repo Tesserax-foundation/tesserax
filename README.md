@@ -222,7 +222,7 @@ repository) on `127.0.0.1:3333`, several times faster than the built-in miner. S
 rewards, automatic payouts, a dashboard and an API. See [docs/pool.md](docs/pool.md).
 
 The public testnet, the one the explorer and the web wallet follow, is described in
-[docs/testnet.md](docs/testnet.md): `tesserax --chain testnet` joins it. Its public RPC, `wss://rpc.tesserax.app:21207`, is served by
+[docs/testnet.md](docs/testnet.md): `tesserax --chain testnet` joins it. Its public RPC, `wss://testnet-rpc.tesserax.app:21207`, is served by
 `tesserax-rpc-gateway` (`rpc-gateway/`) with post-quantum TLS: see [docs/rpc.md](docs/rpc.md).
 
 ## Tests

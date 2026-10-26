@@ -107,7 +107,7 @@ npx @parity/resolc@1.4.0 --bin --abi -o out Token.sol
 import { readFileSync } from "node:fs";
 import { ContractReverted, Keypair, TesseraxClient, toH160 } from "@tesserax/sdk";
 
-const client = new TesseraxClient("wss://rpc.tesserax.app:21207");
+const client = new TesseraxClient("wss://testnet-rpc.tesserax.app:21207");
 const alice = Keypair.fromUri(process.env.TESSERAX_KEY!);
 const bob = "te...";
 
@@ -149,7 +149,7 @@ string, tuples are objects or arrays.
 import json
 from tesserax import Client, ContractReverted, Keypair, to_h160
 
-client = Client("wss://rpc.tesserax.app:21207")
+client = Client("wss://testnet-rpc.tesserax.app:21207")
 alice = Keypair.from_uri(open("alice.key").read())
 bob = "te..."
 
@@ -180,7 +180,7 @@ Values follow `eth-abi`: integers are `int`, `address` a checksummed `0x` string
 ```rust
 use tesserax_sdk::{contracts::{h160, DynSolValue, JsonAbi, U256}, Client, Error, Keypair};
 
-let client = Client::connect("wss://rpc.tesserax.app:21207").await?;
+let client = Client::connect("wss://testnet-rpc.tesserax.app:21207").await?;
 let alice = Keypair::from_uri(&std::fs::read_to_string("alice.key")?)?;
 let bob = tesserax_sdk::parse_address("te...")?;
 

@@ -32,9 +32,9 @@ The public repositories and the services of the testnet:
   extension and its desktop application;
 - [`tesserax-miner`](https://github.com/Tesserax-foundation/tesserax-miner): the `rx/tess` miner, for issues
   that affect the chain, such as a hash the network accepts but should not;
-- the testnet and its services: `wss://rpc.tesserax.app:21207`, https://wallet.tesserax.app,
-  https://explorer.tesserax.app, https://faucet.tesserax.app and https://pool.tesserax.app with
-  `stratum.tesserax.app:25202`.
+- the testnet and its services: `wss://testnet-rpc.tesserax.app:21207`, https://wallet.tesserax.app,
+  https://testnet-explorer.tesserax.app, https://faucet.tesserax.app and https://testnet-pool.tesserax.app with
+  `testnet-stratum.tesserax.app:25202`.
 
 Out of scope:
 

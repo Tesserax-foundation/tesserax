@@ -55,7 +55,7 @@ umask 077 && echo "<secret phrase>" > pool.key
 tesserax-pool --key-file pool.key \
   --node-stratum 127.0.0.1:3334 --node-rpc ws://127.0.0.1:9944 \
   --listen 0.0.0.0:3333 --api 0.0.0.0:8080 \
-  --stratum-url pool.example.com:3333 --explorer https://explorer.tesserax.app \
+  --stratum-url pool.example.com:3333 --explorer https://testnet-explorer.tesserax.app \
   --fee 1 --min-payout 1
 ```
 

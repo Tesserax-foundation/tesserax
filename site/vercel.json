@@ -8,7 +8,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' wss://rpc.tesserax.app:21207 https://explorer.tesserax.app; frame-ancestors 'none'; base-uri 'self'; form-action 'none'"
+          "value": "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' wss://testnet-rpc.tesserax.app:21207 https://testnet-explorer.tesserax.app; frame-ancestors 'none'; base-uri 'self'; form-action 'none'"
         },
         {
           "key": "Strict-Transport-Security",

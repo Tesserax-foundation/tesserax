@@ -1,7 +1,7 @@
 // Live figures of the testnet: the best block from the public RPC, the supply from the explorer.
 
-const RPC = "wss://rpc.tesserax.app:21207";
-const SUPPLY = "https://explorer.tesserax.app/api/supply";
+const RPC = "wss://testnet-rpc.tesserax.app:21207";
+const SUPPLY = "https://testnet-explorer.tesserax.app/api/supply";
 
 function set(name: string, text: string, flash = false): void {
   for (const element of document.querySelectorAll<HTMLElement>(`[data-live="${name}"]`)) {

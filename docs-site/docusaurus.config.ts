@@ -60,7 +60,7 @@ const config: Config = {
         { to: "/lightpaper", label: "Lightpaper", position: "left" },
         { to: "/agents", label: "Guides", position: "left" },
         { href: "https://wallet.tesserax.app", label: "Wallet", position: "right" },
-        { href: "https://explorer.tesserax.app", label: "Explorer", position: "right" },
+        { href: "https://testnet-explorer.tesserax.app", label: "Explorer", position: "right" },
         { href: github, label: "GitHub", position: "right" },
       ],
     },
@@ -79,9 +79,9 @@ const config: Config = {
           title: "Use",
           items: [
             { label: "Wallet", href: "https://wallet.tesserax.app" },
-            { label: "Explorer", href: "https://explorer.tesserax.app" },
+            { label: "Explorer", href: "https://testnet-explorer.tesserax.app" },
             { label: "Faucet", href: "https://faucet.tesserax.app" },
-            { label: "Mining pool", href: "https://pool.tesserax.app" },
+            { label: "Mining pool", href: "https://testnet-pool.tesserax.app" },
           ],
         },
         {

@@ -148,7 +148,7 @@ supports none of its groups cannot connect at all.
 
 ### Public RPC
 
-Wallets and applications reach the network through `wss://rpc.tesserax.app:21207`, served by a
+Wallets and applications reach the network through `wss://rpc.tesserax.app`, served by a
 gateway that terminates TLS itself:
 
 | The client offers | The gateway uses |

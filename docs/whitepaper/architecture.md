@@ -114,7 +114,7 @@ the swap. Applying a runtime upgrade that a referendum authorized is the third.
 | Explorer | An indexer following the chain, reorganizations included, into a database, and a web application to search it |
 | Faucet | Free testnet TESS, limited per address and per IP |
 | Mining pool | Stratum server for rigs, verified shares, PPLNS rewards and automatic payouts |
-| RPC gateway | The public endpoint `wss://rpc.tesserax.app:21207`, with TLS 1.3 limited to ML-KEM key exchanges |
+| RPC gateway | The public endpoint `wss://rpc.tesserax.app`, with TLS 1.3 limited to ML-KEM key exchanges |
 | SDKs | Rust, TypeScript and Python libraries with the same operations, ML-DSA signing included |
 | MCP server | Tools for any agent speaking the Model Context Protocol |
 | Miner | A build of XMRig for the `rx/tess` algorithm, CPU only, without developer fee |

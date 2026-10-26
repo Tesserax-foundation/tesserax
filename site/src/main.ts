@@ -137,7 +137,7 @@ function consoleLine(): string {
   const roll = Math.random();
   const height = bestBlock() ?? 12_000;
   if (roll < 0.18) {
-    return `<span class="t">[${time()}]</span> <span class="hi">net</span>  new job from pool.tesserax.app diff 120001 algo rx/tess height ${height + 1}`;
+    return `<span class="t">[${time()}]</span> <span class="hi">net</span>  new job from testnet-pool.tesserax.app diff 120001 algo rx/tess height ${height + 1}`;
   }
   if (roll < 0.55) {
     shares++;

@@ -5,7 +5,7 @@
 //! # async fn example() -> Result<(), tesserax_sdk::Error> {
 //! use tesserax_sdk::{governance::{Conviction, Track}, Amount, Client, Keypair};
 //!
-//! let client = Client::connect("wss://rpc.tesserax.app:21207").await?;
+//! let client = Client::connect("wss://testnet-rpc.tesserax.app:21207").await?;
 //! let alice = Keypair::from_uri("<24 words>")?;
 //! let code = std::fs::read("tesserax_runtime.compact.compressed.wasm").unwrap();
 //! let index = client.propose_runtime_upgrade(&alice, &code).await?;

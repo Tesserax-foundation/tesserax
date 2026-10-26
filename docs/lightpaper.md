@@ -61,7 +61,7 @@ miner, SDKs in Rust, TypeScript and Python, and the MCP server. Runtime upgrades
 referendum. Mainnet comes next.
 
 **Try it:** [wallet.tesserax.app](https://wallet.tesserax.app) ·
-[explorer.tesserax.app](https://explorer.tesserax.app) ·
+[testnet-explorer.tesserax.app](https://testnet-explorer.tesserax.app) ·
 [faucet.tesserax.app](https://faucet.tesserax.app)
 
 **Go deeper:** read the [whitepaper](./whitepaper/index.md).

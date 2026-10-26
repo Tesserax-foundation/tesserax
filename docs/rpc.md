@@ -3,8 +3,8 @@
 The public RPC of the testnet:
 
 ```
-wss://rpc.tesserax.app:21207      websocket (subscriptions)
-https://rpc.tesserax.app:21207    HTTP, one JSON-RPC request per call
+wss://testnet-rpc.tesserax.app:21207      websocket (subscriptions)
+https://testnet-rpc.tesserax.app:21207    HTTP, one JSON-RPC request per call
 ```
 
 The gateway terminates TLS itself: no proxy or host in front of it sees the traffic in clear.
