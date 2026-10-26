@@ -219,10 +219,11 @@ cargo test --workspace
 ## Releases and CI
 
 - `.github/workflows/ci.yml`, on every push to `main` and every pull request: builds the node,
-  the wallet and the pool, runs every Rust test, checks that the benchmarks compile, then starts
-  a development chain with the node just built and runs the TypeScript and Python SDKs and the
-  explorer indexer against it. A push to `main` that passes is published as the Docker image
-  `ghcr.io/<owner>/tesserax:main`.
+  the wallet and the pool, runs every Rust test and checks that the benchmarks compile. A push to
+  `main` that passes is published as the Docker image `ghcr.io/<owner>/tesserax:main`.
+- `scripts/chain-tests.sh`, on our own machines: starts a development chain mined by the node
+  just built and runs the TypeScript and Python SDKs and the explorer indexer against it. It
+  mines, which the terms of hosted CI runners forbid, so no workflow runs it.
 - `.github/workflows/release.yml`, on a tag `v<version>` matching `node/Cargo.toml`: the
   runtime built reproducibly, the node, the wallet and the pool for Linux and macOS, a Docker
   image on the GitHub container registry, and a draft release with their checksums.

@@ -1,7 +1,8 @@
-# Builds and tests the node, the runtime, the wallet, the pool and the SDKs on every push to main
-# and every pull request, then runs the SDKs and the explorer indexer against a development chain
-# mined by the node just built. Once a push to main passes, its binaries are published as the
-# Docker image ghcr.io/<owner>/tesserax:main.
+# Builds and tests the node, the runtime, the wallet and the pool on every push to main and every
+# pull request. Once a push to main passes, its binaries are published as the Docker image
+# ghcr.io/<owner>/tesserax:main. Nothing here mines: the terms of hosted runners forbid it. The
+# tests on a mined development chain (the SDKs and the explorer) run on our own machines,
+# scripts/chain-tests.sh.
 
 name: CI
 
@@ -60,62 +61,9 @@ jobs:
             target/release/tesserax-pool
           retention-days: 7
 
-  chain:
-    name: SDKs and explorer on a development chain
-    needs: rust
-    runs-on: ubuntu-22.04
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v7.0.1
-
-      - uses: actions/download-artifact@v8.0.2
-        with:
-          name: tesserax-linux-x64
-
-      - name: Development chain
-        run: |
-          chmod +x tesserax
-          ./tesserax --dev --tmp --state-pruning archive --mine --mining-threads 2 \
-            --author teqhTi5xkMrt7j8tAhU8wndjgz7rn4DfmY97Qbww7ar5KA1b5 > node.log 2>&1 &
-          for _ in $(seq 120); do
-            curl -sf -H 'Content-Type: application/json' \
-              -d '{"id":1,"jsonrpc":"2.0","method":"chain_getHeader"}' http://127.0.0.1:9944 && break
-            sleep 1
-          done
-
-      - uses: actions/setup-node@v7.1.0
-        with:
-          node-version: 22
-
-      - uses: actions/setup-python@v7.1.0
-        with:
-          python-version: "3.12"
-
-      - name: TypeScript SDK
-        working-directory: sdk-ts
-        env:
-          TESSERAX_URL: ws://127.0.0.1:9944
-        run: npm ci && npm run build && npm test
-
-      - name: Python SDK
-        working-directory: sdk-python
-        env:
-          TESSERAX_URL: ws://127.0.0.1:9944
-        run: pip install -e '.[test]' && pytest
-
-      - name: Explorer
-        working-directory: explorer
-        env:
-          TESSERAX_URL: ws://127.0.0.1:9944
-        run: npm ci && npm run build && npm test
-
-      - name: Node log
-        if: failure()
-        run: tail -200 node.log
-
   image:
     name: Docker image
-    needs: [rust, chain]
+    needs: rust
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     permissions:
