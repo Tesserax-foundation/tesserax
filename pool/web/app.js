@@ -19,7 +19,7 @@ const $ = (id) => document.getElementById(id);
 
 /** Release of the Tesserax build of XMRig the dashboard links to. */
 const MINER = "6.26.0-tesserax.1";
-const RELEASE = `https://github.com/Tesserax-labs/tesserax-miner/releases/download/v${MINER}`;
+const RELEASE = `https://github.com/Tesserax-foundation/tesserax-miner/releases/download/v${MINER}`;
 
 /** The system of this computer, for the download offered first. */
 function detectSystem() {

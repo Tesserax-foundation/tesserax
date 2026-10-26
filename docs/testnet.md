@@ -31,7 +31,7 @@ The quickest way to mine: no node to run, only the miner.
 
 1. Create an account in the [wallet](https://wallet.tesserax.app) and copy its address.
 2. Download the Tesserax build of XMRig for your system from the
-   [releases of `tesserax-miner`](https://github.com/Tesserax-labs/tesserax-miner/releases) and unpack
+   [releases of `tesserax-miner`](https://github.com/Tesserax-foundation/tesserax-miner/releases) and unpack
    it. On macOS, allow it once: `xattr -d com.apple.quarantine xmrig`.
 3. Start it with your address and a name for the machine:
 

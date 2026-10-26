@@ -63,7 +63,7 @@ or the address of the author; the server refuses another address, so that a rig 
 node believing that the rewards go elsewhere.
 
 Download the `rx/tess` miner, a fork of XMRig 6.26.0, from the
-[releases of `tesserax-miner`](https://github.com/Tesserax-labs/tesserax-miner/releases): static binaries
+[releases of `tesserax-miner`](https://github.com/Tesserax-foundation/tesserax-miner/releases): static binaries
 for Linux (x64, arm64), macOS (Apple Silicon, Intel) and Windows (x64), with their SHA-256 in
 `SHA256SUMS`. Every binary is checked against the reference RandomTESS implementation, in light and
 fast mode, before it is published. On macOS, allow it once with
@@ -72,7 +72,7 @@ fast mode, before it is published. On macOS, allow it once with
 Or build it:
 
 ```bash
-git clone https://github.com/Tesserax-labs/tesserax-miner.git
+git clone https://github.com/Tesserax-foundation/tesserax-miner.git
 cd tesserax-miner && mkdir build && cd build
 cmake .. -DWITH_OPENCL=OFF -DWITH_CUDA=OFF
 make -j$(nproc)

@@ -252,7 +252,7 @@ export function MinersPage() {
       <p className="text-sm text-muted">
         Mine with the built-in miner of the node or with XMRig (algorithm rx/tess). See the{" "}
         <Link to="/supply" className="text-accent">emission schedule</Link> and the{" "}
-        <a href="https://github.com/Tesserax-labs/tesserax-miner/releases" className="text-accent" target="_blank" rel="noreferrer">miner releases</a>.
+        <a href="https://github.com/Tesserax-foundation/tesserax-miner/releases" className="text-accent" target="_blank" rel="noreferrer">miner releases</a>.
       </p>
     </Page>
   );

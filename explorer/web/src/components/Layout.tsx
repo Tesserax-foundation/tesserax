@@ -204,7 +204,7 @@ export function Layout() {
           </div>
           <div className="flex items-center gap-4">
             <IndexStatus />
-            <a href="https://github.com/Tesserax-labs/tesserax-miner" className="inline-flex items-center gap-1 hover:text-fg" target="_blank" rel="noreferrer">
+            <a href="https://github.com/Tesserax-foundation/tesserax-miner" className="inline-flex items-center gap-1 hover:text-fg" target="_blank" rel="noreferrer">
               <Pickaxe size={14} /> Miner
             </a>
           </div>

@@ -30,7 +30,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/Tesserax-labs/tesserax/issues".into()
+		"https://github.com/Tesserax-foundation/tesserax/issues".into()
 	}
 
 	fn copyright_start_year() -> i32 {
