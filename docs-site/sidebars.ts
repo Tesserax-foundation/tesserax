@@ -35,7 +35,7 @@ const sidebars: SidebarsConfig = {
       type: "category",
       label: "Network",
       collapsed: false,
-      items: ["testnet", "mining", "pool", "rpc", "mainnet", "bug-bounty"],
+      items: ["node", "testnet", "mining", "pool", "rpc", "mainnet", "bug-bounty"],
     },
   ],
 };

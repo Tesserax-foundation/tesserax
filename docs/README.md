@@ -29,7 +29,8 @@ that hold and spend value on their own.
 
 | Page | |
 |---|---|
-| [Testnet](./testnet.md) | Endpoints, faucet, runtime history and hosting |
+| [Running a node](./node.md) | Hardware, ports and running the node as a service |
+| [Testnet](./testnet.md) | Endpoints, faucet and runtime history |
 | [Mining](./mining.md) | Mining with the node or XMRig |
 | [Mining pool](./pool.md) | Running and joining a pool |
 | [Public RPC](./rpc.md) | The post-quantum RPC endpoint |

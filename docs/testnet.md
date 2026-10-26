@@ -48,7 +48,9 @@ The pool keeps 1% of each block for the fees of its payouts. See [pool.md](pool.
 
 ## Run a node
 
-Build the node ([README](../README.md#building)), then:
+A node needs 2 cores, 4 GB of memory and a 100 GB SSD; see [node.md](node.md) for the hardware of
+each use, the ports and running it as a service. Build the node ([README](../README.md#building)),
+then:
 
 ```bash
 tesserax --chain testnet                                   # follow the chain

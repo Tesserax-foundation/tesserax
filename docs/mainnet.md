@@ -68,6 +68,16 @@ measure.
 5. Announce the genesis hash and the launch time; the first block is mined by whoever starts
    first.
 
+## Running a node
+
+The mainnet needs the same machines as the testnet: 2 cores, 4 GB of memory and a 100 GB SSD for a
+full node, more for a public, archive or mining node. See [node.md](node.md). Once the mainnet is
+launched:
+
+```bash
+tesserax --chain mainnet --base-path /var/lib/tesserax
+```
+
 ## Governance
 
 The mainnet starts without a sudo key: referenda decide from the first block
