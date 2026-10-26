@@ -281,7 +281,7 @@ pub fn lock_transaction(
 ) -> Result<Transaction> {
 	let secp = Secp256k1::new();
 	let public = CompressedPublicKey::from_private_key(&secp, key).map_err(bitcoin_error)?;
-	if announcement.refund.map_or(public, |refund| refund) != htlc.taker {
+	if announcement.refund.unwrap_or(public) != htlc.taker {
 		return Err(Error::InvalidInput("the refund key of the script is neither announced nor the key paying".into()));
 	}
 	let notice = ScriptBuf::new_p2wpkh(&htlc.maker.wpubkey_hash());
