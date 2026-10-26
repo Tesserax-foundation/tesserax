@@ -175,6 +175,18 @@ Vulnerabilities are rewarded in TESS, 25,000 TESS to start: report them privatel
 **Security → Report a vulnerability** on this repository. See [SECURITY.md](SECURITY.md) and
 [docs/bug-bounty.md](docs/bug-bounty.md).
 
+## SDKs
+
+| Language | Package | Install |
+|---|---|---|
+| Rust | [`tesserax-sdk`](https://crates.io/crates/tesserax-sdk) | `cargo add tesserax-sdk` |
+| TypeScript | [`@tesserax/sdk`](https://www.npmjs.com/package/@tesserax/sdk) | `npm install @tesserax/sdk` |
+| Python | [`tesserax-sdk`](https://pypi.org/project/tesserax-sdk/) | `pip install tesserax-sdk` |
+
+Each has the same operations: ML-DSA keys, transfers, agents, channels, tasks, contracts, private
+transactions and swaps. See [`sdk/`](sdk/README.md), [`sdk-ts/`](sdk-ts/README.md) and
+[`sdk-python/`](sdk-python/README.md).
+
 ## Building
 
 Requirements: Rust (installed through `rustup`, the toolchain is pinned by `rust-toolchain.toml`),

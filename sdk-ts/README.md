@@ -4,8 +4,10 @@ TypeScript SDK of Tesserax: ML-DSA-87 keys and addresses, balances and transfers
 from an owner to an AI agent's key, and the agent registry with its reputation.
 
 ```bash
-cd sdk-ts && npm install && npm run build
+npm install @tesserax/sdk
 ```
+
+From the repository: `cd sdk-ts && npm install && npm run build`.
 
 Node.js 20 or later. Signatures use `@noble/post-quantum` (ML-DSA-87, FIPS 204), the chain is
 reached with `polkadot-api` over the new JSON-RPC interface.

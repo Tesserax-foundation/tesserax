@@ -3,18 +3,33 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
-name = "tesserax"
+name = "tesserax-sdk"
 version = "0.4.0"
 description = "Python SDK of Tesserax: ML-DSA accounts, transfers, AI agent delegations, the agent registry, smart contracts, private transactions and atomic swaps."
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
+keywords = ["tesserax", "blockchain", "post-quantum", "ml-dsa", "ai-agents", "mcp", "micropayments", "atomic-swaps"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Libraries",
+]
 dependencies = [
     "substrate-interface>=1.8.1,<2",
     "dilithium-py>=1.5.1,<2",
     "eth-abi>=5.2,<6",
 ]
+
+[project.urls]
+Homepage = "https://tesserax.app"
+Documentation = "https://docs.tesserax.app"
+Repository = "https://github.com/Tesserax-foundation/tesserax"
+Issues = "https://github.com/Tesserax-foundation/tesserax/issues"
 
 [project.optional-dependencies]
 # Private transactions: the shielded wallet runs as WebAssembly in wasmtime.

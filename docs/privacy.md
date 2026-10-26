@@ -67,7 +67,7 @@ const state = shielded.state(); // ShieldedAccount.restore(alice, state) later
 ```
 
 ```python
-# Python, pip install "tesserax[shielded]": proofs by the same wallet compiled for WASI
+# Python, pip install "tesserax-sdk[shielded]": proofs by the same wallet compiled for WASI
 # (shielded-wasi), run by wasmtime: one module for every platform.
 from tesserax import Amount, Client, Keypair, ShieldedAccount
 

@@ -1,11 +1,14 @@
-# tesserax (Python SDK)
+# tesserax-sdk (Python)
 
 Python SDK of Tesserax: ML-DSA-87 keys and addresses, balances and transfers, delegations from an
 owner to an AI agent's key, and the agent registry with its reputation.
 
 ```bash
-pip install ./sdk-python
+pip install tesserax-sdk                     # import tesserax
+pip install "tesserax-sdk[shielded,swaps]"   # private transactions and atomic swaps
 ```
+
+From the repository: `pip install ./sdk-python`.
 
 Python 3.10 or later. Signatures use `dilithium-py` (ML-DSA-87, FIPS 204), the chain is reached
 with `substrate-interface`.
@@ -113,7 +116,7 @@ for event in token.watch_events():
 
 Every account has a shielded account, restored by its recovery phrase. Proofs are generated
 locally by the shielded wallet compiled to WebAssembly, the same module on every platform, run
-by wasmtime: install the extra, `pip install "tesserax[shielded]"` (`docs/privacy.md`).
+by wasmtime: install the extra, `pip install "tesserax-sdk[shielded]"` (`docs/privacy.md`).
 
 ```python
 from tesserax import Amount, ShieldedAccount
@@ -130,7 +133,7 @@ state = shielded.state()                               # ShieldedAccount.restore
 
 TESS against ETH, USDC and USDT on Ethereum, Base and Arbitrum, with atomic swaps (`docs/swaps.md`
 of the chain). `client.swaps` is the Tesserax side; `EvmSwaps` the EVM side, with web3.py
-(`pip install "tesserax[swaps]"`):
+(`pip install "tesserax-sdk[swaps]"`):
 
 ```python
 from tesserax import Amount, EvmSwaps, evm_networks, new_secret, payment_due

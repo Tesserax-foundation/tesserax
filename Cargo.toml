@@ -64,10 +64,10 @@ pallet-shielded = { path = "pallets/shielded", default-features = false }
 pallet-swaps = { path = "pallets/swaps", default-features = false }
 pallet-tasks = { path = "pallets/tasks", default-features = false }
 randomtess = { path = "crypto/randomtess" }
-tesserax-crypto = { path = "primitives/crypto", default-features = false }
+tesserax-crypto = { path = "primitives/crypto", version = "0.1.0", default-features = false }
 tesserax-pow = { path = "consensus/pow" }
-tesserax-shielded = { path = "primitives/shielded", default-features = false }
-tesserax-shielded-wallet = { path = "shielded-wallet" }
+tesserax-shielded = { path = "primitives/shielded", version = "0.1.0", default-features = false }
+tesserax-shielded-wallet = { path = "shielded-wallet", version = "0.1.0" }
 tesserax-runtime = { path = "runtime", default-features = false }
 tesserax-sdk = { path = "sdk" }
 

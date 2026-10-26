@@ -6,7 +6,11 @@ authors.workspace = true
 edition.workspace = true
 repository.workspace = true
 license.workspace = true
-publish = false
+homepage = "https://tesserax.app"
+documentation = "https://docs.tesserax.app"
+keywords = ["tesserax", "post-quantum", "ml-dsa", "blockchain", "ai-agents"]
+categories = ["cryptography::cryptocurrencies", "api-bindings"]
+readme = "README.md"
 
 [lints]
 workspace = true
