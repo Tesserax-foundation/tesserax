@@ -64,10 +64,11 @@ fn bitcoin_error(error: impl std::fmt::Display) -> Error {
 	Error::Bitcoin(error.to_string())
 }
 
-/// The Bitcoin network of a Tesserax network: Bitcoin for the mainnet, signet for the testnet.
+/// The Bitcoin network of a Tesserax network: Bitcoin for the mainnet, testnet4 for the testnet,
+/// the test network browser wallets such as MetaMask support.
 pub fn network_for(testnet: bool) -> BitcoinNetwork {
 	if testnet {
-		BitcoinNetwork::Signet
+		BitcoinNetwork::Testnet4
 	} else {
 		BitcoinNetwork::Bitcoin
 	}
@@ -559,18 +560,18 @@ mod tests {
 		(tx, htlc, announcement, secret, utxo_amount)
 	}
 
-	/// Reads of the public Esplora API of signet: `cargo test -p tesserax-sdk --features swaps
+	/// Reads of the public Esplora API of testnet4: `cargo test -p tesserax-sdk --features swaps
 	/// esplora -- --ignored`.
 	#[tokio::test]
 	#[ignore = "reads mempool.space"]
-	async fn esplora_reads_signet() {
-		let esplora = Esplora::new(Network::Signet, None);
+	async fn esplora_reads_testnet4() {
+		let esplora = Esplora::new(Network::Testnet4, None);
 		let height = esplora.height().await.unwrap();
-		assert!(height > 200_000, "height {height}");
+		assert!(height > 100_000, "height {height}");
 		let time = esplora.median_time().await.unwrap();
 		assert!(time > 1_700_000_000, "median time {time}");
 		assert!(esplora.fee_rate(6).await.unwrap() >= 1.0);
-		let address = address_of(&public(&key(1)), Network::Signet);
+		let address = address_of(&public(&key(1)), Network::Testnet4);
 		assert!(address.to_string().starts_with("tb1q"));
 		// Key 0x01…01 is a known one: its address has transactions, read back here.
 		esplora.utxos(&address).await.unwrap();

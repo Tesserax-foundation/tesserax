@@ -30,7 +30,7 @@ test("payments locked by a browser wallet, taken back with the key of the Tesser
   const maker = secp256k1.getPublicKey(key(1), true);
   const payerKey = key(5);
   const payerPub = secp256k1.getPublicKey(payerKey, true);
-  const payer = addressOfKey(payerPub, "signet");
+  const payer = addressOfKey(payerPub, "testnet4");
   assert.match(payer, /^tb1q/);
 
   const secret = new Uint8Array(32).fill(7);
@@ -56,7 +56,7 @@ test("payments locked by a browser wallet, taken back with the key of the Tesser
     payer,
     utxos: [{ txid: funding.id, vout: 0, amount: 100_000n, rawTx: fundingRaw }],
     feeRate: 2,
-    network: "signet",
+    network: "testnet4",
   });
   assert.deepEqual(built.inputs, [0]);
 
@@ -74,7 +74,7 @@ test("payments locked by a browser wallet, taken back with the key of the Tesser
   assert.equal(fee, built.fee);
   assert.equal(outpointBytes(built.txid, 0).length, 36);
 
-  const refundRaw = refundTransaction({ txid: built.txid, vout: 0, amount: 40_000n, htlc }, refund.secretKey, payer, 2, "signet");
+  const refundRaw = refundTransaction({ txid: built.txid, vout: 0, amount: 40_000n, htlc }, refund.secretKey, payer, 2, "testnet4");
   const refundTx = btc.Transaction.fromRaw(refundRaw, { allowUnknownInputs: true, allowUnknownOutputs: true });
   assert.equal(refundTx.lockTime, htlc.timelock);
 

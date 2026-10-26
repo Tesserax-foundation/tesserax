@@ -33,7 +33,7 @@ trade that does not match its payment.
 
 | Chain | Assets | Chain id | Testnet of the Tesserax testnet |
 |---|---|---|---|
-| Bitcoin | BTC | | Signet |
+| Bitcoin | BTC | | Testnet4 |
 | Ethereum | ETH, USDC, USDT | 1 | Sepolia (ETH, USDC) |
 | Base | ETH, USDC | 8453 | Base Sepolia (ETH, USDC) |
 | Arbitrum | ETH, USDC, USDT | 42161 | Arbitrum Sepolia (ETH, USDC) |
