@@ -112,7 +112,8 @@ The secret of a buy is saved in the wallet directory before the payment is locke
 once the TESS are claimed: losing it before the claim only delays the refund. A buy in BTC also
 saves its script, which takes the payment back. The Rust SDK has the
 same operations: `tesserax_sdk::swaps`, and `tesserax_sdk::swaps::evm` with the `swaps` feature;
-the TypeScript SDK `client.swaps` and `EvmSwaps`, with any viem wallet client. Both refuse to lock
+the TypeScript SDK `client.swaps` and `EvmSwaps`, with any viem wallet client; the Python SDK
+`client.swaps` and `EvmSwaps`, with web3.py. Both refuse to lock
 a payment on a chain where the contract is not deployed.
 
 ## Market data

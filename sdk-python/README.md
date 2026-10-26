@@ -126,6 +126,32 @@ shielded.unshield(client, "te...", Amount.from_tess("3"))  # private -> a public
 state = shielded.state()                               # ShieldedAccount.restore(alice, state)
 ```
 
+## Swaps
+
+TESS against ETH, USDC and USDT on Ethereum, Base and Arbitrum, with atomic swaps (`docs/swaps.md`
+of the chain). `client.swaps` is the Tesserax side; `EvmSwaps` the EVM side, with web3.py
+(`pip install "tesserax[swaps]"`):
+
+```python
+from tesserax import Amount, EvmSwaps, evm_networks, new_secret, payment_due
+
+offer = client.swaps.offers()[0]
+evm = EvmSwaps(next(n for n in evm_networks(testnet=True) if n.chain == offer.payment.chain),
+               private_key=open("taker.key").read().strip())
+secret, hash_ = new_secret()                    # keep the secret until the claim
+amount = Amount.from_tess("50")
+lock = evm.lock_payment(offer.payment.asset, "0x" + offer.payout.hex(),
+                        payment_due(amount.planck, offer.price), hash_,
+                        evm.head()[1] + 86_400, offer.id, "te...")   # receives the TESS, needs none
+# Once the maker filled it:
+trade = client.swaps.trade_of_lock(offer.payment.chain, lock)
+client.swaps.claim(trade, secret)               # unsigned, without fee
+```
+
+Makers offer with `client.swaps.create_offer`, find the payments locked for them with
+`EvmSwaps.locks`, fill them with `client.swaps.fill`, read the secrets claims reveal with
+`client.swaps.events`, and collect with `EvmSwaps.claim`.
+
 ## Tests
 
 ```bash
@@ -133,4 +159,6 @@ uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e '.[te
 .venv/bin/python -m pytest
 # Against a development chain (tesserax --dev --tmp --mine --author <address>):
 TESSERAX_URL=ws://127.0.0.1:9944 .venv/bin/python -m pytest -m chain
+# The swap test also needs a local EVM chain with the swap contract (swaps/evm/deploy.sh):
+TESSERAX_URL=ws://127.0.0.1:9944 EVM_URL=http://127.0.0.1:8545 .venv/bin/python -m pytest tests/test_swaps.py
 ```

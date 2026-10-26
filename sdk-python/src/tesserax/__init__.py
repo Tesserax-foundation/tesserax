@@ -1,5 +1,5 @@
 """Python SDK of Tesserax: ML-DSA accounts, transfers, AI agent delegations, the agent registry,
-smart contracts and private transactions.
+smart contracts, private transactions and atomic swaps.
 
     from tesserax import Amount, Client, Keypair
 
@@ -54,6 +54,30 @@ from .errors import (
 )
 from .keys import SS58_PREFIX, Keypair, format_address, parse_address, verify
 from .shielded import ShieldedAccount, Synced, is_shielded_address, shielded_minimum_fee
+from .swaps import (
+    EVM_CHAINS,
+    LOG_RANGE,
+    SWAP_ABI,
+    SWAP_CONTRACT,
+    Claimed,
+    EvmNetwork,
+    EvmSwaps,
+    Filled,
+    LockStatus,
+    Offer,
+    Payment,
+    PaymentLock,
+    Refunded,
+    Swaps,
+    Trade,
+    asset_of,
+    evm_networks,
+    hash_of,
+    new_secret,
+    payment_due,
+    tess_for,
+    token_of,
+)
 from .tasks import NewTask, TaskInfo, Tasks, blocks_for
 
 __all__ = [
@@ -107,4 +131,26 @@ __all__ = [
     "Synced",
     "is_shielded_address",
     "shielded_minimum_fee",
+    "EVM_CHAINS",
+    "LOG_RANGE",
+    "SWAP_ABI",
+    "SWAP_CONTRACT",
+    "Claimed",
+    "EvmNetwork",
+    "EvmSwaps",
+    "Filled",
+    "LockStatus",
+    "Offer",
+    "Payment",
+    "PaymentLock",
+    "Refunded",
+    "Swaps",
+    "Trade",
+    "asset_of",
+    "evm_networks",
+    "hash_of",
+    "new_secret",
+    "payment_due",
+    "tess_for",
+    "token_of",
 ]

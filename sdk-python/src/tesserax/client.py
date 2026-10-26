@@ -16,6 +16,7 @@ from .amount import DECIMALS, Amount
 from .contracts import Contract, Contracts, _compact
 from .errors import InvalidInput, TransactionFailed
 from .keys import SS58_PREFIX, Keypair, format_address, parse_address
+from .swaps import Swaps
 
 #: Blocks a transaction stays valid, counted from the best block: about 19 minutes.
 MORTALITY = 64
@@ -187,6 +188,8 @@ class Client:
         self.substrate = SubstrateInterface(url=url, ss58_format=SS58_PREFIX, ws_options={"class_": _WebSocket})
         #: Smart contracts: dry runs, deployments, calls and events.
         self.contracts = Contracts(self)
+        #: Atomic swaps of TESS: offers, trades and their calls.
+        self.swaps = Swaps(self)
 
     def close(self) -> None:
         self.substrate.close()
