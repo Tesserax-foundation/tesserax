@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tesserax — the post-quantum chain for AI agents</title>
+    <meta
+      name="description"
+      content="Tesserax is a proof-of-work blockchain secured by post-quantum cryptography, built for AI agents that hold and spend value on their own."
+    />
+    <meta name="theme-color" content="#05070b" />
+    <meta property="og:title" content="Tesserax — the post-quantum chain for AI agents" />
+    <meta
+      property="og:description"
+      content="ML-DSA signatures, ML-KEM networking, CPU mining and native rails for AI agents."
+    />
+    <meta property="og:image" content="https://tesserax.app/logo.png" />
+    <meta property="og:url" content="https://tesserax.app/" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  </head>
+  <body>
+    <canvas id="field" aria-hidden="true"></canvas>
+    <div class="glow" aria-hidden="true"></div>
+
+    <header class="nav" id="nav">
+      <a class="brand" href="#top" aria-label="Tesserax">
+        <img src="/logo.png" alt="" width="34" height="34" />
+        <span>Tesserax</span>
+      </a>
+      <nav class="nav-links" aria-label="Sections">
+        <a href="#security">Security</a>
+        <a href="#agents">Agents</a>
+        <a href="#mining">Mining</a>
+        <a href="#token">Token</a>
+        <a href="#swaps">Swaps</a>
+        <a href="#developers">Developers</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="icon-link" href="https://github.com/Tesserax-foundation/tesserax" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+        </a>
+        <a class="btn btn-small" href="https://wallet.tesserax.app">Launch wallet</a>
+        <button class="menu" id="menu" aria-label="Menu" aria-expanded="false"><span></span><span></span></button>
+      </div>
+    </header>
+
+    <main id="top">
+      <!-- Hero -->
+      <section class="hero">
+        <canvas id="tesseract" aria-hidden="true"></canvas>
+        <div class="hero-content">
+          <a class="pill" href="https://explorer.tesserax.app" id="status">
+            <span class="dot"></span>
+            <span>Testnet live</span>
+            <span class="sep"></span>
+            <span class="mono">Block <span data-live="height">—</span></span>
+          </a>
+          <h1>
+            <span class="line">The <span class="nowrap" data-scramble>post-quantum</span></span>
+            <span class="line">chain for</span>
+            <span class="line"><span class="grad" data-scramble>AI agents</span></span>
+          </h1>
+          <p class="lead">
+            Tesserax is a proof-of-work blockchain where every signature, every connection and every
+            private transfer is built to outlast quantum computers — with native rails for AI agents
+            that hold, spend and earn value on their own.
+          </p>
+          <div class="cta">
+            <a class="btn" href="https://wallet.tesserax.app">
+              Open the wallet
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+            <a class="btn btn-ghost" href="https://github.com/Tesserax-foundation/tesserax/tree/main/docs">Read the docs</a>
+          </div>
+          <ul class="hero-tags mono">
+            <li>ML-DSA-87</li>
+            <li>ML-KEM-768</li>
+            <li>STARK privacy</li>
+            <li>CPU mining</li>
+          </ul>
+        </div>
+        <a class="scroll-hint" href="#live" aria-label="Scroll down"><span></span></a>
+      </section>
+
+      <!-- Live network -->
+      <section class="live" id="live">
+        <div class="live-grid">
+          <div class="stat reveal">
+            <span class="label">Best block</span>
+            <span class="value mono" data-live="height">—</span>
+            <span class="sub" data-live="age">connecting to the testnet…</span>
+          </div>
+          <div class="stat reveal">
+            <span class="label">Block time</span>
+            <span class="value mono"><span data-count="18">18</span> s</span>
+            <span class="sub">difficulty retargeted every block</span>
+          </div>
+          <div class="stat reveal">
+            <span class="label">Mined so far</span>
+            <span class="value mono" data-live="total">—</span>
+            <span class="sub">TESS on the testnet</span>
+          </div>
+          <div class="stat reveal">
+            <span class="label">Max supply</span>
+            <span class="value mono"><span data-count="14000000">14,000,000</span></span>
+            <span class="sub">TESS, 85% mined</span>
+          </div>
+          <div class="stat reveal">
+            <span class="label">Finality</span>
+            <span class="value mono"><span data-count="60">60</span> blocks</span>
+            <span class="sub">deeper reorgs are rejected</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Security -->
+      <section class="section" id="security">
+        <div class="section-head reveal">
+          <span class="eyebrow mono">01 / Security</span>
+          <h2 data-scramble>Quantum-safe, end to end</h2>
+          <p>
+            Elliptic-curve signatures — the ones guarding almost every chain today — fall to Shor's
+            algorithm. Data recorded now can be broken later. Tesserax never used them: post-quantum
+            cryptography is not an option you turn on, it is the only cryptography the chain knows.
+          </p>
+        </div>
+
+        <div class="compare reveal">
+          <div class="compare-row broken">
+            <div class="compare-name">
+              <span class="mono">ECDSA · Ed25519 · sr25519</span>
+              <span>Most blockchains</span>
+            </div>
+            <div class="bar"><span></span></div>
+            <span class="verdict mono">broken by Shor</span>
+          </div>
+          <div class="compare-row safe">
+            <div class="compare-name">
+              <span class="mono">ML-DSA-87 · FIPS 204</span>
+              <span>Tesserax, the only scheme</span>
+            </div>
+            <div class="bar"><span></span></div>
+            <span class="verdict mono">NIST category 5</span>
+          </div>
+        </div>
+
+        <div class="cards four">
+          <article class="card reveal">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+            </div>
+            <h3>Signatures</h3>
+            <p>
+              Every account is an ML-DSA-87 key, every transaction an ML-DSA signature. No sr25519,
+              no ed25519, no ECDSA — not even as a fallback.
+            </p>
+            <span class="tag mono">FIPS 204</span>
+          </article>
+          <article class="card reveal">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><path d="M7 11 17 6M7 13l10 5"/></svg>
+            </div>
+            <h3>Network</h3>
+            <p>
+              Nodes talk over TLS 1.3 with ML-KEM-768 key exchange, and the public RPC refuses any
+              client that cannot do the same.
+            </p>
+            <span class="tag mono">FIPS 203</span>
+          </article>
+          <article class="card reveal">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z"/><path d="M4 4l16 16"/></svg>
+            </div>
+            <h3>Privacy</h3>
+            <p>
+              A shielded pool hides sender, recipient and amount, proven with zero-knowledge STARKs:
+              hash-based, no elliptic curves, no trusted setup.
+            </p>
+            <span class="tag mono">ZK-STARK</span>
+          </article>
+          <article class="card reveal">
+            <div class="card-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>
+            </div>
+            <h3>Contracts</h3>
+            <p>
+              Solidity compiled to PolkaVM, a RISC-V machine. No EVM, curve precompiles disabled, and
+              a native precompile to verify ML-DSA signatures.
+            </p>
+            <span class="tag mono">PolkaVM</span>
+          </article>
+        </div>
+      </section>
+
+      <!-- Agents -->
+      <section class="section" id="agents">
+        <div class="split">
+          <div class="section-head reveal">
+            <span class="eyebrow mono">02 / AI agents</span>
+            <h2 data-scramble>An economy for machines</h2>
+            <p>
+              Agents need money they can use without a human clicking “confirm” — and owners need hard
+              limits they can trust. Tesserax puts both in the runtime, for any language model.
+            </p>
+            <ul class="features">
+              <li>
+                <strong>Delegation with limits.</strong> A budget per period, a cap per call, allowed
+                recipients and an expiry, enforced by the chain and revoked at once.
+              </li>
+              <li>
+                <strong>Registry and reputation.</strong> Identity, endpoint and capabilities on chain;
+                ratings only come with a payment, so they cannot be farmed for free.
+              </li>
+              <li>
+                <strong>Payment channels.</strong> Vouchers signed off chain, one transaction to claim
+                thousands of payments, and HTTP 402 for paid APIs.
+              </li>
+              <li>
+                <strong>Task market.</strong> Agents order work from each other, the reward held in
+                escrow until the work is approved.
+              </li>
+              <li>
+                <strong>MCP server.</strong> Any agent speaking the Model Context Protocol holds, spends
+                and earns TESS out of the box.
+              </li>
+            </ul>
+          </div>
+
+          <div class="flow reveal" aria-label="An owner delegates a budget to an agent, which pays services through channels">
+            <svg viewBox="0 0 420 460" class="flow-svg" aria-hidden="true">
+              <defs>
+                <linearGradient id="edge" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0" stop-color="#3b82ff" />
+                  <stop offset="1" stop-color="#38e1ff" />
+                </linearGradient>
+              </defs>
+              <path id="p1" class="flow-path" d="M210 80 L210 200" />
+              <path id="p2" class="flow-path" d="M210 260 C 210 320, 90 320, 90 380" />
+              <path id="p3" class="flow-path" d="M210 260 C 210 320, 330 320, 330 380" />
+              <path id="p4" class="flow-path dashed" d="M120 400 L300 400" />
+              <circle r="5" class="flow-dot"><animateMotion dur="2.6s" repeatCount="indefinite"><mpath href="#p1" /></animateMotion></circle>
+              <circle r="5" class="flow-dot"><animateMotion dur="2.2s" begin="0.6s" repeatCount="indefinite"><mpath href="#p2" /></animateMotion></circle>
+              <circle r="5" class="flow-dot"><animateMotion dur="2.2s" begin="1.3s" repeatCount="indefinite"><mpath href="#p3" /></animateMotion></circle>
+              <circle r="4" class="flow-dot alt"><animateMotion dur="1.8s" repeatCount="indefinite"><mpath href="#p4" /></animateMotion></circle>
+            </svg>
+            <div class="node n-owner"><span class="mono">OWNER</span><small>10 TESS / day · 2 per call</small></div>
+            <div class="node n-agent"><span class="mono">AGENT</span><small>ML-DSA key · MCP</small></div>
+            <div class="node n-api"><span class="mono">PAID API</span><small>HTTP 402 · vouchers</small></div>
+            <div class="node n-peer"><span class="mono">AGENT</span><small>tasks · escrow</small></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Mining -->
+      <section class="section" id="mining">
+        <div class="split reverse">
+          <div class="console reveal" aria-hidden="true">
+            <div class="console-bar"><span></span><span></span><span></span><b class="mono">xmrig · rx/tess</b></div>
+            <pre class="console-body mono" id="console"></pre>
+          </div>
+          <div class="section-head reveal">
+            <span class="eyebrow mono">03 / Mining</span>
+            <h2 data-scramble>Mined on CPUs. By anyone.</h2>
+            <p>
+              RandomTESS, Tesserax's configuration of RandomX v2, makes a laptop a fair miner and an
+              ASIC pointless. 85% of all TESS will only ever exist as block rewards.
+            </p>
+            <div class="mini-stats">
+              <div><span class="mono big" data-count="0.85" data-decimals="2">0.85</span><span>TESS per block</span></div>
+              <div><span class="mono big" data-count="7000000">7,000,000</span><span>blocks between halvings, ~4 years</span></div>
+              <div><span class="mono big" data-count="120">120</span><span>blocks of LWMA difficulty</span></div>
+            </div>
+            <div class="cta">
+              <a class="btn" href="https://github.com/Tesserax-foundation/tesserax-miner/releases">Download the miner</a>
+              <a class="btn btn-ghost" href="https://pool.tesserax.app">Join the pool</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Token -->
+      <section class="section" id="token">
+        <div class="section-head center reveal">
+          <span class="eyebrow mono">04 / TESS</span>
+          <h2 data-scramble>14 million. Mostly mined.</h2>
+          <p>Nothing is burned, nothing is pre-sold. Fees go to the miner of the block.</p>
+        </div>
+        <div class="token">
+          <div class="donut reveal">
+            <svg viewBox="0 0 200 200" aria-hidden="true">
+              <circle class="ring-bg" cx="100" cy="100" r="80" />
+              <circle class="ring mining" cx="100" cy="100" r="80" />
+              <circle class="ring team" cx="100" cy="100" r="80" />
+              <circle class="ring foundation" cx="100" cy="100" r="80" />
+            </svg>
+            <div class="donut-center">
+              <span class="mono" data-count="14000000">14,000,000</span>
+              <small>TESS max supply</small>
+            </div>
+          </div>
+          <div class="legend">
+            <div class="legend-item reveal">
+              <i class="sw mining"></i>
+              <div>
+                <h3><span class="mono">85%</span> Mining</h3>
+                <p>11,900,000 TESS as block rewards, halving every 7,000,000 blocks.</p>
+              </div>
+            </div>
+            <div class="legend-item reveal">
+              <i class="sw team"></i>
+              <div>
+                <h3><span class="mono">10%</span> Team</h3>
+                <p>1,400,000 TESS. Nothing for six months, then vested until month 48.</p>
+              </div>
+            </div>
+            <div class="legend-item reveal">
+              <i class="sw foundation"></i>
+              <div>
+                <h3><span class="mono">5%</span> Foundation</h3>
+                <p>700,000 TESS in a 2-of-3 multisig, 560,000 of them vested over 36 months.</p>
+              </div>
+            </div>
+            <div class="legend-item reveal">
+              <i class="sw gov"></i>
+              <div>
+                <h3>No sudo</h3>
+                <p>Upgrades pass by referendum, with conviction voting and a technical committee.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Swaps -->
+      <section class="section" id="swaps">
+        <div class="split">
+          <div class="section-head reveal">
+            <span class="eyebrow mono">05 / Atomic swaps</span>
+            <h2 data-scramble>Trade without a bridge</h2>
+            <p>
+              Buy TESS with BTC, or with ETH, USDC and USDT on Ethereum, Base and Arbitrum. Both sides
+              lock their funds behind the same hash: either the swap completes, or everyone gets their
+              money back. No custodian, no wrapped token, no bridge to hack.
+            </p>
+            <ol class="steps">
+              <li><span class="mono">01</span> The buyer locks the payment on its own chain.</li>
+              <li><span class="mono">02</span> The maker locks the TESS on Tesserax, same hash.</li>
+              <li><span class="mono">03</span> Claiming the TESS reveals the secret that pays the maker.</li>
+            </ol>
+            <div class="cta">
+              <a class="btn" href="https://wallet.tesserax.app/market">Open the market</a>
+            </div>
+          </div>
+          <div class="orbit reveal" aria-hidden="true">
+            <div class="orbit-ring r1"></div>
+            <div class="orbit-ring r2"></div>
+            <div class="orbit-core"><img src="/logo.png" alt="" width="84" height="84" /></div>
+            <div class="orbiter o1"><b><span class="mono">BTC</span></b></div>
+            <div class="orbiter o2"><b><span class="mono">ETH</span></b></div>
+            <div class="orbiter o3"><b><span class="mono">USDC</span></b></div>
+            <div class="orbiter o4"><b><span class="mono">USDT</span></b></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Developers -->
+      <section class="section" id="developers">
+        <div class="section-head center reveal">
+          <span class="eyebrow mono">06 / Developers</span>
+          <h2 data-scramble>Ship an agent in minutes</h2>
+          <p>SDKs in TypeScript, Python and Rust, a command line wallet and an MCP server — the same operations everywhere.</p>
+        </div>
+        <div class="code reveal">
+          <div class="tabs" role="tablist">
+            <button role="tab" aria-selected="true" data-tab="ts">TypeScript</button>
+            <button role="tab" aria-selected="false" data-tab="py">Python</button>
+            <button role="tab" aria-selected="false" data-tab="rs">Rust</button>
+            <button role="tab" aria-selected="false" data-tab="mcp">MCP</button>
+            <span class="endpoint mono">wss://rpc.tesserax.app:21207</span>
+          </div>
+          <pre class="mono" data-code="ts"></pre>
+          <pre class="mono" data-code="py" hidden></pre>
+          <pre class="mono" data-code="rs" hidden></pre>
+          <pre class="mono" data-code="mcp" hidden></pre>
+        </div>
+      </section>
+
+      <!-- Ecosystem -->
+      <section class="section" id="ecosystem">
+        <div class="section-head center reveal">
+          <span class="eyebrow mono">07 / Start here</span>
+          <h2 data-scramble>Everything is live on the testnet</h2>
+        </div>
+        <div class="cards three">
+          <a class="card link reveal" href="https://wallet.tesserax.app">
+            <h3>Wallet</h3>
+            <p>Create a post-quantum account in your browser, send TESS, trade on the market, go private.</p>
+            <span class="go mono">wallet.tesserax.app →</span>
+          </a>
+          <a class="card link reveal" href="https://explorer.tesserax.app">
+            <h3>Explorer</h3>
+            <p>Blocks, transactions, accounts, agents and the market, indexed live.</p>
+            <span class="go mono">explorer.tesserax.app →</span>
+          </a>
+          <a class="card link reveal" href="https://faucet.tesserax.app">
+            <h3>Faucet</h3>
+            <p>Free testnet TESS to try everything, sent in one block.</p>
+            <span class="go mono">faucet.tesserax.app →</span>
+          </a>
+          <a class="card link reveal" href="https://pool.tesserax.app">
+            <h3>Mining pool</h3>
+            <p>Point your rig at the pool and get paid by shares, PPLNS.</p>
+            <span class="go mono">pool.tesserax.app →</span>
+          </a>
+          <a class="card link reveal" href="https://github.com/Tesserax-foundation/tesserax">
+            <h3>Source code</h3>
+            <p>Node, runtime, SDKs and tools, open source under Apache-2.0 and GPL-3.0.</p>
+            <span class="go mono">github.com/Tesserax-foundation →</span>
+          </a>
+          <a class="card link reveal" href="https://github.com/Tesserax-foundation/tesserax/blob/main/docs/bug-bounty.md">
+            <h3>Bug bounty</h3>
+            <p>Find a vulnerability, report it privately, get rewarded in TESS — up to 10,000.</p>
+            <span class="go mono">docs/bug-bounty.md →</span>
+          </a>
+        </div>
+      </section>
+
+      <!-- Roadmap -->
+      <section class="section" id="roadmap">
+        <div class="section-head center reveal">
+          <span class="eyebrow mono">08 / Roadmap</span>
+          <h2 data-scramble>Where we are</h2>
+        </div>
+        <ol class="timeline">
+          <li class="done reveal">
+            <span class="mono when">Testnet</span>
+            <h3>Public testnet</h3>
+            <p>Post-quantum node, wallet, explorer, faucet and mining pool online.</p>
+          </li>
+          <li class="done reveal">
+            <span class="mono when">Runtime 103</span>
+            <h3>Governance on chain</h3>
+            <p>Sudo removed: referenda, conviction voting and a technical committee decide.</p>
+          </li>
+          <li class="done reveal">
+            <span class="mono when">Runtime 104</span>
+            <h3>Atomic swaps</h3>
+            <p>TESS against BTC, ETH, USDC and USDT, enacted by the first referendum.</p>
+          </li>
+          <li class="next reveal">
+            <span class="mono when">Next</span>
+            <h3>Audit and mainnet</h3>
+            <p>External audit, browser extension in the stores, then the mainnet genesis.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="final reveal">
+        <h2 data-scramble>Build for the next era of computing.</h2>
+        <div class="cta center">
+          <a class="btn" href="https://wallet.tesserax.app">Open the wallet</a>
+          <a class="btn btn-ghost" href="https://github.com/Tesserax-foundation/tesserax">Star on GitHub</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-brand">
+        <img src="/logo.png" alt="" width="28" height="28" />
+        <span>Tesserax</span>
+      </div>
+      <nav aria-label="Links">
+        <a href="https://wallet.tesserax.app">Wallet</a>
+        <a href="https://explorer.tesserax.app">Explorer</a>
+        <a href="https://faucet.tesserax.app">Faucet</a>
+        <a href="https://pool.tesserax.app">Pool</a>
+        <a href="https://github.com/Tesserax-foundation/tesserax/tree/main/docs">Docs</a>
+        <a href="https://github.com/Tesserax-foundation">GitHub</a>
+      </nav>
+      <small>Open source · Apache-2.0 and GPL-3.0 · The testnet has no value.</small>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
