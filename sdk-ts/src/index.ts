@@ -54,6 +54,28 @@ export {
 } from "./contracts.js";
 export { StorageError } from "./store.js";
 export {
+  BITCOIN_LOCK_SECONDS,
+  Esplora,
+  MIN_CONFIRMATIONS,
+  NOTICE_SATS,
+  addressOfKey,
+  bitcoinNetworkFor,
+  defaultEsplora,
+  encodeAnnouncement,
+  extractSigned,
+  htlcOutputScript,
+  htlcScript,
+  lockPsbt,
+  outpointBytes,
+  refundKey,
+  refundTransaction,
+  type Announcement,
+  type BitcoinLock,
+  type BitcoinNetwork,
+  type Htlc,
+  type PayingUtxo,
+} from "./bitcoin.js";
+export {
   EVM_CHAINS,
   EvmSwaps,
   LOG_RANGE,

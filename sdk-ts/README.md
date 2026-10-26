@@ -167,6 +167,14 @@ const trade = await client.swaps.tradeOfLock(offer.payment.chain, lockBytes);
 await client.swaps.claim(trade!, secret);                   // unsigned, without fee
 ```
 
+### In BTC
+
+`lockPsbt` builds the transaction locking a payment in BTC, for a browser wallet to sign (the
+Bitcoin account of MetaMask, Xverse, Unisat…): its inputs pay a P2WSH script, notify the maker and
+announce the trade with the refund key, which `refundKey` derives from the seed of the Tesserax
+account. `refundTransaction` takes the payment back after 24 hours with that key, and `Esplora`
+reads and broadcasts through the API of mempool.space.
+
 ## Tests
 
 ```bash

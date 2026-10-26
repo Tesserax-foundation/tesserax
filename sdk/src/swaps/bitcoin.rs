@@ -6,12 +6,14 @@
 //!    taker once `timelock` (a unix time) passed;
 //! 1. [`NOTICE_SATS`] to the P2WPKH address of the maker: a maker only watches its own address to
 //!    find the payments locked for it;
-//! 2. an OP_RETURN output announcing the offer, the Tesserax account of the taker, the hash and
-//!    the timelock ([`Announcement`]).
+//! 2. an OP_RETURN output announcing the offer, the Tesserax account of the taker, the hash, the
+//!    timelock, and the refund key of the taker ([`Announcement`]).
 //!
-//! The refund key of the taker is the public key of the first input, a P2WPKH input: the maker
-//! rebuilds the script from the announcement, its own key and that key, and checks it is the one
-//! of output 0. Every amount is in satoshis.
+//! The refund key comes in the announcement (`TR`, 111 bytes), so that a wallet that only pays,
+//! such as the Bitcoin account of a browser wallet, needs not sign the refund. A shorter
+//! announcement (`TX`, 78 bytes) leaves it out: the refund key is then the public key of the first
+//! input, a P2WPKH input. The maker rebuilds the script from the announcement, its own key and the
+//! refund key, and checks it is the one of output 0. Every amount is in satoshis.
 //!
 //! ```text
 //! OP_IF
@@ -46,11 +48,13 @@ pub use bitcoin::{
 /// output (294 satoshis).
 pub const NOTICE_SATS: u64 = 330;
 
-/// First bytes of an announcement.
+/// First bytes of an announcement without refund key, and of one with it.
 pub const MAGIC: [u8; 2] = *b"TX";
+pub const MAGIC_WITH_REFUND: [u8; 2] = *b"TR";
 
-/// Length of an announcement: magic, offer, taker, hash, timelock.
+/// Length of an announcement: magic, offer, taker, hash, timelock, and the refund key if given.
 pub const ANNOUNCEMENT_LEN: usize = 2 + 8 + 32 + 32 + 4;
+pub const ANNOUNCEMENT_WITH_REFUND_LEN: usize = ANNOUNCEMENT_LEN + 33;
 
 /// Confirmations a maker waits for before filling a payment: an unconfirmed transaction can be
 /// replaced.
@@ -124,33 +128,41 @@ pub struct Announcement {
 	pub taker: AccountId,
 	pub hash: [u8; 32],
 	pub timelock: u32,
+	/// The refund key of the taker, if not the key of the first input.
+	pub refund: Option<CompressedPublicKey>,
 }
 
 impl Announcement {
-	pub fn encode(&self) -> [u8; ANNOUNCEMENT_LEN] {
-		let mut data = [0u8; ANNOUNCEMENT_LEN];
-		data[..2].copy_from_slice(&MAGIC);
-		data[2..10].copy_from_slice(&self.offer.to_le_bytes());
-		data[10..42].copy_from_slice(self.taker.as_ref());
-		data[42..74].copy_from_slice(&self.hash);
-		data[74..].copy_from_slice(&self.timelock.to_le_bytes());
+	pub fn encode(&self) -> Vec<u8> {
+		let mut data = Vec::with_capacity(ANNOUNCEMENT_WITH_REFUND_LEN);
+		data.extend_from_slice(if self.refund.is_some() { &MAGIC_WITH_REFUND } else { &MAGIC });
+		data.extend_from_slice(&self.offer.to_le_bytes());
+		data.extend_from_slice(self.taker.as_ref());
+		data.extend_from_slice(&self.hash);
+		data.extend_from_slice(&self.timelock.to_le_bytes());
+		if let Some(refund) = &self.refund {
+			data.extend_from_slice(&refund.to_bytes());
+		}
 		data
 	}
 
 	pub fn decode(data: &[u8]) -> Option<Self> {
-		if data.len() != ANNOUNCEMENT_LEN || data[..2] != MAGIC {
-			return None;
-		}
+		let with_refund = match (data.len(), data.get(..2)?) {
+			(ANNOUNCEMENT_LEN, magic) if magic == MAGIC => false,
+			(ANNOUNCEMENT_WITH_REFUND_LEN, magic) if magic == MAGIC_WITH_REFUND => true,
+			_ => return None,
+		};
 		Some(Announcement {
 			offer: u64::from_le_bytes(data[2..10].try_into().ok()?),
 			taker: AccountId::from(<[u8; 32]>::try_from(&data[10..42]).ok()?),
 			hash: data[42..74].try_into().ok()?,
-			timelock: u32::from_le_bytes(data[74..].try_into().ok()?),
+			timelock: u32::from_le_bytes(data[74..78].try_into().ok()?),
+			refund: if with_refund { Some(CompressedPublicKey::from_slice(&data[78..]).ok()?) } else { None },
 		})
 	}
 
 	fn script(&self) -> ScriptBuf {
-		ScriptBuf::new_op_return(PushBytesBuf::try_from(self.encode().to_vec()).expect("78 bytes fit a push; qed"))
+		ScriptBuf::new_op_return(PushBytesBuf::try_from(self.encode()).expect("111 bytes at most fit a push; qed"))
 	}
 }
 
@@ -198,11 +210,16 @@ pub fn find_lock(tx: &Transaction, maker: &CompressedPublicKey) -> Option<Bitcoi
 			_ => None,
 		}
 	})?;
-	let witness = &tx.input.first()?.witness;
-	if witness.len() != 2 {
-		return None;
-	}
-	let taker = CompressedPublicKey::from_slice(witness.nth(1)?).ok()?;
+	let taker = match announcement.refund {
+		Some(refund) => refund,
+		None => {
+			let witness = &tx.input.first()?.witness;
+			if witness.len() != 2 {
+				return None;
+			}
+			CompressedPublicKey::from_slice(witness.nth(1)?).ok()?
+		},
+	};
 	let htlc = Htlc { hash: announcement.hash, maker: *maker, taker, timelock: announcement.timelock };
 	let script_pubkey = htlc.script_pubkey();
 	let (vout, output) = tx.output.iter().enumerate().find(|(_, o)| o.script_pubkey == script_pubkey)?;
@@ -261,8 +278,8 @@ pub fn lock_transaction(
 ) -> Result<Transaction> {
 	let secp = Secp256k1::new();
 	let public = CompressedPublicKey::from_private_key(&secp, key).map_err(bitcoin_error)?;
-	if public != htlc.taker {
-		return Err(Error::InvalidInput("the refund key of the script is not the key paying".into()));
+	if announcement.refund.map_or(public, |refund| refund) != htlc.taker {
+		return Err(Error::InvalidInput("the refund key of the script is neither announced nor the key paying".into()));
 	}
 	let notice = ScriptBuf::new_p2wpkh(&htlc.maker.wpubkey_hash());
 	let change = address_of(&public, network).script_pubkey();
@@ -535,7 +552,7 @@ mod tests {
 		let secret = [7u8; 32];
 		let hash = bitcoin::hashes::sha256::Hash::hash(&secret).to_byte_array();
 		let htlc = Htlc { hash, maker: public(&maker), taker: public(&taker), timelock: 1_800_000_000 };
-		let announcement = Announcement { offer: 3, taker: AccountId::from([9u8; 32]), hash, timelock: htlc.timelock };
+		let announcement = Announcement { offer: 3, taker: AccountId::from([9u8; 32]), hash, timelock: htlc.timelock, refund: None };
 		let funding = OutPoint { txid: Txid::all_zeros(), vout: 0 };
 		let utxo_amount = 100_000;
 		let tx = lock_transaction(&taker, &[Utxo { outpoint: funding, amount: utxo_amount }], &htlc, &announcement, 50_000, 2.0, Network::Regtest).unwrap();
@@ -568,8 +585,17 @@ mod tests {
 
 	#[test]
 	fn announcements_round_trip() {
-		let a = Announcement { offer: u64::MAX - 1, taker: AccountId::from([5u8; 32]), hash: [6u8; 32], timelock: 1_900_000_000 };
+		let a = Announcement { offer: u64::MAX - 1, taker: AccountId::from([5u8; 32]), hash: [6u8; 32], timelock: 1_900_000_000, refund: None };
+		assert_eq!(a.encode().len(), ANNOUNCEMENT_LEN);
 		assert_eq!(Announcement::decode(&a.encode()), Some(a.clone()));
+		let with_refund = Announcement { refund: Some(public(&key(4))), ..a.clone() };
+		assert_eq!(with_refund.encode().len(), ANNOUNCEMENT_WITH_REFUND_LEN);
+		assert_eq!(&with_refund.encode()[..2], b"TR");
+		assert_eq!(Announcement::decode(&with_refund.encode()), Some(with_refund.clone()));
+		// A magic of the other length is refused.
+		let mut mixed = with_refund.encode();
+		mixed[1] = b'X';
+		assert_eq!(Announcement::decode(&mixed), None);
 		assert_eq!(Announcement::decode(&a.encode()[1..]), None);
 		let mut other = a.encode();
 		other[0] = b'Y';
@@ -598,6 +624,55 @@ mod tests {
 		assert_eq!(lock.lock_bytes().len(), 36);
 		// Another maker finds nothing in it.
 		assert_eq!(find_lock(&tx, &public(&key(3))), None);
+	}
+
+	/// A wallet that only pays (key 5) locks for a refund key it does not hold (key 2), announced.
+	#[test]
+	fn announced_refund_keys_take_payments_back() {
+		let (maker, payer, refund) = (key(1), key(5), key(2));
+		let secret = [7u8; 32];
+		let hash = bitcoin::hashes::sha256::Hash::hash(&secret).to_byte_array();
+		let htlc = Htlc { hash, maker: public(&maker), taker: public(&refund), timelock: 1_800_000_000 };
+		let announcement = Announcement { offer: 4, taker: AccountId::from([9u8; 32]), hash, timelock: htlc.timelock, refund: Some(htlc.taker) };
+		let utxo = [Utxo { outpoint: OutPoint::null(), amount: 100_000 }];
+		let tx = lock_transaction(&payer, &utxo, &htlc, &announcement, 40_000, 2.0, Network::Regtest).unwrap();
+		let lock = find_lock(&tx, &htlc.maker).unwrap();
+		assert_eq!(lock.htlc, htlc);
+		assert_eq!(lock.offer, 4);
+
+		let spent = &tx.output[lock.outpoint.vout as usize];
+		let verify = |spending: &Transaction| {
+			bitcoin::consensus::verify_script(&spent.script_pubkey, 0, spent.value, &consensus::serialize(spending))
+		};
+		verify(&refund_transaction(&lock, &refund, 3.0, Network::Regtest).unwrap()).unwrap();
+		assert!(verify(&refund_transaction(&lock, &payer, 3.0, Network::Regtest).unwrap()).is_err());
+		verify(&claim_transaction(&lock, secret, &maker, 3.0, Network::Regtest).unwrap()).unwrap();
+	}
+
+	/// A payment locked by a browser wallet and taken back by the Tesserax wallet, both built by
+	/// the TypeScript SDK (`sdk-ts/test/bitcoin.test.ts`), as Bitcoin Core verifies them.
+	#[test]
+	fn transactions_of_the_typescript_sdk_are_valid() {
+		let vectors: serde_json::Value = serde_json::from_str(include_str!("testdata/bitcoin-ts.json")).unwrap();
+		let field = |name: &str| -> Vec<u8> { bitcoin::hex::FromHex::from_hex(vectors[name].as_str().unwrap()).unwrap() };
+		let maker = CompressedPublicKey::from_slice(&field("maker")).unwrap();
+		let lock_tx: Transaction = consensus::deserialize(&field("lock")).unwrap();
+
+		// The browser wallet signed its input.
+		let funding = ScriptBuf::from_bytes(field("payer_script"));
+		let funded = Sats::from_sat(vectors["funding_amount"].as_u64().unwrap());
+		bitcoin::consensus::verify_script(&funding, 0, funded, &field("lock")).unwrap();
+
+		// The maker finds the payment, with the announced refund key, and the same script.
+		let lock = find_lock(&lock_tx, &maker).unwrap();
+		assert_eq!(lock.offer, 4);
+		assert_eq!(AsRef::<[u8]>::as_ref(&lock.taker), field("taker").as_slice());
+		assert_eq!(lock.htlc.taker.to_bytes().to_vec(), field("refund"));
+		assert_eq!(lock.htlc.script().to_bytes(), field("script"));
+
+		// The refund signed with the key of the Tesserax wallet spends it.
+		let spent = &lock_tx.output[lock.outpoint.vout as usize];
+		bitcoin::consensus::verify_script(&spent.script_pubkey, 0, spent.value, &field("refund_tx")).unwrap();
 	}
 
 	#[test]

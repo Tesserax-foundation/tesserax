@@ -493,7 +493,7 @@ async fn buy_with_bitcoin(
 	))?;
 	let (secret, hash) = new_secret().map_err(error)?;
 	let htlc = Htlc { hash, maker, taker: refund, timelock };
-	let announcement = btc::Announcement { offer: o.id, taker: taker.clone(), hash, timelock };
+	let announcement = btc::Announcement { offer: o.id, taker: taker.clone(), hash, timelock, refund: None };
 	let tx = btc::lock_transaction(&key, &utxos, &htlc, &announcement, due, fee_rate, esplora.network).map_err(error)?;
 	let lock = btc::find_lock(&tx, &maker).ok_or("the payment built cannot be found again")?;
 	// The secret and the script are saved before anything is broadcast: they claim the TESS and

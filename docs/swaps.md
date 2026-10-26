@@ -64,9 +64,16 @@ OP_CHECKSIG
 
 The payout of a Bitcoin offer is the compressed public key of the maker. The transaction locking
 a payment also sends 330 satoshis to the P2WPKH address of that key, and carries an OP_RETURN
-output of 78 bytes: `TX`, the offer, the Tesserax account of the taker, the hash and the
-timelock. The maker watches its own address only; the refund key of the taker is the key of the
-first input. The maker rebuilds the script, checks it is the one of the output, and fills once
+output announcing the trade: `TR`, the offer, the Tesserax account of the taker, the hash, the
+timelock and the refund key of the taker, 111 bytes. The maker watches its own address only.
+
+The refund key is apart from the wallet paying: browser wallets, such as the Bitcoin account of
+MetaMask, sign only transactions they finalize alone, which a refund of the script is not. The
+web wallet derives the refund key from the seed of the account and the hash, and signs the
+refund itself. The command line wallet, which holds its Bitcoin key, announces in 78 bytes
+(`TX`, without the key): its refund key is the key of the first input. OP_RETURN outputs of
+111 bytes are relayed by default since Bitcoin Core 30; nodes of older versions or filtering ones
+keep only those of 80 bytes at most. The maker rebuilds the script, checks it is the one of the output, and fills once
 the transaction has 2 confirmations: an unconfirmed transaction can be replaced. The payment lock
 on Tesserax is the outpoint of the script, 36 bytes. The maker claims with the secret the taker
 revealed, to the same address.
