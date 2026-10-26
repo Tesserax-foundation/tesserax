@@ -42,7 +42,6 @@ time are announced in advance, so that every miner starts at the same moment.
 
 ## 12.4 After launch
 
-- Post-quantum certificates for the public RPC as soon as certificate authorities issue them.
 - Larger anonymity sets and multi-input private transfers.
 - Agent features driven by usage: richer policies, recurring payments, standard agent cards.
 - Listings on exchanges and market-data aggregators, fed by the explorer's market endpoints.

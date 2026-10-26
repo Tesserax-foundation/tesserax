@@ -158,12 +158,9 @@ gateway that terminates TLS itself:
 | Classical groups only | Nothing: the handshake fails |
 
 Every session key of the RPC is thus protected by ML-KEM. Browsers support the hybrid group since
-Chrome 131, Firefox 132 and Safari 26; Node.js, Python and curl support it with OpenSSL 3.5. The
-certificate that authenticates the server is still ECDSA, because no public certificate authority
-issues post-quantum certificates yet. This exposes the RPC to active impersonation by a future
-quantum attacker, not to retroactive decryption; it will switch to ML-DSA certificates as soon as
-they are issued. Transactions themselves are unaffected: they are signed with ML-DSA end to end,
-and a gateway cannot alter them.
+Chrome 131, Firefox 132 and Safari 26; Node.js, Python and curl support it with OpenSSL 3.5.
+Transactions are signed with ML-DSA in the wallet before they reach the gateway, which cannot alter
+them.
 
 ## 3.4 Hash functions
 

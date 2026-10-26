@@ -23,8 +23,7 @@ ML-KEM-768:
 
 No session is protected by classical cryptography alone. Browsers offer ML-KEM only within the
 hybrid X25519MLKEM768, so the gateway accepts the hybrid; clients that offer ML-KEM-768 on its own
-get it. The certificate is ECDSA, from Let's Encrypt: certificate authorities trusted by browsers
-issue no post-quantum certificates yet.
+get it.
 
 Clients that connect:
 

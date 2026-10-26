@@ -33,9 +33,8 @@ one implementation of each primitive is correct.
 | Contract-level signature checks | `ecrecover` | Removed; ML-DSA precompile |
 | Proof of work | Grover gives at most a quadratic speed-up on hashing, impractical against memory-hard RandomX | Same |
 
-Two classical dependencies remain, both outside the protocol: the TLS certificate of the public RPC,
-issued by a certificate authority that does not yet sign with ML-DSA, and the other side of atomic
-swaps, which is as safe as Bitcoin or Ethereum.
+One classical dependency remains, outside the protocol: the other side of atomic swaps, which is
+as safe as Bitcoin or Ethereum.
 
 ## 11.3 Consensus attacks
 

@@ -3,8 +3,6 @@
 //! Clients that offer ML-KEM-768 on its own (the SDKs and tools of Tesserax) get it; browsers,
 //! which only offer it in the hybrid X25519MLKEM768, get the hybrid. A client without ML-KEM
 //! fails the handshake: no session of the gateway is protected by classical cryptography alone.
-//!
-//! The certificate stays ECDSA: browsers trust no other kind of certificate authority yet.
 
 use arc_swap::ArcSwapOption;
 use rustls::{
