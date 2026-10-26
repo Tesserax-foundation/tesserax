@@ -678,6 +678,29 @@ mod tests {
 		bitcoin::consensus::verify_script(&spent.script_pubkey, 0, spent.value, &field("refund_tx")).unwrap();
 	}
 
+	/// A payment locked, claimed and taken back by the Python SDK (`sdk-python/tests/test_bitcoin.py`),
+	/// as Bitcoin Core verifies it.
+	#[test]
+	fn transactions_of_the_python_sdk_are_valid() {
+		let vectors: serde_json::Value = serde_json::from_str(include_str!("testdata/bitcoin-py.json")).unwrap();
+		let field = |name: &str| -> Vec<u8> { bitcoin::hex::FromHex::from_hex(vectors[name].as_str().unwrap()).unwrap() };
+		let maker = CompressedPublicKey::from_slice(&field("maker")).unwrap();
+		let lock_tx: Transaction = consensus::deserialize(&field("lock")).unwrap();
+
+		let funding = ScriptBuf::from_bytes(field("payer_script"));
+		let funded = Sats::from_sat(vectors["funding_amount"].as_u64().unwrap());
+		bitcoin::consensus::verify_script(&funding, 0, funded, &field("lock")).unwrap();
+
+		let lock = find_lock(&lock_tx, &maker).unwrap();
+		assert_eq!(lock.offer, 4);
+		let spent = &lock_tx.output[lock.outpoint.vout as usize];
+		for spending in ["claim", "refund"] {
+			let tx: Transaction = consensus::deserialize(&field(spending)).unwrap();
+			assert_eq!(tx.input[0].previous_output, lock.outpoint, "{spending}");
+			bitcoin::consensus::verify_script(&spent.script_pubkey, 0, spent.value, &field(spending)).unwrap();
+		}
+	}
+
 	#[test]
 	fn a_lock_needs_enough_funds_and_the_refund_key() {
 		let (_, htlc, announcement, _, _) = locked();

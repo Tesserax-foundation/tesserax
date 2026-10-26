@@ -152,6 +152,12 @@ Makers offer with `client.swaps.create_offer`, find the payments locked for them
 `EvmSwaps.locks`, fill them with `client.swaps.fill`, read the secrets claims reveal with
 `client.swaps.events`, and collect with `EvmSwaps.claim`.
 
+In BTC, `tesserax.bitcoin` (embit) builds the script and the payment, with the offer announced to
+the maker: `lock_transaction` signs it with a Bitcoin key, `find_lock` is how a maker finds it,
+`claim_transaction` collects it with the secret, `refund_transaction` takes it back after 24 hours,
+with the key paying or with `refund_key`, derived from the seed of the account as the web wallet
+derives it. `Esplora` reads and broadcasts through the API of mempool.space.
+
 ## Tests
 
 ```bash

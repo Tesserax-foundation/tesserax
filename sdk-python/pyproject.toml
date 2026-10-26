@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tesserax"
-version = "0.3.0"
+version = "0.4.0"
 description = "Python SDK of Tesserax: ML-DSA accounts, transfers, AI agent delegations, the agent registry, smart contracts, private transactions and atomic swaps."
 readme = "README.md"
 license = "Apache-2.0"
@@ -19,9 +19,9 @@ dependencies = [
 [project.optional-dependencies]
 # Private transactions: the shielded wallet runs as WebAssembly in wasmtime.
 shielded = ["wasmtime>=50,<51"]
-# Atomic swaps: the payment side on the EVM chains, with web3.py.
-swaps = ["web3>=7,<8"]
-test = ["pytest>=8", "wasmtime>=50,<51", "web3>=7,<8"]
+# Atomic swaps: the payment side on the EVM chains, with web3.py, and on Bitcoin, with embit.
+swaps = ["web3>=7,<8", "embit>=0.8,<0.9"]
+test = ["pytest>=8", "wasmtime>=50,<51", "web3>=7,<8", "embit>=0.8,<0.9"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tesserax"]

@@ -120,7 +120,9 @@ once the TESS are claimed: losing it before the claim only delays the refund. A 
 saves its script, which takes the payment back. The Rust SDK has the
 same operations: `tesserax_sdk::swaps`, and `tesserax_sdk::swaps::evm` with the `swaps` feature;
 the TypeScript SDK `client.swaps` and `EvmSwaps`, with any viem wallet client; the Python SDK
-`client.swaps` and `EvmSwaps`, with web3.py. Both refuse to lock
+`client.swaps` and `EvmSwaps`, with web3.py. In BTC, `tesserax_sdk::swaps::bitcoin`, the Bitcoin
+module of the TypeScript SDK, and `tesserax.bitcoin` of the Python SDK build the same
+transactions: the tests of the Rust SDK verify those of the other two with Bitcoin Core. Both refuse to lock
 a payment on a chain where the contract is not deployed.
 
 ## Testing on one's own machine
