@@ -58,7 +58,7 @@ Locked TESS cannot vote: the team and the foundation gain a voice only as their 
 
 The public testnet is live with everything above: wallet, explorer, faucet, mining pool and
 miner, SDKs in Rust, TypeScript and Python, and the MCP server. Runtime upgrades already pass by
-referendum. Mainnet follows external audits.
+referendum. Mainnet comes next.
 
 **Try it:** [wallet.tesserax.app](https://wallet.tesserax.app) ·
 [explorer.tesserax.app](https://explorer.tesserax.app) ·

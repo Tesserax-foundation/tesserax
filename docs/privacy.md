@@ -16,9 +16,7 @@ Every cryptographic component is post-quantum:
 There is no elliptic curve and no trusted setup.
 
 **Status:** active from the genesis, on the testnet and the mainnet. The pool balance can never
-become negative, so that a flaw in the proof system could not create TESS outside the pool; the
-pool must still be audited by cryptographers specialised in zero-knowledge proofs before it holds
-much value.
+become negative, so that a flaw in the proof system could not create TESS outside the pool.
 
 ## Using it
 

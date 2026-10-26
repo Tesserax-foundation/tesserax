@@ -140,7 +140,7 @@ $$
 **Foundation — 700,000 TESS**, held by a 2-of-3 multi-signature account whose signatories are
 the two team members and a backup key kept offline.
 
-- 140,000 TESS are liquid at genesis, to fund development, audits, listings and infrastructure.
+- 140,000 TESS are liquid at genesis, to fund development, security, listings and infrastructure.
 - 560,000 TESS are released linearly over 36 months (5,259,600 blocks), without cliff.
 
 Any two of the three keys approve a spending of the foundation; one lost key blocks nothing and one

@@ -18,14 +18,12 @@ description: "From the public testnet to the mainnet genesis."
 
 ## 12.2 Before mainnet
 
-1. **External audits** of the runtime, the post-quantum networking, the shielded pool and the
-   wallets.
-2. **Benchmarks on reference hardware**, and runtime weights updated accordingly.
-3. **Wallet distribution**: the browser extension in the Chrome and Firefox stores, the desktop
+1. **Benchmarks on reference hardware**, and runtime weights updated accordingly.
+2. **Wallet distribution**: the browser extension in the Chrome and Firefox stores, the desktop
    application signed for macOS and Windows.
-4. **SDK releases** on crates.io, npm and PyPI.
-5. **Swap contracts** deployed on Ethereum, Base and Arbitrum, and their test networks.
-6. **Initial difficulty** set from the hash rate measured on the testnet.
+3. **SDK releases** on crates.io, npm and PyPI.
+4. **Swap contracts** deployed on Ethereum, Base and Arbitrum, and their test networks.
+5. **Initial difficulty** set from the hash rate measured on the testnet.
 
 ## 12.3 Launch
 

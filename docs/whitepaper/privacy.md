@@ -263,5 +263,5 @@ wallet and the TypeScript SDK, and through WASI in the Python SDK.
 - **Network privacy.** The pool hides the content of transactions, not the IP address that
   broadcasts them.
 - **Two inputs.** Spending more than two notes takes several transactions.
-- **Audit.** The pool is active from genesis but must receive a dedicated audit of its proof
-  system before it holds significant value.
+- **Maturity.** The proof system is new code; the turnstile bounds what a flaw could affect to
+  the value inside the pool.

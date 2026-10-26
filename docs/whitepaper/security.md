@@ -95,11 +95,12 @@ several bootnodes and independent peers.
 
 ## 11.7 Implementation risks
 
-- The ML-DSA implementations — RustCrypto `ml-dsa` in the runtime, AWS-LC in networking — are young
-  and have not been audited for Tesserax.
+- The ML-DSA implementations — RustCrypto `ml-dsa` in the runtime, AWS-LC in networking — are
+  recent implementations of a recent standard; every SDK is checked against the same test vectors.
 - Weights were benchmarked on a development machine and must be measured again on reference
   hardware before mainnet, so that block limits hold on slower machines.
-- The shielded pool's circuit and parameters need a dedicated zero-knowledge audit.
+- The shielded pool's circuit is new code; its turnstile bounds what a flaw could affect to the
+  value inside the pool.
 
 The foundation funds a bug bounty of 25,000 TESS, with rewards from 50 to 10,000 TESS by
 severity, covering the chain, the wallets, the miner and the testnet services. Reports are made

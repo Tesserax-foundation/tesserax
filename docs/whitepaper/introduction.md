@@ -56,7 +56,7 @@ per request, and to contract work with guarantees on both sides.
 
 Tesserax builds these into the runtime of the chain rather than into contracts deployed on top:
 they are protocol rules, uniform for every agent, cheaper to execute and covered by the same
-audit and governance as the rest of the chain.
+review and governance as the rest of the chain.
 
 ## 1.3 Design goals
 
@@ -97,5 +97,4 @@ atomic swaps, where each side holds its own keys until the exchange completes.
 The reference implementation is open source and runs a public testnet: the node, runtime, wallets
 (command line, web, browser extension and desktop), explorer, faucet, mining pool and miner, SDKs
 in Rust, TypeScript and Python, and the MCP server. Runtime upgrades on the testnet already go
-through referenda. The mainnet launches from a genesis described in chapter 12, after an external
-audit.
+through referenda. The mainnet launches from a genesis described in chapter 12.
