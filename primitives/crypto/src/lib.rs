@@ -1,6 +1,6 @@
 //! ML-DSA keys, signatures and accounts for Tesserax.
 //!
-//! Tesserax uses ML-DSA-87 (FIPS 204, NIST security category 3) for every signature: there is no
+//! Tesserax uses ML-DSA-87 (FIPS 204, NIST security category 5) for every signature: there is no
 //! sr25519, ed25519 or ECDSA account on the chain.
 //!
 //! An account is identified by the BLAKE2-256 hash of its ML-DSA public key. Since an account id

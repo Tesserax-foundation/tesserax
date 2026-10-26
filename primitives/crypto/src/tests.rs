@@ -7,7 +7,7 @@ fn pair(seed: u8) -> Pair {
 }
 
 #[test]
-fn sizes_match_ml_dsa_65() {
+fn sizes_match_ml_dsa_87() {
 	let pair = pair(1);
 	assert_eq!(pair.public().0.len(), 2592);
 	assert_eq!(TraitPair::sign(&pair, b"message").0.len(), 4627);

@@ -57,7 +57,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("tesserax"),
 	impl_name: alloc::borrow::Cow::Borrowed("tesserax-node"),
 	authoring_version: 1,
-	spec_version: 104,
+	spec_version: 105,
 	impl_version: 1,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -67,9 +67,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 /// Target block time, in milliseconds. Proof of work makes actual block times vary around it.
 pub const MILLI_SECS_PER_BLOCK: u64 = 18_000;
 
-// Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLI_SECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
+// Time is measured by number of blocks. An hour is counted from milliseconds: a minute is 3.33
+// blocks, and counting hours in whole minutes would make every period 10% short.
+pub const HOURS: BlockNumber = (3_600_000 / MILLI_SECS_PER_BLOCK) as BlockNumber;
 pub const DAYS: BlockNumber = HOURS * 24;
 
 /// Number of decimals of the TESS token.

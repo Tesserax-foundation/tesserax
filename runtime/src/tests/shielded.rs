@@ -153,6 +153,6 @@ fn private_transfer_without_signer() {
 #[test]
 fn minimum_fee_covers_weight_and_length() {
 	let fee = ShieldedMinimumFee::get() as Balance;
-	// About 0.016 TESS with the current weights: verifying a proof takes about 13 ms.
+	// About 0.014 TESS with the current weights: verifying a proof takes about 12 ms.
 	assert!(fee > UNIT / 100 && fee < UNIT / 10);
 }

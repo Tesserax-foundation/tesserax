@@ -81,8 +81,9 @@ foundation allocation to a 2-of-3 multisig of Alice, Bob and Charlie.
   0.2125 TESS from block 14 000 001, and so on. The halvings mint at most 11 900 000 TESS; the
   runtime also caps the total minted at that amount.
 - Nothing is burned. The miner of a block also receives the fees and tips of its transactions,
-  the dust of accounts removed below the existential deposit (0.001 TESS) and the rounding of
-  contract gas.
+  the fees of private transfers, the dust of accounts removed below the existential deposit
+  (0.001 TESS), the rounding of contract gas and the deposits slashed by governance. Only a
+  block without author would burn the fee of a private transfer, and every mined block has one.
 - Value in the shielded pool is not counted in the total issuance of the balances pallet: the
   total supply is the total issuance plus the pool balance (see `docs/privacy.md`).
 

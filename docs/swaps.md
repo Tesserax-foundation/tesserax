@@ -21,7 +21,8 @@ A **maker** sells TESS with an offer; a **taker** buys them.
 4. The taker claims the TESS with the secret. The claim needs no signature and no fee: the secret
    authorizes it, so that a taker who has no TESS yet can make it.
 5. The secret is now public: anyone submits it to the contract, which pays the maker. The maker
-   does it itself, within the 18 hours its payment remains locked at least.
+   does it itself before the payment lock expires: it filled only a lock with 12 hours left, so
+   it has at least 6 hours after the 6 hours of the trade.
 
 If the maker never fills, the taker takes its payment back once the 24 hours are over. If the
 taker never claims, the TESS return to the offer after 6 hours, and the taker takes its payment
