@@ -2,7 +2,7 @@
 authors = ["Tesserax developers"]
 edition = "2021"
 license = "Apache-2.0"
-repository = "https://github.com/Wayleyy/tesserax"
+repository = "https://github.com/Tesserax-labs/tesserax"
 
 [workspace]
 resolver = "2"
