@@ -17,6 +17,7 @@ transaction is signed with ML-DSA (FIPS 204), a post-quantum signature scheme.
 | `sdk-ts/` | TypeScript SDK, same scope |
 | `mcp/` | MCP server: lets any AI agent hold, spend and earn TESS |
 | `site/` | The website, https://tesserax.app |
+| `docs-site/` | The documentation site, with the whitepaper and the lightpaper: https://docs.tesserax.app |
 | `pallets/agents/` | Agent accounts: keys spending for an owner within a budget, targets and an expiry |
 | `pallets/agent-registry/` | Registry of AI agents: identity, owner, endpoint, capabilities and reputation |
 | `pallets/channels/` | Payment channels: micropayments with vouchers signed off chain, see `docs/micropayments.md` |

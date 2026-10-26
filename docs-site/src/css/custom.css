@@ -1,0 +1,139 @@
+@import "@fontsource-variable/space-grotesk";
+@import "@fontsource-variable/jetbrains-mono";
+@import "katex/dist/katex.min.css";
+
+/* The colors of tesserax.app: deep navy, electric blue, cyan and violet. */
+
+:root {
+  --ifm-color-primary: #2f6bff;
+  --ifm-color-primary-dark: #1f5ef5;
+  --ifm-color-primary-darker: #1a57e6;
+  --ifm-color-primary-darkest: #1647be;
+  --ifm-color-primary-light: #4b80ff;
+  --ifm-color-primary-lighter: #5a8bff;
+  --ifm-color-primary-lightest: #84a8ff;
+  --ifm-font-family-base: "Space Grotesk Variable", system-ui, sans-serif;
+  --ifm-heading-font-family: "Space Grotesk Variable", system-ui, sans-serif;
+  --ifm-font-family-monospace: "JetBrains Mono Variable", ui-monospace, monospace;
+  --ifm-code-font-size: 90%;
+  --ifm-heading-font-weight: 700;
+  --ifm-navbar-height: 64px;
+  --tx-grad: linear-gradient(100deg, #2f6bff 0%, #38e1ff 55%, #8b5cff 100%);
+  --docusaurus-highlighted-code-line-bg: rgba(47, 107, 255, 0.12);
+}
+
+[data-theme="dark"] {
+  --ifm-color-primary: #38e1ff;
+  --ifm-color-primary-dark: #1edcff;
+  --ifm-color-primary-darker: #10d9ff;
+  --ifm-color-primary-darkest: #00bde3;
+  --ifm-color-primary-light: #52e6ff;
+  --ifm-color-primary-lighter: #60e8ff;
+  --ifm-color-primary-lightest: #88eeff;
+  --ifm-background-color: #05070b;
+  --ifm-background-surface-color: #0a0e16;
+  --ifm-navbar-background-color: rgba(5, 7, 11, 0.78);
+  --ifm-footer-background-color: #05070b;
+  --ifm-font-color-base: #e3e8f4;
+  --ifm-color-emphasis-300: rgba(120, 150, 210, 0.22);
+  --ifm-toc-border-color: rgba(120, 150, 210, 0.14);
+  --ifm-hr-border-color: rgba(120, 150, 210, 0.16);
+  --ifm-table-border-color: rgba(120, 150, 210, 0.16);
+  --ifm-table-stripe-background: rgba(255, 255, 255, 0.02);
+  --ifm-code-background: rgba(47, 107, 255, 0.12);
+  --ifm-menu-color-background-active: rgba(47, 107, 255, 0.14);
+  --ifm-menu-color-background-hover: rgba(47, 107, 255, 0.08);
+  --docusaurus-highlighted-code-line-bg: rgba(56, 225, 255, 0.1);
+}
+
+[data-theme="dark"] body {
+  background:
+    radial-gradient(900px circle at 85% -10%, rgba(47, 107, 255, 0.12), transparent 60%),
+    radial-gradient(800px circle at -10% 110%, rgba(139, 92, 255, 0.07), transparent 60%),
+    #05070b;
+  background-attachment: fixed;
+}
+
+.navbar {
+  backdrop-filter: blur(16px) saturate(140%);
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+  box-shadow: none;
+}
+
+.navbar__logo img {
+  filter: drop-shadow(0 0 10px rgba(47, 107, 255, 0.55));
+}
+
+.navbar__title {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.markdown h1 {
+  font-size: clamp(2.1rem, 4vw, 3rem);
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
+[data-theme="dark"] .markdown h1 {
+  background: var(--tx-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.markdown h2 {
+  letter-spacing: -0.02em;
+  margin-top: 2.6rem;
+}
+
+.markdown {
+  --ifm-h2-font-size: 1.75rem;
+  line-height: 1.72;
+}
+
+.markdown table {
+  display: table;
+  width: 100%;
+  font-size: 0.93rem;
+}
+
+[data-theme="dark"] .markdown table thead tr {
+  background: rgba(47, 107, 255, 0.1);
+}
+
+.markdown blockquote {
+  border-left-color: #38e1ff;
+  background: rgba(56, 225, 255, 0.05);
+  padding: 0.8rem 1.2rem;
+  border-radius: 0 10px 10px 0;
+}
+
+[data-theme="dark"] .theme-doc-sidebar-container {
+  border-right-color: var(--ifm-toc-border-color) !important;
+}
+
+.menu__link--active:not(.menu__link--sublist) {
+  font-weight: 600;
+}
+
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.4rem 0;
+}
+
+.docusaurus-mermaid-container {
+  display: flex;
+  justify-content: center;
+  margin: 1.5rem 0;
+}
+
+[data-theme="dark"] .footer {
+  border-top: 1px solid var(--ifm-toc-border-color);
+}
+
+.footer__copyright {
+  color: #5d6880;
+  font-size: 0.85rem;
+}
