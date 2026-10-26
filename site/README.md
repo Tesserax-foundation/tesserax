@@ -9,4 +9,4 @@ npm run dev     # http://localhost:5173
 npm run build   # dist/
 ```
 
-Deployed on Vercel from this directory; `vercel.json` sets its content security policy.
+`vercel.json` sets its content security policy and headers.

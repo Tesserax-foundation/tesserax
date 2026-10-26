@@ -7,8 +7,7 @@ wss://rpc.tesserax.app:21207      websocket (subscriptions)
 https://rpc.tesserax.app:21207    HTTP, one JSON-RPC request per call
 ```
 
-The port is the public port of the TCP proxy of the host (Railway), which hands the connection to
-the gateway untouched: TLS is terminated by the gateway itself, not by the host.
+The gateway terminates TLS itself: no proxy or host in front of it sees the traffic in clear.
 
 ## Post-quantum TLS
 

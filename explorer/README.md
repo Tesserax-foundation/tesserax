@@ -95,8 +95,7 @@ The circulating supply is the issuance without what the genesis allocations stil
   `web/api/` serves the market API, with the variables of the build (`VITE_SUPABASE_URL`,
   `VITE_SUPABASE_ANON_KEY`).
 - Indexer: one process per database, next to the node, restarted on failure (systemd, Docker).
-  It resumes where it stopped. The indexer of the testnet runs on Railway next to its node: see
-  [docs/testnet.md](../docs/testnet.md).
+  It resumes where it stopped.
 
 ## Tests
 

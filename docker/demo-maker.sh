@@ -6,7 +6,7 @@
 # kept in the volume; they never leave the service. Send it TESS from another account: it offers
 # them again as they sell.
 #
-#   NODE_URL     node it reads and submits to (ws://node.railway.internal:9944, say)
+#   NODE_URL     node it reads and submits to (ws://node.internal:9944, say)
 #   KEEP_OFFER   offers kept open, chain:asset:price:amount:min (see `swap make --help`), several
 #                separated by spaces; bitcoin:btc:0.00001:1000:10 by default
 #   DATA         volume (/data by default)

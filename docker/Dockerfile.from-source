@@ -1,7 +1,7 @@
 # A binary of the repository compiled when the container starts, for hosts that give an image
-# build only minutes, such as Railway: the image holds the sources and the toolchain, and
-# docker/from-source.sh compiles the package into the volume, then runs it. A container started
-# again on the same sources starts at once. See docs/testnet.md.
+# build only minutes: the image holds the sources and the toolchain, and docker/from-source.sh
+# compiles the package into the volume, then runs it. A container started again on the same
+# sources starts at once.
 #
 #   docker build -f docker/Dockerfile.from-source -t tesserax-from-source .
 #   docker run -v tesserax-data:/data -p 30333:30333 tesserax-from-source --chain testnet --base-path /data

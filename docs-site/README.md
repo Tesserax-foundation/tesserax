@@ -10,4 +10,4 @@ npm start       # http://localhost:3000
 npm run build   # build/
 ```
 
-Deployed on Vercel with this directory as root.
+Built with this directory as root.

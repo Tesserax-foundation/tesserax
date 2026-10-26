@@ -1,5 +1,5 @@
 # The Tesserax build of XMRig (rx/tess), from its release, checked against its SHA-256: a rig for
-# a pool or a node, such as the rig of the hosted testnet pool (docs/testnet.md).
+# a pool or a node.
 #
 #   docker build -f docker/Dockerfile.xmrig -t tesserax-xmrig .
 #   docker run tesserax-xmrig -o pool.example.com:3333 -u <address>.rig1 -p x

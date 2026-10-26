@@ -86,9 +86,8 @@ struct Cli {
 	/// Minutes an IP address sending invalid shares stays banned.
 	#[arg(long, default_value_t = 10)]
 	ban_minutes: u64,
-	/// Rigs connect through a TCP proxy that hides their IP addresses, such as the TCP proxy of
-	/// Railway: no limit per IP address, and a rig sending invalid shares is disconnected
-	/// instead of having its IP address banned.
+	/// Rigs connect through a TCP proxy that hides their IP addresses: no limit per IP address,
+	/// and a rig sending invalid shares is disconnected instead of having its IP address banned.
 	#[arg(long)]
 	behind_proxy: bool,
 	/// Name of the pool on its dashboard.

@@ -64,14 +64,14 @@ or pass it in the environment variable `TESSERAX_POOL_KEY`, which the pool clear
 its owner only, and logs its address: start the node with that address as `--author`. Back the
 file up: the account holds what the pool owes its miners.
 
-Behind a TCP proxy that hides the IP addresses of the rigs, such as the one of Railway, start the
+Behind a TCP proxy that hides the IP addresses of the rigs, start the
 pool with `--behind-proxy`: every rig would otherwise share the address of the proxy, its limit of
 connections and its bans. A rig sending invalid shares is then disconnected, without ban; the
 limits per IP address need a host where the pool sees them.
 
 `--network` names the network on the dashboard (`Testnet`): on a test network, it tells miners
 that its TESS have no value. `--node-stratum` takes a host name, resolved again at each
-connection, such as `node.railway.internal:3334`.
+connection, such as `node.internal:3334`.
 `tesserax-pool --help` lists every option. Logs follow `RUST_LOG` (`info` by default).
 
 - **Memory**: the verification of shares needs one light RandomTESS cache per key, 256 MiB, two
