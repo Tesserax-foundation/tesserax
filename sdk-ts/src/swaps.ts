@@ -4,7 +4,14 @@
  * A maker offers TESS; a taker locks its payment on the EVM chain under the SHA-256 hash of a
  * secret; the maker checks it and fills the offer, which locks the TESS for the taker under the
  * same hash; the taker claims them with the secret, without fee, and the secret pays the maker on
- * the EVM chain. `Swaps` is the Tesserax side, `EvmSwaps` the side of the EVM chains.
+ * the EVM chain.
+ *
+ * A buyer bids for TESS; a seller sells into the bid, locking its TESS for the buyer under the hash
+ * of its own secret; the buyer locks the payment for the seller under the same hash and records
+ * it; the seller claims the payment with the secret, which then claims the TESS for the buyer,
+ * without fee.
+ *
+ * `Swaps` is the Tesserax side, `EvmSwaps` the side of the EVM chains.
  */
 
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -103,12 +110,50 @@ export interface Trade {
   expires: number;
 }
 
-/** What happened to trades in a block. */
+/** A bid for TESS. */
+export interface Bid {
+  id: number;
+  buyer: string;
+  payment: Payment;
+  /** Smallest units of the asset for one TESS. */
+  price: bigint;
+  /** TESS still wanted. */
+  wanted: Amount;
+  minSale: Amount;
+  /** Sales made into the bid, and sales the buyer paid and received. */
+  sales: number;
+  completed: number;
+}
+
+/** TESS a seller locked for the buyer of a bid. */
+export interface Sale {
+  id: number;
+  bid: number;
+  seller: string;
+  buyer: string;
+  amount: Amount;
+  price: bigint;
+  payment: Payment;
+  hash: Uint8Array;
+  /** The EVM address the seller is paid to, or its public key on Bitcoin. */
+  payout: Uint8Array;
+  /** The lock of the payment on its chain, empty until the buyer records it. */
+  paymentLock: Uint8Array;
+  /** Last block the buyer may claim at. */
+  expires: number;
+}
+
+/** What happened to trades and sales in a block. */
 export type SwapEvent =
   | { type: "Filled"; trade: Trade }
   /** Claimed with `secret`, which releases the payment. */
   | { type: "Claimed"; trade: number; taker: string; amount: Amount; secret: Uint8Array }
-  | { type: "Refunded"; trade: number; maker: string; amount: Amount };
+  | { type: "Refunded"; trade: number; maker: string; amount: Amount }
+  | { type: "Sold"; sale: Sale }
+  | { type: "SalePaid"; sale: number; paymentLock: Uint8Array }
+  /** Claimed for the buyer with `secret`, which the seller revealed by claiming its payment. */
+  | { type: "SaleClaimed"; sale: number; buyer: string; amount: Amount; secret: Uint8Array }
+  | { type: "SaleRefunded"; sale: number; seller: string; amount: Amount };
 
 const bytes = (value: unknown): Uint8Array =>
   value instanceof Uint8Array ? value : typeof value === "string" ? fromHex(value) : (value as { asBytes(): Uint8Array }).asBytes();
@@ -153,6 +198,31 @@ const tradeOf = (id: unknown, t: any): Trade => ({
   hash: bytes(t.hash),
   paymentLock: bytes(t.payment_lock),
   expires: Number(t.expires),
+});
+
+const bidOf = (id: unknown, b: any): Bid => ({
+  id: Number(id),
+  buyer: account(b.buyer),
+  payment: paymentOf(b.payment),
+  price: BigInt(b.price),
+  wanted: new Amount(BigInt(b.wanted)),
+  minSale: new Amount(BigInt(b.min_sale)),
+  sales: Number(b.sales),
+  completed: Number(b.completed),
+});
+
+const saleOf = (id: unknown, s: any): Sale => ({
+  id: Number(id),
+  bid: Number(s.bid),
+  seller: account(s.seller),
+  buyer: account(s.buyer),
+  amount: new Amount(BigInt(s.amount)),
+  price: BigInt(s.price),
+  payment: paymentOf(s.payment),
+  hash: bytes(s.hash),
+  payout: bytes(s.payout),
+  paymentLock: s.payment_lock === undefined ? new Uint8Array() : bytes(s.payment_lock),
+  expires: Number(s.expires),
 });
 
 const bounded = (value: Uint8Array) => {
@@ -259,7 +329,89 @@ export class Swaps {
   /** Claim trade `id` for its taker with `secret`: submitted without signer and without fee, so
    * anyone can submit it, a taker without TESS first. */
   async claim(id: number, secret: Uint8Array): Promise<TxOutcome> {
-    const call: Uint8Array = await this.api.tx.Swaps.claim({ id: BigInt(id), secret: fixed32(secret) }).getEncodedData();
+    return this.submitWithSecret("claim", id, secret);
+  }
+
+  /** Open bids. */
+  async bids(): Promise<Bid[]> {
+    const entries = (await this.api.query.Swaps.Bids.getEntries({ at: "best" })) as Array<{ keyArgs: [unknown]; value: any }>;
+    return entries.map(({ keyArgs, value }) => bidOf(keyArgs[0], value)).sort((a, b) => a.id - b.id);
+  }
+
+  /** The bid `id`, if open. */
+  async bid(id: number): Promise<Bid | undefined> {
+    const value = await this.api.query.Swaps.Bids.getValue(BigInt(id), { at: "best" });
+    return value ? bidOf(id, value) : undefined;
+  }
+
+  /** Sales waiting for their claim or their refund. */
+  async sales(): Promise<Sale[]> {
+    const entries = (await this.api.query.Swaps.Sales.getEntries({ at: "best" })) as Array<{ keyArgs: [unknown]; value: any }>;
+    return entries.map(({ keyArgs, value }) => saleOf(keyArgs[0], value)).sort((a, b) => a.id - b.id);
+  }
+
+  /** The sale `id`, if not claimed nor refunded yet. */
+  async sale(id: number): Promise<Sale | undefined> {
+    const value = await this.api.query.Swaps.Sales.getValue(BigInt(id), { at: "best" });
+    return value ? saleOf(id, value) : undefined;
+  }
+
+  /** Bid for `amount` TESS at `price` units of `payment` for one TESS, in sales of at least
+   * `minSale`. Only a deposit is held. Returns the id of the bid. */
+  async createBid(buyer: Keypair, bid: { payment: Payment; price: bigint; amount: Amount; minSale: Amount }): Promise<number> {
+    const tx = this.api.tx.Swaps.bid({
+      payment: encodePayment(bid.payment),
+      price: bid.price,
+      amount: bid.amount.planck,
+      min_sale: bid.minSale.planck,
+    });
+    const outcome = await this.client.submit(tx, buyer);
+    const event = outcome.events.find((e) => e.type === "Swaps" && e.value.type === "BidPlaced");
+    if (!event) throw new TransactionFailed("no bid placed");
+    return Number((event.value.value as { bid: bigint }).bid);
+  }
+
+  /** Change the price of bid `id`, the TESS it still wants and its smallest sale. */
+  async updateBid(buyer: Keypair, id: number, update: { price: bigint; wanted: Amount; minSale: Amount }): Promise<TxOutcome> {
+    const tx = this.api.tx.Swaps.update_bid({ id: BigInt(id), price: update.price, wanted: update.wanted.planck, min_sale: update.minSale.planck });
+    return this.client.submit(tx, buyer);
+  }
+
+  /** Withdraw bid `id`: its deposit returns to its buyer. */
+  async cancelBid(buyer: Keypair, id: number): Promise<TxOutcome> {
+    return this.client.submit(this.api.tx.Swaps.cancel_bid({ id: BigInt(id) }), buyer);
+  }
+
+  /** Sell `amount` TESS into bid `id`: they are locked for its buyer under `hash`, and the buyer
+   * pays `payout`, an EVM address or a public key on Bitcoin. Returns the id of the sale. */
+  async sell(seller: Keypair, id: number, sale: { amount: Amount; hash: Uint8Array; payout: Uint8Array }): Promise<number> {
+    const tx = this.api.tx.Swaps.sell({ id: BigInt(id), amount: sale.amount.planck, hash: fixed32(sale.hash), payout: bounded(sale.payout) });
+    const outcome = await this.client.submit(tx, seller);
+    const event = outcome.events.find((e) => e.type === "Swaps" && e.value.type === "Sold");
+    if (!event) throw new TransactionFailed("no sale made");
+    return Number((event.value.value as { sale: bigint }).sale);
+  }
+
+  /** Record `paymentLock`, the lock of the payment of sale `id` on its chain, as its buyer. */
+  async paySale(buyer: Keypair, id: number, paymentLock: Uint8Array): Promise<TxOutcome> {
+    return this.client.submit(this.api.tx.Swaps.pay({ id: BigInt(id), payment_lock: bounded(paymentLock) }), buyer);
+  }
+
+  /** Claim sale `id` for its buyer with `secret`: submitted without signer and without fee, so
+   * anyone can submit it, the seller once paid, or a buyer without TESS. */
+  async claimSale(id: number, secret: Uint8Array): Promise<TxOutcome> {
+    return this.submitWithSecret("claim_sale", id, secret);
+  }
+
+  /** Return sale `id` to its seller once it expired. Anyone can submit it. */
+  async refundSale(signer: Keypair, id: number): Promise<TxOutcome> {
+    return this.client.submit(this.api.tx.Swaps.refund_sale({ id: BigInt(id) }), signer);
+  }
+
+  /** `Swaps.<name>(id, secret)` as a general transaction without signer: the secret authorizes it,
+   * and no fee is paid. */
+  private async submitWithSecret(name: "claim" | "claim_sale", id: number, secret: Uint8Array): Promise<TxOutcome> {
+    const call: Uint8Array = await this.api.tx.Swaps[name]({ id: BigInt(id), secret: fixed32(secret) }).getEncodedData();
     // Version 5, general transaction; extension version 0; era, nonce, tip, metadata hash mode.
     const body = new Uint8Array([0b0100_0000 | 5, 0, 0, 0, 0, 0, ...bytes(call)]);
     const transaction = new Uint8Array([...compact(body.length), ...body]);
@@ -296,7 +448,7 @@ export class Swaps {
     return eventRecordsAt(this.client, hash);
   }
 
-  /** What happened to trades in block `number` of the best chain. */
+  /** What happened to trades and sales in block `number` of the best chain. */
   async events(number: number): Promise<SwapEvent[]> {
     const hash = await this.client.contracts.blockHash(number);
     if (!hash) return [];
@@ -309,6 +461,12 @@ export class Swaps {
       else if (event.value.type === "Claimed")
         found.push({ type: "Claimed", trade: Number(e.trade), taker: account(e.taker), amount: new Amount(BigInt(e.amount)), secret: bytes(e.secret) });
       else if (event.value.type === "Refunded") found.push({ type: "Refunded", trade: Number(e.trade), maker: account(e.maker), amount: new Amount(BigInt(e.amount)) });
+      else if (event.value.type === "Sold") found.push({ type: "Sold", sale: saleOf(e.sale, e) });
+      else if (event.value.type === "SalePaid") found.push({ type: "SalePaid", sale: Number(e.sale), paymentLock: bytes(e.payment_lock) });
+      else if (event.value.type === "SaleClaimed")
+        found.push({ type: "SaleClaimed", sale: Number(e.sale), buyer: account(e.buyer), amount: new Amount(BigInt(e.amount)), secret: bytes(e.secret) });
+      else if (event.value.type === "SaleRefunded")
+        found.push({ type: "SaleRefunded", sale: Number(e.sale), seller: account(e.seller), amount: new Amount(BigInt(e.amount)) });
     }
     return found;
   }
@@ -649,6 +807,20 @@ export class EvmSwaps {
   /** Pay lock `id` to its recipient with `secret`. Returns the transaction hash. */
   async claim(id: Hex, secret: Uint8Array): Promise<Hex> {
     return this.send({ functionName: "claim", args: [id, toHex(secret)] });
+  }
+
+  /** The secret that claimed lock `id`, from its `Claimed` event in blocks `from` to the latest, if
+   * it was claimed. */
+  async secretOf(id: Hex, from: bigint): Promise<Uint8Array | undefined> {
+    const event = SWAP_ABI.find((item) => item.type === "event" && item.name === "Claimed") as Extract<(typeof SWAP_ABI)[number], { type: "event"; name: "Claimed" }>;
+    const head = await this.public.getBlockNumber();
+    for (let start = from; start <= head; start += LOG_RANGE) {
+      const end = start + LOG_RANGE - 1n < head ? start + LOG_RANGE - 1n : head;
+      const logs = await this.public.getLogs({ address: SWAP_CONTRACT, event, args: { id }, fromBlock: start, toBlock: end });
+      const found = logs.find((log) => log.args.id === id);
+      if (found) return fromHex(found.args.secret!);
+    }
+    return undefined;
   }
 
   /** Return lock `id` to its sender once its timelock passed. Returns the transaction hash. */

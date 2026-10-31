@@ -30,6 +30,34 @@ back after 24. The chain of Tesserax cannot see the other chains: the maker chec
 before filling. A maker filling wrongly only exposes its own TESS, and a taker never claims a
 trade that does not match its payment.
 
+## Bids: selling at once
+
+Offers make a seller wait for a buyer. Bids go the other way: a **buyer** bids for TESS, and a
+**seller**, a miner cashing in its rewards first, sells into the bid whenever it wants, without
+waiting for anyone.
+
+1. The buyer bids on Tesserax: a price in the smallest unit of the asset for one TESS, the chain
+   and asset it pays in, how many TESS it wants and the smallest sale. Only a storage deposit is
+   held; the payment is locked sale by sale.
+2. The seller picks a random secret and sells into the bid (`sell`): its TESS are locked on
+   Tesserax for the buyer, under the SHA-256 hash of the secret, for **24 hours**, with the EVM
+   address or the Bitcoin key it is paid to.
+3. The buyer, or its maker running for it, checks the sale has at least 12 hours left, locks the
+   payment for the seller under the same hash for **6 hours**, in the same contract or script as
+   offers, and records the lock on Tesserax (`pay`).
+4. The seller checks the payment: the asset, the amount the price asks, its own address or key,
+   the hash, at least an hour left, and on Bitcoin 2 confirmations. It then claims it with the
+   secret, which is now public.
+5. The secret claims the TESS for the buyer (`claim_sale`), without signature and without fee,
+   so that a buyer without TESS can claim; the seller's wallet submits it right after being paid.
+   Otherwise the buyer finds the secret in the `Claimed` event of the contract, or in the witness
+   of the Bitcoin claim, and submits it itself.
+
+If the buyer never pays, the sale returns to the seller after 24 hours (`refund_sale`). If the
+seller never claims the payment, the buyer takes it back after 6 hours, and the TESS return to
+the seller after 24. The seller reveals the secret only by claiming a payment it checked, and the
+payment expires at least 6 hours before the sale: the buyer always has the time to claim the TESS.
+
 ## Chains and assets
 
 | Chain | Assets | Chain id | Testnet of the Tesserax testnet |
@@ -117,6 +145,31 @@ tesserax-wallet swap refund-payment <txid>:<vout> --btc-key-file taker.wif
 
 Bitcoin is read and written through the Esplora API of mempool.space; `--esplora` gives another.
 
+Bids, from the command line:
+
+```bash
+# Buyers: bid for 10,000 TESS at 0.05 USDC on Base, in sales of at least 10 TESS, and run the
+# maker, which pays each sale from the EVM key and claims its TESS.
+tesserax-wallet swap bid alice --chain base --asset usdc --price 0.05 --amount 10000 --min 10
+tesserax-wallet swap make alice --evm-key-file buyer.key
+tesserax-wallet swap cancel-bid alice 2
+
+# Sellers: list the bids, sell 500 TESS into bid 2. The EVM key receives the payment and pays
+# the gas of its claim, a few cents on Base.
+tesserax-wallet swap bids
+tesserax-wallet swap sell bob 2 500 --evm-key-file seller.key
+# If the wait was interrupted, or the buyer never paid:
+tesserax-wallet swap collect-sale 7 --evm-key-file seller.key
+tesserax-wallet swap refund-sale bob 7
+
+# In BTC: the sale is paid to the key of seller.wif, which claims the payment to its address.
+tesserax-wallet swap sell bob 3 500 --btc-key-file seller.wif --create-btc-key
+```
+
+A maker keeps a bid open by itself with `--keep-bid chain:asset:price:amount:min`: it bids for
+`amount` TESS again whenever its open bids for that payment want less than `min`. Its payments of
+sales stay in its state file until their TESS are claimed or the payment taken back.
+
 A maker can keep an offer open by itself: with `--keep-offer chain:asset:price:amount:min`, it
 offers `amount` TESS again whenever its open offers for that payment hold less than `min`, while
 the account has them. `--create-btc-key` creates the key of `--btc-key-file` on the first start,
@@ -176,3 +229,13 @@ claimed, the ones whose payment the maker can collect.
 - Blocks of Tesserax are final 60 blocks deep, about 18 minutes, well within the 6 hours of a
   trade; makers fill payments the EVM chain already included, and Bitcoin payments 2 blocks
   deep.
+
+Bids add their own:
+
+- A buyer must be online to pay a sale: a seller whose sale is not paid gets its TESS back after
+  24 hours. Bids show how many sales a buyer received and completed.
+- The buyer holds an option for the time between a sale and its payment: it may not pay if the
+  price moved. The seller holds one for the 6 hours of the payment: it may not claim. Neither
+  loses funds, only time.
+- A seller paid on an EVM chain needs a little of its native token for the gas of its claim; a
+  seller paid in BTC pays the fee from the payment itself.
