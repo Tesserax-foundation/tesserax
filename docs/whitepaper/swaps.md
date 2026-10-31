@@ -29,6 +29,10 @@ The testnet pairs with Bitcoin testnet4 and the Sepolia test networks of the EVM
   and a deposit of 0.036 TESS are held by the runtime.
 - A **taker** — who may not own a single TESS yet — buys from the offer by locking a payment on the
   payment chain.
+- A **buyer** posts a **bid**: the TESS it wants, a price and the smallest sale. Only the deposit is
+  held; the payment is locked sale by sale.
+- A **seller** — a miner cashing in its rewards — sells into a bid at once, without waiting for a
+  buyer to come (section 9.4).
 
 ## 9.3 Protocol
 
@@ -69,7 +73,43 @@ $$
 \text{due} = \left\lceil \frac{a \cdot p}{10^{12}} \right\rceil .
 $$
 
-## 9.4 On EVM chains
+## 9.4 Bids
+
+With offers, the party that sells TESS waits for a buyer. Bids reverse the order of the protocol,
+so that a seller acts first and alone; the secret then belongs to the seller.
+
+```mermaid
+sequenceDiagram
+  participant S as Seller
+  participant X as Tesserax
+  participant P as Payment chain
+  participant B as Buyer
+  S->>S: secret s, h = SHA-256(s)
+  S->>X: sell: lock TESS for B under h, 24 h, paid to its address
+  B->>X: check ≥ 12 h left
+  B->>P: lock payment for S under h, 6 h
+  B->>X: pay: record the lock
+  S->>P: check asset, amount, recipient, h, ≥ 1 h left; claim with s
+  P-->>B: s is now public
+  B->>X: claim the TESS with s (unsigned, no fee)
+```
+
+1. The seller draws $s$ and **sells** into the bid: its TESS are locked on Tesserax for the buyer
+   under $h$ for **24 hours** (4,800 blocks), with the address or the Bitcoin key it is paid to.
+2. The buyer, with at least 12 hours of the sale left, locks the payment for the seller under $h$
+   for **6 hours** and records the lock on Tesserax; a lock pays one sale.
+3. The seller checks the payment as a maker checks one — asset, amount, its address, the hash, and
+   on Bitcoin 2 confirmations — and claims it with $s$.
+4. $s$ is now public on the payment chain. The TESS are claimed for the buyer with it, without
+   signature and without fee; the seller's wallet does it right after being paid, and the buyer
+   can always do it from the `Claimed` event of the contract or the witness of the Bitcoin claim.
+
+A buyer that never pays costs the seller only time: the sale returns to it after 24 hours. A
+seller that never claims gets its TESS back after 24 hours, and the buyer its payment after 6. The
+ordering of timeouts is the mirror of offers — the lock of the secret's owner, here the seller's
+TESS, outlasts the other by at least 6 hours.
+
+## 9.5 On EVM chains
 
 `TesseraxSwap` is one hash time-locked contract deployed at the same address on every chain,
 `0xeA2f4f08D2A0f1972031B98De63f4B0395c256Fc`:
@@ -81,7 +121,7 @@ $$
   timelock — anyone may call it;
 - `refund(id)` returns the funds to the sender after the timelock — anyone may call it.
 
-## 9.5 On Bitcoin
+## 9.6 On Bitcoin
 
 Bitcoin has no contracts but has scripts. The payment is a P2WSH output with the script:
 
@@ -112,7 +152,8 @@ The Bitcoin side of a swap is signed with ECDSA, like every Bitcoin transaction,
 quantum-safe as Bitcoin itself; the same holds for the EVM chains. The Tesserax side uses no
 classical signature: the fill is signed with ML-DSA and the claim needs no signature at all.
 
-## 9.6 Market data
+## 9.7 Market data
 
-Offers and trades are indexed by the explorer, which publishes order books, tickers, trades and the
-supply in the format of market-data aggregators.
+Offers, bids, trades and sales are indexed by the explorer, which publishes order books — offers
+on the ask side, bids on the bid side — tickers, trades and the supply in the format of
+market-data aggregators.
