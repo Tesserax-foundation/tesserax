@@ -199,16 +199,22 @@ function hashrate(value: number): string {
   return `${value.toLocaleString("en-US", { maximumFractionDigits: value < 10 ? 2 : value < 100 ? 1 : 0 })} ${units[i]}`;
 }
 
+const MIN_MINERS_SHOWN = 25;
+
 async function followPool(): Promise<void> {
   try {
     const response = await fetch(`${POOL}/api/stats`, { cache: "no-store" });
     const stats = (await response.json()) as { miners?: number; network?: { hashrate?: number } };
-    const set = (name: string, text: string) => {
-      const element = document.querySelector<HTMLElement>(`[data-pool="${name}"]`);
-      if (element) element.textContent = text;
+    // A handful of miners reads as an empty network: the figures appear once the pool has grown.
+    if (typeof stats.miners !== "number" || stats.miners < MIN_MINERS_SHOWN) return;
+    const set = (name: string, value: string, label: string) => {
+      const element = document.querySelector<HTMLElement>(`[data-pool-stat="${name}"]`);
+      if (!element) return;
+      element.children[0].textContent = value;
+      element.children[1].textContent = label;
     };
-    if (typeof stats.network?.hashrate === "number") set("network", hashrate(stats.network.hashrate));
-    if (typeof stats.miners === "number") set("miners", stats.miners.toLocaleString("en-US"));
+    if (typeof stats.network?.hashrate === "number") set("network", hashrate(stats.network.hashrate), "network hashrate");
+    set("miners", stats.miners.toLocaleString("en-US"), "miners on the pool");
   } catch {
     // Kept as it was: the next attempt may succeed.
   }

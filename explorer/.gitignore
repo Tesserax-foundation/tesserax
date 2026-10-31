@@ -5,3 +5,5 @@ dist/
 *.log
 supabase/.temp/
 supabase/.branches/
+# Custom roles with their passwords, pushed with `supabase db push --include-roles`: never committed.
+supabase/roles.sql

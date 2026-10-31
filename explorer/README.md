@@ -40,19 +40,31 @@ The node must keep the state of every block it indexes: run it as an archive nod
 ## Set up
 
 1. Create a project on [Supabase](https://supabase.com).
-2. Apply the schema, with the Supabase CLI:
+2. Give the indexer its password: write `supabase/roles.sql` (git-ignored) with a random one.
+
+   ```sql
+   do $$ begin
+     if not exists (select from pg_roles where rolname = 'explorer_indexer') then
+       create role explorer_indexer login noinherit;
+     end if;
+   end $$;
+   alter role explorer_indexer with login password '<openssl rand -hex 32>';
+   ```
+
+3. Apply the schema and the role, with the Supabase CLI:
 
    ```bash
    supabase login
    supabase link --project-ref <project ref>
-   supabase db push
+   supabase db push --include-roles
    ```
 
-   or by pasting `supabase/migrations/*.sql` in the SQL editor of the project.
-3. Copy `indexer/.env.example` to `indexer/.env` and set `DATABASE_URL` to the connection string
-   of the project (Project Settings > Database, session pooler) and `NODE_URL` to the node.
-   The connection string writes to the database: keep it secret.
-4. Copy `web/.env.example` to `web/.env` and set `VITE_SUPABASE_URL` and
+   The indexer writes as `explorer_indexer`, which can change the rows of the explorer's tables
+   and nothing else: not the schema, not the other schemas of the project.
+4. Copy `indexer/.env.example` to `indexer/.env` and set `DATABASE_URL` to the connection string
+   of that role through the session pooler (Project Settings > Database), and `NODE_URL` to the
+   node. The connection string writes to the database: keep it secret.
+5. Copy `web/.env.example` to `web/.env` and set `VITE_SUPABASE_URL` and
    `VITE_SUPABASE_ANON_KEY` (Project Settings > API). The anon key is public: row level security
    limits it to reading.
 
