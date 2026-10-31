@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mine Tesserax — CPU mining in three steps</title>
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Tesserax" />
+    <meta property="og:title" content="Mine Tesserax — CPU mining in three steps" />
+    <meta property="og:description" content="Mine the post-quantum chain with any CPU: get an address, download the miner, start it. No GPU, no ASIC, no developer fee." />
+    <meta property="og:url" content="https://tesserax.app/mine" />
+    <meta property="og:image" content="https://tesserax.app/og/mine.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Mine Tesserax — CPU mining in three steps" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Mine Tesserax — CPU mining in three steps" />
+    <meta name="twitter:description" content="Mine the post-quantum chain with any CPU: get an address, download the miner, start it. No GPU, no ASIC, no developer fee." />
+    <meta name="twitter:image" content="https://tesserax.app/og/mine.png" />
+    <meta
+      name="description"
+      content="Mine Tesserax with any CPU in three steps: get an address, download the miner, start it. RandomTESS proof of work, no GPU, no ASIC, no developer fee."
+    />
+    <meta name="theme-color" content="#05070b" />
+    <link rel="canonical" href="https://tesserax.app/mine" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  </head>
+  <body>
+    <canvas id="field" aria-hidden="true"></canvas>
+    <div class="glow" aria-hidden="true"></div>
+
+    <header class="nav" id="nav">
+      <a class="brand" href="/" aria-label="Tesserax">
+        <img src="/logo.png" alt="" width="34" height="34" />
+        <span>Tesserax</span>
+      </a>
+      <nav class="nav-links" aria-label="Sections">
+        <a href="/#security">Security</a>
+        <a href="/#agents">Agents</a>
+        <a href="/mine" aria-current="page">Mine</a>
+        <a href="/#token">Token</a>
+        <a href="/#swaps">Swaps</a>
+        <a href="/#developers">Developers</a>
+        <a href="https://docs.tesserax.app">Docs</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="icon-link" href="https://github.com/Tesserax-foundation/tesserax-miner" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+        </a>
+        <a class="btn btn-small" href="https://wallet.tesserax.app">Launch wallet</a>
+        <button class="menu" id="menu" aria-label="Menu" aria-expanded="false"><span></span><span></span></button>
+      </div>
+    </header>
+
+    <main>
+      <!-- Hero -->
+      <section class="mine-hero">
+        <a class="pill" href="https://testnet-explorer.tesserax.app" id="status">
+          <span class="dot"></span>
+          <span>Testnet live</span>
+          <span class="sep"></span>
+          <span class="mono">Block <span data-live="height">—</span></span>
+        </a>
+        <h1>
+          <span class="line">Mine Tesserax</span>
+          <span class="line"><span class="grad" data-scramble>in three steps</span></span>
+        </h1>
+        <p class="lead">
+          Tesserax is mined on CPUs. A laptop, a desktop or a server is enough: no GPU, no ASIC, no
+          node to run. The pool finds the blocks with you and pays your share automatically.
+        </p>
+        <div class="pool-stats" id="pool-stats">
+          <div><span class="mono big" data-pool="network">—</span><span>network hashrate</span></div>
+          <div><span class="mono big" data-pool="miners">—</span><span>miners on the pool</span></div>
+          <div><span class="mono big">0.85</span><span>TESS per block, every ~18 s</span></div>
+          <div><span class="mono big">0%</span><span>developer fee</span></div>
+        </div>
+      </section>
+
+      <!-- The guide -->
+      <section class="section guide" id="guide">
+        <div class="os-picker reveal" role="radiogroup" aria-label="Your system">
+          <span class="os-label">Your system</span>
+          <div class="os-options" id="os-options">
+            <button type="button" role="radio" data-os="windows-x64">Windows</button>
+            <button type="button" role="radio" data-os="macos-arm64">macOS · Apple Silicon</button>
+            <button type="button" role="radio" data-os="macos-x64">macOS · Intel</button>
+            <button type="button" role="radio" data-os="linux-x64">Linux · x64</button>
+            <button type="button" role="radio" data-os="linux-arm64">Linux · ARM64</button>
+          </div>
+        </div>
+
+        <ol class="mine-steps">
+          <!-- Step 1 -->
+          <li class="step reveal">
+            <div class="step-num mono">01</div>
+            <div class="step-body">
+              <h2>Get an address</h2>
+              <p>
+                Your rewards are paid to a Tesserax address. Create an account in the wallet — it takes
+                a minute, in the browser — and copy its address. It starts with <code>te</code>.
+              </p>
+              <div class="cta">
+                <a class="btn" href="https://wallet.tesserax.app" target="_blank" rel="noopener">
+                  Open the wallet
+                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </a>
+              </div>
+              <div class="fields">
+                <label class="field">
+                  <span>Your address</span>
+                  <input id="address" class="mono" type="text" placeholder="te…" autocomplete="off" autocapitalize="off" spellcheck="false" />
+                  <small id="address-hint">Paste it here: the commands below fill themselves in.</small>
+                </label>
+                <label class="field field-small">
+                  <span>Machine name</span>
+                  <input id="worker" class="mono" type="text" value="rig1" maxlength="32" autocomplete="off" autocapitalize="off" spellcheck="false" />
+                  <small>To tell your machines apart.</small>
+                </label>
+              </div>
+            </div>
+          </li>
+
+          <!-- Step 2 -->
+          <li class="step reveal">
+            <div class="step-num mono">02</div>
+            <div class="step-body">
+              <h2>Download the miner</h2>
+              <p>
+                The Tesserax build of XMRig, the most used CPU miner, set up for the
+                <code>rx/tess</code> algorithm. Open source, with no developer fee.
+              </p>
+              <div class="cta">
+                <a class="btn" id="download" href="https://github.com/Tesserax-foundation/tesserax-miner/releases">
+                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 4v11m0 0-5-5m5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span id="download-label">Download the miner</span>
+                </a>
+                <span class="file mono" id="download-file"></span>
+              </div>
+              <p class="or">Then unpack it — or do it all from <span id="shell-name">a terminal</span>:</p>
+              <div class="term">
+                <div class="term-bar"><span class="mono" id="term-title-2">terminal</span><button type="button" class="copy" data-copy="cmd-download">Copy</button></div>
+                <pre class="mono"><code id="cmd-download"></code></pre>
+              </div>
+            </div>
+          </li>
+
+          <!-- Step 3 -->
+          <li class="step reveal">
+            <div class="step-num mono">03</div>
+            <div class="step-body">
+              <h2>Start mining</h2>
+              <p>In the miner's folder, run:</p>
+              <div class="term">
+                <div class="term-bar"><span class="mono" id="term-title-3">terminal</span><button type="button" class="copy" data-copy="cmd-start">Copy</button></div>
+                <pre class="mono"><code id="cmd-start"></code></pre>
+              </div>
+              <label class="check">
+                <input type="checkbox" id="light" />
+                <span>My machine has less than 4 GB of memory <small>(light mode: works with 256 MB, several times slower)</small></span>
+              </label>
+              <p>
+                Within a minute the miner prepares its dataset, then prints
+                <code class="ok">accepted</code> for each share the pool takes. That's it: you are
+                mining. Follow your hashrate, your balance and your payouts on the pool:
+              </p>
+              <div class="cta">
+                <a class="btn btn-ghost" id="dashboard" href="https://testnet-pool.tesserax.app">Open my pool dashboard</a>
+              </div>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <!-- Good to know -->
+      <section class="section">
+        <div class="section-head center reveal">
+          <span class="eyebrow mono">Good to know</span>
+          <h2 data-scramble>Fair by design.</h2>
+          <p>RandomTESS keeps mining on general-purpose CPUs, where everyone competes on equal terms.</p>
+        </div>
+        <div class="cards three">
+          <article class="card reveal">
+            <div class="card-icon"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></svg></div>
+            <h3>What you need</h3>
+            <p>
+              Any 64-bit CPU — x64 or ARM64 — and about 2.5 GB of free memory to mine at full speed.
+              More cores, more hashes: every thread counts.
+            </p>
+          </article>
+          <article class="card reveal">
+            <div class="card-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+            <h3>How you are paid</h3>
+            <p>
+              Each block found by the pool is split between its miners by their work (PPLNS). Rewards
+              are credited once the block is 60 deep, and balances from 1 TESS are paid every 30
+              minutes. The pool keeps 1%.
+            </p>
+          </article>
+          <article class="card reveal">
+            <div class="card-icon"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+            <h3>Safe to run</h3>
+            <p>
+              Every binary is built from public sources, checked against the reference RandomTESS
+              implementation, and published with its SHA-256. The miner never touches your wallet: it
+              only knows your address.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- FAQ -->
+      <section class="section faq-section">
+        <div class="section-head center reveal">
+          <span class="eyebrow mono">Questions</span>
+          <h2 data-scramble>Before you start.</h2>
+        </div>
+        <div class="faq reveal">
+          <details>
+            <summary>My antivirus blocks the miner. Is it safe?</summary>
+            <p>
+              Antivirus software flags every XMRig build as a "potentially unwanted program", because
+              malware hides the same miner on other people's machines. The Tesserax build is open
+              source and published with checksums: compare the SHA-256 of your download with
+              <a href="https://github.com/Tesserax-foundation/tesserax-miner/releases">SHA256SUMS</a>,
+              then allow the miner's folder in your antivirus.
+            </p>
+          </details>
+          <details>
+            <summary>Can I mine with a GPU?</summary>
+            <p>
+              No. RandomTESS is built for CPUs: GPUs and ASICs gain nothing over them, so the GPU
+              backends of the miner are disabled for <code>rx/tess</code>.
+            </p>
+          </details>
+          <details>
+            <summary>How much will I mine?</summary>
+            <p>
+              Your share of the rewards is your share of the network's hashrate: 0.85 TESS per block,
+              about 4,800 blocks a day, split between all miners by their work. The pool dashboard
+              shows your hashrate next to the network's. As an example, an Apple M1 mines about
+              600 H/s on its 4 performance cores.
+            </p>
+          </details>
+          <details>
+            <summary>Can I mine without the pool?</summary>
+            <p>
+              Yes: run your own node with <code>--mine</code>, or serve XMRig from it with
+              <code>--stratum</code>, and every block you find is yours alone. See
+              <a href="https://docs.tesserax.app/mining">the mining guide</a>.
+            </p>
+          </details>
+          <details>
+            <summary>Do testnet TESS have any value?</summary>
+            <p>
+              No: the testnet is for trying everything out, and its TESS are worth nothing. The
+              mainnet uses the same miner and the same three steps; only the pool address will change.
+            </p>
+          </details>
+          <details>
+            <summary>How do I keep it running?</summary>
+            <p>
+              Leave the terminal open; the miner reconnects by itself after a network drop. On a
+              server, run it in <code>tmux</code> or as a service. Press <code>h</code> in the miner
+              to print its hashrate, <code>p</code> to pause and <code>r</code> to resume.
+            </p>
+          </details>
+        </div>
+      </section>
+
+      <section class="final reveal">
+        <h2 data-scramble>Every CPU counts.</h2>
+        <div class="cta center">
+          <a class="btn" href="#guide">Start mining</a>
+          <a class="btn btn-ghost" href="https://docs.tesserax.app/mining">Read the mining guide</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-brand">
+        <img src="/logo.png" alt="" width="28" height="28" />
+        <span>Tesserax</span>
+      </div>
+      <nav aria-label="Links">
+        <a href="https://wallet.tesserax.app">Wallet</a>
+        <a href="https://testnet-explorer.tesserax.app">Explorer</a>
+        <a href="https://faucet.tesserax.app">Faucet</a>
+        <a href="https://testnet-pool.tesserax.app">Pool</a>
+        <a href="/mine">Mine</a>
+        <a href="https://docs.tesserax.app">Docs</a>
+        <a href="https://docs.tesserax.app/whitepaper">Whitepaper</a>
+        <a href="https://docs.tesserax.app/lightpaper">Lightpaper</a>
+        <a href="https://github.com/Tesserax-foundation">GitHub</a>
+      </nav>
+      <small>Open source · Apache-2.0 and GPL-3.0 · The testnet has no value.</small>
+    </footer>
+
+    <script type="module" src="/src/mine.ts"></script>
+  </body>
+</html>

@@ -1,7 +1,11 @@
 # Tesserax website
 
-The landing page of Tesserax, served at https://tesserax.app: a static page built with Vite, with
-the live best block of the testnet (from its public RPC) and its supply (from the explorer API).
+The website of Tesserax, served at https://tesserax.app, built with Vite:
+
+- `index.html`: the landing page, with the live best block of the testnet (from its public RPC) and
+  its supply (from the explorer API);
+- `mine.html`, served at `/mine`: the mining guide in three steps, with the commands for the
+  visitor's system and address, and the live figures of the pool (from its API).
 
 ```bash
 npm install
