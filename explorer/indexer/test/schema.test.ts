@@ -203,3 +203,131 @@ test("the market: pairs, tickers, order book, trades and supply", async () => {
     await database.close();
   }
 });
+
+test("the market with bids: sales, the bid side and sells, across a reorganization", async () => {
+  const database = await testDatabase();
+  const sql = db.connect(database.url);
+  const TESS = 10n ** 12n;
+  const SALE = 1_000_000_000_000_000;
+  const sold = (sale: number, amount: bigint, price: bigint) => ({
+    pallet: "Swaps",
+    name: "Sold",
+    data: { sale: String(sale), bid: "0", seller: "teSeller", buyer: "teBuyer", amount: amount.toString(), price: price.toString(), payment: { chain: "Base", asset: "Usdc" }, hash: "0x0a", payout: "0x0b", expires: "1300" },
+  });
+  const claimed = (sale: number, amount: bigint) => ({
+    pallet: "Swaps",
+    name: "SaleClaimed",
+    data: { sale: String(sale), buyer: "teBuyer", amount: amount.toString(), secret: `0x0${sale}` },
+  });
+  try {
+    await db.saveBlock(sql, block(0, "0xc0", "0x00"));
+    await db.saveBlock(
+      sql,
+      block(1, "0xc1", "0xc0", {
+        events: [
+          { index: 0, extrinsicIndex: 0, ...sold(0, 20n * TESS, 40_000n) },
+          { index: 1, extrinsicIndex: 1, ...sold(1, 2n * TESS + 1n, 45_000n) },
+          { index: 2, extrinsicIndex: 2, ...sold(2, 5n * TESS, 41_000n) },
+          { index: 3, extrinsicIndex: 3, pallet: "Swaps", name: "Filled", data: { trade: "0", offer: "0", maker: "teMaker", taker: "teTaker", amount: (10n * TESS).toString(), price: "50000", payment: { chain: "Base", asset: "Usdc" }, hash: "0x00", payment_lock: "0x01", expires: "1300" } },
+        ],
+      }),
+    );
+    await db.saveBlock(
+      sql,
+      block(2, "0xc2", "0xc1", {
+        events: [
+          { index: 0, extrinsicIndex: 0, pallet: "Swaps", name: "SalePaid", data: { sale: "0", payment_lock: "0x" + "11".repeat(32) } },
+          { index: 1, extrinsicIndex: 1, pallet: "Swaps", name: "SalePaid", data: { sale: "1", payment_lock: "0x" + "22".repeat(32) } },
+          { index: 2, extrinsicIndex: 2, pallet: "Swaps", name: "Claimed", data: { trade: "0", taker: "teTaker", amount: (10n * TESS).toString(), secret: "0x09" } },
+        ],
+      }),
+    );
+    await db.saveBlock(
+      sql,
+      block(3, "0xc3", "0xc2", {
+        events: [
+          { index: 0, extrinsicIndex: null, ...claimed(0, 20n * TESS) },
+          { index: 1, extrinsicIndex: null, ...claimed(1, 2n * TESS + 1n) },
+          { index: 2, extrinsicIndex: 2, pallet: "Swaps", name: "SaleRefunded", data: { sale: "2", seller: "teSeller", amount: (5n * TESS).toString() } },
+        ],
+      }),
+    );
+    // The open bids, as the indexer reads them from the chain state.
+    await db.replaceSwapBids(
+      sql,
+      [
+        { id: 0, buyer: "teBuyer", chain: "Base", asset: "Usdc", price: 40_000n, wanted: 80n * TESS, minSale: TESS, sales: 3, completed: 2, created: 1 },
+        { id: 1, buyer: "teOther", chain: "Arbitrum", asset: "Usdc", price: 42_000n, wanted: 10n * TESS, minSale: TESS, sales: 0, completed: 0, created: 1 },
+        { id: 2, buyer: "teOther", chain: "Ethereum", asset: "Usdc", price: 40_000n, wanted: 5n * TESS, minSale: TESS, sales: 0, completed: 0, created: 2 },
+        { id: 3, buyer: "teOther", chain: "Ethereum", asset: "Native", price: 10n ** 14n, wanted: 0n, minSale: TESS, sales: 1, completed: 1, created: 2 },
+      ],
+      3,
+    );
+    await db.replaceSwapOffers(
+      sql,
+      [{ id: 0, maker: "teMaker", chain: "Base", asset: "Usdc", price: 70_000n, available: 400n * TESS, minFill: TESS, payout: "0xaa", fills: 1, completed: 1 }],
+      3,
+    );
+
+    const sales = await sql`select sale, status, payment::text, payment_lock, secret, claimed_block, refunded_block from swap_sales order by sale`;
+    assert.deepEqual(sales.map((s) => [Number(s.sale), s.status]), [[0, "claimed"], [1, "claimed"], [2, "refunded"]]);
+    assert.equal(sales[0].payment, "800000");
+    assert.equal(sales[0].payment_lock, "0x" + "11".repeat(32));
+    assert.equal(sales[1].secret, "0x01");
+    assert.equal(Number(sales[2].refunded_block), 3);
+
+    // A pair with only a bid is listed; one with nothing wanted is not.
+    const [{ pairs }] = await sql`select market_pairs() as pairs`;
+    assert.deepEqual(pairs, [{ ticker_id: "TESS_USDC", base: "TESS", target: "USDC" }]);
+
+    const [{ tickers }] = await sql`select market_tickers() as tickers`;
+    assert.deepEqual(tickers, [
+      {
+        ticker_id: "TESS_USDC",
+        base_currency: "TESS",
+        target_currency: "USDC",
+        // The sales of block 3 are the latest trades: sale 1 at 0.045.
+        last_price: "0.045",
+        // 10 TESS bought at 0.05, 20 sold at 0.04 and 2.000000000001 at 0.045, rounded up.
+        base_volume: "32.000000000001",
+        target_volume: "1.390001",
+        bid: "0.042",
+        ask: "0.07",
+        high: "0.05",
+        low: "0.04",
+      },
+    ]);
+
+    const [{ book }] = await sql`select market_orderbook('TESS_USDC', 10) as book`;
+    assert.deepEqual(book.bids, [["0.042", "10"], ["0.04", "85"]]);
+    assert.deepEqual(book.asks, [["0.07", "400"]]);
+    // Depth counts both sides.
+    const [{ top }] = await sql`select market_orderbook('TESS_USDC', 2) as top`;
+    assert.deepEqual([top.bids.length, top.asks.length], [1, 1]);
+
+    const [{ trades }] = await sql`select market_trades('TESS_USDC') as trades`;
+    assert.deepEqual(trades.buy.map((t: { trade_id: number; type: string }) => [t.trade_id, t.type]), [[0, "buy"]]);
+    assert.deepEqual(
+      trades.sell.map((t: { trade_id: number; price: string; target_volume: string; type: string }) => [t.trade_id, t.price, t.target_volume, t.type]),
+      [[SALE + 1, "0.045", "0.090001", "sell"], [SALE, "0.04", "0.8", "sell"]],
+    );
+    const [{ sells }] = await sql`select market_trades('TESS_USDC', 'sell', 1) as sells`;
+    assert.deepEqual([sells.buy.length, sells.sell.map((t: { trade_id: number }) => t.trade_id)], [0, [SALE + 1]]);
+    const [{ buys }] = await sql`select market_trades('TESS_USDC', 'buy') as buys`;
+    assert.deepEqual([buys.buy.length, buys.sell.length], [1, 0]);
+
+    // A reorganization drops the claims of block 3: the sales are paid again, and no longer trades.
+    await db.orphanAbove(sql, 2);
+    assert.deepEqual((await sql`select status from swap_sales order by sale`).map((s) => s.status), ["paid", "paid", "sold"]);
+    const [{ after }] = await sql`select market_trades('TESS_USDC') as after`;
+    assert.deepEqual([after.buy.length, after.sell.length], [1, 0]);
+
+    // The bids are read again from the chain state at the new head.
+    await db.replaceSwapBids(sql, [], 2);
+    const [{ empty }] = await sql`select market_orderbook('TESS_USDC') as empty`;
+    assert.deepEqual(empty.bids, []);
+  } finally {
+    await sql.end();
+    await database.close();
+  }
+});

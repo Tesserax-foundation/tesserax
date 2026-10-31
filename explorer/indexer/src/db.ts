@@ -484,3 +484,39 @@ export async function replaceSwapOffers(sql: Sql, offers: SwapOfferRow[], block:
     )}`;
   });
 }
+
+export interface SwapBidRow {
+  id: number;
+  buyer: string;
+  chain: string;
+  asset: string;
+  price: bigint;
+  wanted: bigint;
+  minSale: bigint;
+  sales: number;
+  completed: number;
+  created: number;
+}
+
+/** The open bids of swaps at `block`: those no longer in storage are gone. */
+export async function replaceSwapBids(sql: Sql, bids: SwapBidRow[], block: number): Promise<void> {
+  await sql.begin(async (tx) => {
+    await tx`delete from swap_bids`;
+    if (bids.length === 0) return;
+    await tx`insert into swap_bids ${tx(
+      bids.map((b) => ({
+        id: b.id,
+        buyer: b.buyer,
+        chain: b.chain,
+        asset: b.asset,
+        price: num(b.price),
+        wanted: num(b.wanted),
+        min_sale: num(b.minSale),
+        sales: b.sales,
+        completed: b.completed,
+        created_block: b.created,
+        updated_block: block,
+      })) as any,
+    )}`;
+  });
+}

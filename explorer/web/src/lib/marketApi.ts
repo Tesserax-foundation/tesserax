@@ -1,8 +1,8 @@
 /** The public market API of the explorer, in the formats price aggregators read: CoinGecko
  * (`/api/coingecko/pairs`, `tickers`, `orderbook`, `historical_trades`) and the supply of TESS
  * (`/api/supply`, `/api/supply/total`, `circulating` and `max`). It answers from the functions
- * of the explorer database (`supabase/migrations/*_market.sql`). Shared by the serverless
- * functions of `api/` and their tests. */
+ * of the explorer database (`supabase/migrations/*_market.sql` and `*_bids.sql`). Shared by the
+ * serverless functions of `api/` and their tests. */
 
 /** Calls a function of the explorer database. */
 export type Rpc = (name: string, args?: Record<string, unknown>) => Promise<unknown>;

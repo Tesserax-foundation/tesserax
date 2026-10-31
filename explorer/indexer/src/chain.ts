@@ -165,6 +165,11 @@ export class Runtime {
     return this.address(typeof accountId === "string" ? fromHex(accountId) : accountId);
   }
 
+  /** Whether this runtime has the storage item: bids came with runtime 106. */
+  hasStorage(pallet: string, item: string): boolean {
+    return Boolean(this.metadata.pallets.find((p) => p.name === pallet)?.storage?.items.some((i) => i.name === item));
+  }
+
   storageKey(pallet: string, item: string, ...keys: unknown[]): string {
     return this.builder.buildStorage(pallet, item).keys.enc(...keys);
   }

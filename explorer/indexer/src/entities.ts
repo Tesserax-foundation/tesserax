@@ -1,4 +1,4 @@
-/** Entities a block touches (accounts, agents, delegations, channels, tasks), and their refresh
+/** Entities a block touches (accounts, agents, delegations, channels, tasks, swaps), and their refresh
  * from the chain state: the indexer reads their state again instead of replaying the logic of
  * the pallets, which also makes reorganizations simple. */
 
@@ -15,11 +15,11 @@ export class Touched {
   readonly delegations = new Set<string>();
   readonly channels = new Set<number>();
   readonly tasks = new Set<number>();
-  /** A swap event happened: the open offers are read again, all of them. */
-  offers = false;
+  /** A swap event happened: the open offers and bids are read again, all of them. */
+  swaps = false;
 
   get size(): number {
-    return this.accounts.size + this.agents.size + this.delegations.size + this.channels.size + this.tasks.size + (this.offers ? 1 : 0);
+    return this.accounts.size + this.agents.size + this.delegations.size + this.channels.size + this.tasks.size + (this.swaps ? 1 : 0);
   }
 
   account(address: string | null | undefined): void {
@@ -50,7 +50,7 @@ export class Touched {
         if (data.id != null) this.tasks.add(Number(data.id));
         break;
       case "Swaps":
-        this.offers = true;
+        this.swaps = true;
         break;
     }
   }
@@ -61,8 +61,40 @@ export class Touched {
     other.delegations.forEach((d) => this.delegations.add(d));
     other.channels.forEach((c) => this.channels.add(c));
     other.tasks.forEach((t) => this.tasks.add(t));
-    this.offers ||= other.offers;
+    this.swaps ||= other.swaps;
   }
+}
+
+/** An offer of the swaps pallet, decoded from its storage. */
+export function swapOffer(id: number, o: any): db.SwapOfferRow {
+  return {
+    id,
+    maker: o.maker,
+    chain: o.payment.chain.type,
+    asset: o.payment.asset.type,
+    price: BigInt(o.price),
+    available: BigInt(o.available),
+    minFill: BigInt(o.min_fill),
+    payout: hexOf(o.payout),
+    fills: Number(o.fills),
+    completed: Number(o.completed),
+  };
+}
+
+/** A bid of the swaps pallet, decoded from its storage. */
+export function swapBid(id: number, b: any): db.SwapBidRow {
+  return {
+    id,
+    buyer: b.buyer,
+    chain: b.payment.chain.type,
+    asset: b.payment.asset.type,
+    price: BigInt(b.price),
+    wanted: BigInt(b.wanted),
+    minSale: BigInt(b.min_sale),
+    sales: Number(b.sales),
+    completed: Number(b.completed),
+    created: Number(b.created),
+  };
 }
 
 const hexOf = (bytes: unknown): string =>
@@ -239,26 +271,18 @@ export async function refresh(
     );
   }
 
-  if (touched.offers) {
-    const storage = runtime.builder.buildStorage("Swaps", "Offers");
-    const keys = await storageKeys(rpc, runtime.storageKey("Swaps", "Offers"), at);
-    const raw = await readStorage(rpc, keys, at);
-    const offers: db.SwapOfferRow[] = keys.map((key) => {
-      const o = runtime.decodeStorage("Swaps", "Offers", raw.get(key) ?? null);
-      return {
-        id: Number(storage.keys.dec(key)[0]),
-        maker: o.maker,
-        chain: o.payment.chain.type,
-        asset: o.payment.asset.type,
-        price: BigInt(o.price),
-        available: BigInt(o.available),
-        minFill: BigInt(o.min_fill),
-        payout: hexOf(o.payout),
-        fills: Number(o.fills),
-        completed: Number(o.completed),
-      };
-    });
-    await db.replaceSwapOffers(sql, offers, block);
+  if (touched.swaps) {
+    /** Every value of the storage map `item` of the swaps pallet, with its id; none in a runtime
+     * without it. */
+    const all = async (item: string): Promise<Array<{ id: number; value: any }>> => {
+      if (!runtime.hasStorage("Swaps", item)) return [];
+      const storage = runtime.builder.buildStorage("Swaps", item);
+      const keys = await storageKeys(rpc, runtime.storageKey("Swaps", item), at);
+      const raw = await readStorage(rpc, keys, at);
+      return keys.map((key) => ({ id: Number(storage.keys.dec(key)[0]), value: runtime.decodeStorage("Swaps", item, raw.get(key) ?? null) }));
+    };
+    await db.replaceSwapOffers(sql, (await all("Offers")).map(({ id, value }) => swapOffer(id, value)), block);
+    await db.replaceSwapBids(sql, (await all("Bids")).map(({ id, value }) => swapBid(id, value)), block);
   }
 
   for (const id of touched.tasks) {

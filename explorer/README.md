@@ -28,8 +28,9 @@ from a node: it holds nothing that is not on chain.
 - Keeps accounts, agents, delegations, channels and tasks as their state on chain, read again
   after each block that touches them, and the head, supply, emission, shielded pool, constants
   and genesis allocations in `chain_state`.
-- Keeps the open offers of atomic swaps (`swap_offers`), read again after each block with a swap
-  event; the trades come from the events of the swaps pallet (`swap_trades`).
+- Keeps the open offers and bids of atomic swaps (`swap_offers`, `swap_bids`), read again after
+  each block with a swap event; the trades and the sales into bids come from the events of the
+  swaps pallet (`swap_trades`, `swap_sales`), so a reorganization drops them with their blocks.
 - Writes a batch of blocks in one transaction, its statements pipelined: catching up costs a
   round trip to the database per batch, not per statement. Byte strings over 512 bytes (shielded
   proofs) are stored as their length and Blake2 hash.
@@ -85,16 +86,21 @@ docker run --env-file indexer/.env tesserax-indexer
 
 ## Market API
 
-The web deployment serves the market of TESS (atomic swaps against ETH, USDC and USDT, see
+The web deployment serves the market of TESS (atomic swaps against BTC, ETH, USDC and USDT, see
 [docs/swaps.md](../docs/swaps.md)) in the formats price aggregators read, from the database
-functions of `supabase/migrations/*_market.sql`. Answers are public and cached 30 seconds.
+functions of `supabase/migrations/*_market.sql` and `*_bids.sql`. Answers are public and cached
+30 seconds.
+
+Offers sell TESS and bids buy them. A claimed trade of an offer is a `buy`, its taker bought TESS;
+a claimed sale into a bid is a `sell`, its seller sold TESS. Sales have the trade ids from 10^15
+on (10^15 + the sale), apart from the ids of trades.
 
 | Path | Answer |
 |---|---|
-| `/api/coingecko/pairs` | Pairs: `TESS_ETH`, `TESS_USDC`, `TESS_USDT` once they have an offer or a trade |
-| `/api/coingecko/tickers` | Last price, 24-hour volumes, high and low of the trades claimed, best ask of the open offers |
-| `/api/coingecko/orderbook?ticker_id=TESS_USDC&depth=100` | The open offers by price; offers sell TESS, so there are no bids |
-| `/api/coingecko/historical_trades?ticker_id=TESS_USDC&limit=500&start_time=&end_time=` | Trades claimed, the latest first; takers buy TESS, so every trade is a buy |
+| `/api/coingecko/pairs` | Pairs: `TESS_BTC`, `TESS_ETH`, `TESS_USDC`, `TESS_USDT` once they have an offer, a bid or a trade |
+| `/api/coingecko/tickers` | Last price, 24-hour volumes, high and low of the trades and sales claimed, best bid of the open bids, best ask of the open offers |
+| `/api/coingecko/orderbook?ticker_id=TESS_USDC&depth=100` | The open bids (TESS wanted) and offers (TESS available) by price, `depth` levels in all, half on each side |
+| `/api/coingecko/historical_trades?ticker_id=TESS_USDC&limit=500&start_time=&end_time=&type=` | Trades and sales claimed, the latest first: buys and sells |
 | `/api/supply` | Total, circulating and maximum supply of TESS, as JSON |
 | `/api/supply/total`, `/api/supply/circulating`, `/api/supply/max` | One of them as a plain number |
 

@@ -74,6 +74,12 @@ test("indexes a development chain and follows a reorganization", { skip: !url &&
       await onChain("Tasks", "Tasks"),
     );
 
+    // Open offers and bids as on chain; bids since runtime 106.
+    assert.equal((await sql`select count(*)::int as n from swap_offers`)[0].n, await onChain("Swaps", "Offers"));
+    if (runtime.hasStorage("Swaps", "Bids")) {
+      assert.equal((await sql`select count(*)::int as n from swap_bids`)[0].n, await onChain("Swaps", "Bids"));
+    }
+
     // Tasks and channels created then finished between two refreshes are indexed too.
     const [created] = await sql`
       select (select count(distinct data->>'id')::int from events where pallet = 'Tasks' and name = 'Created') as tasks,

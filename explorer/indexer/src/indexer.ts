@@ -159,7 +159,7 @@ export class Indexer {
     touched.delegations.clear();
     touched.channels.clear();
     touched.tasks.clear();
-    touched.offers = false;
+    touched.swaps = false;
   }
 
   private async head(): Promise<{ hash: string; number: number; runtime: Runtime }> {
