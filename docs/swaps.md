@@ -115,6 +115,9 @@ claims the TESS as soon as the maker fills, and takes the payment back if it nev
 create offers there and run the maker of their account, which fills them while the wallet is
 open and lists the payments to collect. Offers in BTC are paid to a Bitcoin key the wallet derives
 from the account: its maker collects them by itself, to the address chosen with the offer.
+Holders of TESS, miners first, also sell there into the open bids: the wallet locks the TESS,
+waits for the buyer's payment, checks it and claims it, in BTC with the key it derives from the
+account, or in ETH, USDC and USDT through the browser EVM wallet, which pays the gas of the claim.
 
 With the command line wallet, which runs a maker without a browser and pays in BTC; the EVM key
 is a file holding a private key in hexadecimal, which pays the locks and the gas, and the Bitcoin
