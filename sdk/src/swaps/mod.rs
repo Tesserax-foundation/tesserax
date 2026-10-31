@@ -3,8 +3,14 @@
 //! A maker offers TESS; a taker locks its payment on the other chain under the SHA-256 hash of a
 //! secret; the maker checks it and fills the offer, which locks the TESS for the taker under the
 //! same hash; the taker claims them with the secret, without fee, and the secret pays the maker on
-//! the other chain. This module is the Tesserax side; with the `swaps` feature, [`evm`] is the side
-//! of the EVM chains and [`bitcoin`] the side of Bitcoin.
+//! the other chain.
+//!
+//! A buyer bids for TESS; a seller locks TESS for it under the hash of its own secret; the buyer
+//! locks the payment for the seller under the same hash and records it; the seller claims the
+//! payment with the secret, which then claims the TESS for the buyer, without fee.
+//!
+//! This module is the Tesserax side; with the `swaps` feature, [`evm`] is the side of the EVM
+//! chains and [`bitcoin`] the side of Bitcoin.
 
 #[cfg(feature = "swaps")]
 pub mod bitcoin;
@@ -163,13 +169,53 @@ pub struct Trade {
 	pub expires: u32,
 }
 
-/// What happened to trades in a block.
+/// A bid for TESS.
+#[derive(Clone, Debug)]
+pub struct Bid {
+	pub id: u64,
+	pub buyer: AccountId,
+	pub payment: Payment,
+	/// Smallest units of the asset for one TESS.
+	pub price: u128,
+	/// TESS still wanted.
+	pub wanted: Amount,
+	pub min_sale: Amount,
+	/// Sales made into the bid, and sales the buyer paid and received.
+	pub sales: u32,
+	pub completed: u32,
+}
+
+/// TESS a seller locked for the buyer of a bid.
+#[derive(Clone, Debug)]
+pub struct Sale {
+	pub id: u64,
+	pub bid: u64,
+	pub seller: AccountId,
+	pub buyer: AccountId,
+	pub amount: Amount,
+	pub price: u128,
+	pub payment: Payment,
+	pub hash: [u8; 32],
+	/// The EVM address the seller is paid to, or its public key on Bitcoin.
+	pub payout: Vec<u8>,
+	/// The lock of the payment on its chain, empty until the buyer records it.
+	pub payment_lock: Vec<u8>,
+	/// Last block the buyer may claim at.
+	pub expires: u32,
+}
+
+/// What happened to trades and sales in a block.
 #[derive(Clone, Debug)]
 pub enum SwapEvent {
 	Filled(Trade),
 	/// Claimed with `secret`, which releases the payment.
 	Claimed { trade: u64, secret: [u8; 32] },
 	Refunded { trade: u64 },
+	Sold(Sale),
+	SalePaid { sale: u64, payment_lock: Vec<u8> },
+	/// Claimed for the buyer with `secret`, which the seller revealed by claiming its payment.
+	SaleClaimed { sale: u64, secret: [u8; 32] },
+	SaleRefunded { sale: u64 },
 }
 
 fn offer_of(id: u64, o: rt::Offer<AccountId, u128, u32>) -> Offer {
@@ -198,6 +244,35 @@ fn trade_of(id: u64, t: rt::Trade<AccountId, u128, u32>) -> Trade {
 		hash: t.hash,
 		payment_lock: t.payment_lock.0,
 		expires: t.expires,
+	}
+}
+
+fn bid_of(id: u64, b: rt::Bid<AccountId, u128, u32>) -> Bid {
+	Bid {
+		id,
+		buyer: b.buyer,
+		payment: Payment::from_runtime(&b.payment),
+		price: b.price,
+		wanted: Amount(b.wanted),
+		min_sale: Amount(b.min_sale),
+		sales: b.sales,
+		completed: b.completed,
+	}
+}
+
+fn sale_of(id: u64, s: rt::Sale<AccountId, u128, u32>) -> Sale {
+	Sale {
+		id,
+		bid: s.bid,
+		seller: s.seller,
+		buyer: s.buyer,
+		amount: Amount(s.amount),
+		price: s.price,
+		payment: Payment::from_runtime(&s.payment),
+		hash: s.hash,
+		payout: s.payout.0,
+		payment_lock: s.payment_lock.0,
+		expires: s.expires,
 	}
 }
 
@@ -320,9 +395,16 @@ impl Client {
 	/// Claim trade `id` for its taker with `secret`: submitted without signer and without fee, so
 	/// anyone can submit it, a taker without TESS first.
 	pub async fn claim_trade(&self, id: u64, secret: [u8; 32]) -> Result<TxOutcome> {
+		self.submit_with_secret("claim", id, secret).await
+	}
+
+	/// Call `Swaps.<name>(id, secret)` as a general transaction without signer: the secret
+	/// authorizes it, and no fee is paid.
+	async fn submit_with_secret(&self, name: &str, id: u64, secret: [u8; 32]) -> Result<TxOutcome> {
 		let metadata = self.api().metadata();
 		let pallet = metadata.pallet_by_name("Swaps").ok_or_else(|| Error::NotFound("the swaps pallet".into()))?;
-		let call = pallet.call_variant_by_name("claim").ok_or_else(|| Error::NotFound("Swaps.claim".into()))?.index;
+		let call =
+			pallet.call_variant_by_name(name).ok_or_else(|| Error::NotFound(format!("Swaps.{name}")))?.index;
 		// Version 5, general transaction; extension version 0; era, nonce, tip, metadata hash mode.
 		let mut body = vec![0b0100_0000 | 5, 0, 0, 0, 0, 0, pallet.index(), call];
 		(id, secret).encode_to(&mut body);
@@ -333,12 +415,112 @@ impl Client {
 		Ok(self.included(progress).await?.0)
 	}
 
+	/// Open bids.
+	pub async fn bids(&self) -> Result<Vec<Bid>> {
+		let storage = self.storage().await?;
+		let mut entries = storage.iter(runtime::storage().swaps().bids_iter()).await?;
+		let mut found = Vec::new();
+		while let Some(entry) = entries.next().await {
+			let entry = entry?;
+			found.push(bid_of(id_of(&entry.key_bytes)?, entry.value));
+		}
+		found.sort_by_key(|b| b.id);
+		Ok(found)
+	}
+
+	/// The bid `id`, if open.
+	pub async fn bid(&self, id: u64) -> Result<Option<Bid>> {
+		let query = runtime::storage().swaps().bids(id);
+		Ok(self.storage().await?.fetch(&query).await?.map(|b| bid_of(id, b)))
+	}
+
+	/// Sales waiting for their claim or their refund.
+	pub async fn sales(&self) -> Result<Vec<Sale>> {
+		let storage = self.storage().await?;
+		let mut entries = storage.iter(runtime::storage().swaps().sales_iter()).await?;
+		let mut found = Vec::new();
+		while let Some(entry) = entries.next().await {
+			let entry = entry?;
+			found.push(sale_of(id_of(&entry.key_bytes)?, entry.value));
+		}
+		found.sort_by_key(|s| s.id);
+		Ok(found)
+	}
+
+	/// The sale `id`, if not claimed nor refunded yet.
+	pub async fn sale(&self, id: u64) -> Result<Option<Sale>> {
+		let query = runtime::storage().swaps().sales(id);
+		Ok(self.storage().await?.fetch(&query).await?.map(|s| sale_of(id, s)))
+	}
+
+	/// Bid for `amount` TESS at `price` units of `payment` for one TESS, in sales of at least
+	/// `min_sale`. Returns the id of the bid.
+	pub async fn create_bid(
+		&self,
+		buyer: &Keypair,
+		payment: Payment,
+		price: u128,
+		amount: Amount,
+		min_sale: Amount,
+	) -> Result<u64> {
+		let call = runtime::tx().swaps().bid(payment.to_runtime(), price, amount.0, min_sale.0);
+		let (_, events) = self.submit_events(&call, buyer).await?;
+		Ok(events
+			.find_first::<runtime::swaps::events::BidPlaced>()?
+			.ok_or_else(|| Error::NotFound("the bid placed".into()))?
+			.bid)
+	}
+
+	/// Change the price of bid `id`, the TESS it still wants and its smallest sale.
+	pub async fn update_bid(
+		&self,
+		buyer: &Keypair,
+		id: u64,
+		price: u128,
+		wanted: Amount,
+		min_sale: Amount,
+	) -> Result<TxOutcome> {
+		self.submit(&runtime::tx().swaps().update_bid(id, price, wanted.0, min_sale.0), buyer).await
+	}
+
+	/// Withdraw bid `id`.
+	pub async fn cancel_bid(&self, buyer: &Keypair, id: u64) -> Result<TxOutcome> {
+		self.submit(&runtime::tx().swaps().cancel_bid(id), buyer).await
+	}
+
+	/// Sell `amount` TESS into bid `id`, locked for its buyer under `hash`, paid to `payout`.
+	/// Returns the id of the sale.
+	pub async fn sell(&self, seller: &Keypair, id: u64, amount: Amount, hash: [u8; 32], payout: Vec<u8>) -> Result<u64> {
+		let call = runtime::tx().swaps().sell(id, amount.0, hash, bounded(payout)?);
+		let (_, events) = self.submit_events(&call, seller).await?;
+		Ok(events
+			.find_first::<runtime::swaps::events::Sold>()?
+			.ok_or_else(|| Error::NotFound("the sale made".into()))?
+			.sale)
+	}
+
+	/// Record `payment_lock`, the lock of the payment of sale `id`, as its buyer.
+	pub async fn pay_sale(&self, buyer: &Keypair, id: u64, payment_lock: Vec<u8>) -> Result<TxOutcome> {
+		self.submit(&runtime::tx().swaps().pay(id, bounded(payment_lock)?), buyer).await
+	}
+
+	/// Claim sale `id` for its buyer with `secret`: submitted without signer and without fee, so
+	/// anyone can submit it, the seller once paid, or a buyer without TESS.
+	pub async fn claim_sale(&self, id: u64, secret: [u8; 32]) -> Result<TxOutcome> {
+		self.submit_with_secret("claim_sale", id, secret).await
+	}
+
+	/// Return sale `id` to its seller once it expired. Anyone can call it.
+	pub async fn refund_sale(&self, signer: &Keypair, id: u64) -> Result<TxOutcome> {
+		self.submit(&runtime::tx().swaps().refund_sale(id), signer).await
+	}
+
 	/// Return trade `id` to its maker once it expired. Anyone can call it.
 	pub async fn refund_trade(&self, signer: &Keypair, id: u64) -> Result<TxOutcome> {
 		self.submit(&runtime::tx().swaps().refund(id), signer).await
 	}
 
-	/// What happened to trades in block `number` of the best chain.
+	/// What happened to trades and sales in block `number` of the best chain.
 	pub async fn swap_events(&self, number: u32) -> Result<Vec<SwapEvent>> {
 		let Some(hash) = self.block_hash(number).await? else { return Ok(Vec::new()) };
 		let events = self.api().events().at(hash).await?;
@@ -362,6 +544,26 @@ impl Client {
 				found.push(SwapEvent::Claimed { trade: e.trade, secret: e.secret });
 			} else if let Some(e) = event.as_event::<runtime::swaps::events::Refunded>()? {
 				found.push(SwapEvent::Refunded { trade: e.trade });
+			} else if let Some(e) = event.as_event::<runtime::swaps::events::Sold>()? {
+				found.push(SwapEvent::Sold(Sale {
+					id: e.sale,
+					bid: e.bid,
+					seller: e.seller,
+					buyer: e.buyer,
+					amount: Amount(e.amount),
+					price: e.price,
+					payment: Payment::from_runtime(&e.payment),
+					hash: e.hash,
+					payout: e.payout.0,
+					payment_lock: Vec::new(),
+					expires: e.expires,
+				}));
+			} else if let Some(e) = event.as_event::<runtime::swaps::events::SalePaid>()? {
+				found.push(SwapEvent::SalePaid { sale: e.sale, payment_lock: e.payment_lock.0 });
+			} else if let Some(e) = event.as_event::<runtime::swaps::events::SaleClaimed>()? {
+				found.push(SwapEvent::SaleClaimed { sale: e.sale, secret: e.secret });
+			} else if let Some(e) = event.as_event::<runtime::swaps::events::SaleRefunded>()? {
+				found.push(SwapEvent::SaleRefunded { sale: e.sale });
 			}
 		}
 		Ok(found)

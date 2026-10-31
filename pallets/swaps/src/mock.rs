@@ -11,6 +11,7 @@ pub const MAKER: u64 = 1;
 pub const TAKER: u64 = 2;
 pub const OTHER: u64 = 3;
 pub const TIMEOUT: u64 = 100;
+pub const SALE_TIMEOUT: u64 = 400;
 pub const MIN_OFFER: u128 = 1_000;
 pub const DEPOSIT: u128 = 10;
 
@@ -60,6 +61,7 @@ impl pallet_swaps::Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
 	type TradeTimeout = ConstU64<TIMEOUT>;
+	type SaleTimeout = ConstU64<SALE_TIMEOUT>;
 	type MinOffer = ConstU128<MIN_OFFER>;
 	type OfferDeposit = ConstU128<DEPOSIT>;
 	type ClaimLongevity = ConstU64<64>;

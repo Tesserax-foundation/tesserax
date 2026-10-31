@@ -1,5 +1,6 @@
 //! Atomic swaps: offers of TESS, buying them with a payment locked on Bitcoin or an EVM chain, and
-//! the maker that fills offers and collects their payments (`docs/swaps.md`).
+//! the maker that fills offers and collects their payments; bids for TESS, selling into them, and
+//! the same maker paying the sales of its bids (`docs/swaps.md`).
 
 use super::{error, tess, Result, Wallet};
 use clap::Subcommand;
@@ -9,7 +10,7 @@ use tesserax_sdk::{
 	swaps::{
 		bitcoin::{self as btc, BitcoinKey, BitcoinLock, CompressedPublicKey, Esplora, Htlc, OutPoint, Secp256k1},
 		evm::{self, Evm, EvmAddress, LockState, PrivateKeySigner, B256, U256},
-		hash_of, new_secret, payment_due, tess_for, Asset, Chain, Payment, SwapEvent,
+		hash_of, new_secret, payment_due, tess_for, Asset, Chain, Payment, Sale, SwapEvent,
 	},
 	AccountId, Amount, Client,
 };
@@ -20,6 +21,17 @@ const PAYMENT_LOCK_SECONDS: u64 = 24 * 3600;
 /// Seconds a payment lock must still last for the maker to fill it: the six hours the taker has
 /// to claim the TESS, and six more for the maker to claim the payment.
 const MIN_REMAINING_SECONDS: u64 = 12 * 3600;
+
+/// Seconds the payment of a sale stays locked for its seller: the seller claims it within them,
+/// and the sale, which lasts 24 hours, leaves the buyer the time to claim the TESS after.
+const SALE_PAYMENT_SECONDS: u64 = 6 * 3600;
+
+/// Blocks a sale must still last for its buyer to pay it, 12 hours of 18 seconds: the six hours
+/// of the payment, and six more to claim the TESS.
+const MIN_SALE_BLOCKS: u32 = 2_400;
+
+/// Seconds the payment of a sale must still last for its seller to claim it.
+const MIN_CLAIM_SECONDS: u64 = 3600;
 
 #[derive(Subcommand)]
 pub enum SwapCommand {
@@ -77,8 +89,53 @@ pub enum SwapCommand {
 		#[command(flatten)]
 		pay: PayArgs,
 	},
+	/// The open bids: TESS wanted, paid on Bitcoin or an EVM chain.
+	Bids,
+	/// Bid for TESS, paid on Bitcoin or an EVM chain: run `swap make` to pay the sales.
+	Bid {
+		account: String,
+		/// bitcoin, ethereum, base or arbitrum.
+		#[arg(long)]
+		chain: String,
+		/// btc on Bitcoin; eth, usdc or usdt on the EVM chains.
+		#[arg(long)]
+		asset: String,
+		/// Price of one TESS in the asset, such as 0.05.
+		#[arg(long)]
+		price: String,
+		/// TESS wanted.
+		#[arg(long)]
+		amount: String,
+		/// Smallest sale in TESS.
+		#[arg(long, default_value = "1")]
+		min: String,
+	},
+	/// Withdraw a bid: its deposit returns to the account.
+	CancelBid { account: String, bid: u64 },
+	/// Sell TESS into a bid: lock them for its buyer, wait for its payment, check it and claim it.
+	Sell {
+		account: String,
+		bid: u64,
+		/// TESS to sell.
+		amount: String,
+		/// EVM address paid, that of --evm-key-file by default; on Bitcoin, the key of
+		/// --btc-key-file claims the payment.
+		#[arg(long)]
+		payout: Option<String>,
+		#[command(flatten)]
+		pay: PayArgs,
+	},
+	/// Claim the payment of a sale made by this wallet, once its buyer locked it.
+	CollectSale {
+		sale: u64,
+		#[command(flatten)]
+		pay: PayArgs,
+	},
+	/// Take back the TESS of a sale its buyer never paid, once it expired.
+	RefundSale { account: String, sale: u64 },
 	/// Run the maker of an account: fill its offers for the payments locked for them, collect the
-	/// payments once their secrets are revealed, and take back trades that expired.
+	/// payments once their secrets are revealed, and take back trades that expired; pay the sales
+	/// into its bids, claim their TESS, and take back payments never claimed.
 	Make {
 		account: String,
 		/// Seconds between two rounds.
@@ -90,6 +147,11 @@ pub enum SwapCommand {
 		/// key on Bitcoin, an EVM address otherwise. Repeated for several payments.
 		#[arg(long = "keep-offer")]
 		keep_offers: Vec<String>,
+		/// Keep a bid open, `chain:asset:price:amount:min` such as `base:usdc:0.05:1000:10`: when
+		/// the open bids of the account for this payment want less than `min` TESS, bid for
+		/// `amount` TESS again. Repeated for several payments.
+		#[arg(long = "keep-bid")]
+		keep_bids: Vec<String>,
 		#[command(flatten)]
 		pay: PayArgs,
 	},
@@ -272,6 +334,27 @@ fn kept_offer(spec: &str, pay: &PayArgs) -> Result<KeptOffer> {
 		return Err(format!("{spec}: the smallest trade is above zero and at most the amount"));
 	}
 	Ok(KeptOffer { payment, price: units(price, payment.decimals())?, amount, min, payout })
+}
+
+/// A bid the maker keeps open (`--keep-bid`).
+struct KeptBid {
+	payment: Payment,
+	price: u128,
+	amount: Amount,
+	min: Amount,
+}
+
+fn kept_bid(spec: &str) -> Result<KeptBid> {
+	let parts: Vec<_> = spec.split(':').collect();
+	let [chain, asset, price, amount, min] = parts[..] else {
+		return Err(format!("{spec}: chain:asset:price:amount:min, such as base:usdc:0.05:1000:10"));
+	};
+	let payment = payment_named(chain, asset)?;
+	let (amount, min) = (tess(amount)?, tess(min)?);
+	if min.0 == 0 || min.0 > amount.0 {
+		return Err(format!("{spec}: the smallest sale is above zero and at most the amount"));
+	}
+	Ok(KeptBid { payment, price: units(price, payment.decimals())?, amount, min })
 }
 
 fn bitcoin_lock_path(w: &Wallet, hash: &[u8; 32]) -> PathBuf {
@@ -536,12 +619,252 @@ pub async fn swap(w: &mut Wallet, command: SwapCommand) -> Result<()> {
 			}
 			return Err(last);
 		},
-		SwapCommand::Make { account, interval, keep_offers, pay } => {
+		SwapCommand::Bids => {
+			let bids = w.client().await?.bids().await.map_err(error)?;
+			let json: Vec<_> = bids
+				.iter()
+				.map(|b| {
+					serde_json::json!({
+						"id": b.id,
+						"buyer": format_address(&b.buyer),
+						"chain": format!("{:?}", b.payment.chain).to_lowercase(),
+						"asset": b.payment.symbol(),
+						"price": decimal(b.price, b.payment.decimals()),
+						"wanted": b.wanted,
+						"min_sale": b.min_sale,
+						"sales": b.sales,
+						"completed": b.completed,
+					})
+				})
+				.collect();
+			w.print(json, || {
+				if bids.is_empty() {
+					"No bid.".into()
+				} else {
+					bids.iter()
+						.map(|b| {
+							format!(
+								"#{} {} TESS wanted at {} · from {} TESS · {}/{} sales paid",
+								b.id,
+								b.wanted,
+								price_text(b.payment, b.price),
+								b.min_sale,
+								b.completed,
+								b.sales
+							)
+						})
+						.collect::<Vec<_>>()
+						.join("\n")
+				}
+			});
+		},
+		SwapCommand::Bid { account, chain, asset, price, amount, min } => {
+			let payment = payment_named(&chain, &asset)?;
+			let price = units(&price, payment.decimals())?;
+			let (amount, min) = (tess(&amount)?, tess(&min)?);
+			w.confirm(&format!(
+				"Bid for {amount} TESS at {} from {account}; only a deposit is held, and `swap make` pays each sale",
+				price_text(payment, price)
+			))?;
+			let key = w.key(&account)?;
+			let id = w.client().await?.create_bid(&key, payment, price, amount, min).await.map_err(error)?;
+			w.print(serde_json::json!({ "bid": id }), || {
+				format!("Bid #{id} open. Run `tesserax-wallet swap make {account}` to pay its sales as they come.")
+			});
+		},
+		SwapCommand::CancelBid { account, bid } => {
+			w.confirm(&format!("Withdraw bid #{bid}"))?;
+			let key = w.key(&account)?;
+			let outcome = w.client().await?.cancel_bid(&key, bid).await.map_err(error)?;
+			w.sent(outcome);
+		},
+		SwapCommand::Sell { account, bid, amount, payout, pay } => {
+			let amount = tess(&amount)?;
+			let client = w.client().await?.clone();
+			let b = client.bid(bid).await.map_err(error)?.ok_or("no such bid")?;
+			if amount.0 > b.wanted.0 {
+				return Err(format!("the bid wants {} TESS", b.wanted));
+			}
+			if amount.0 < b.min_sale.0 && amount.0 != b.wanted.0 {
+				return Err(format!("the bid buys at least {} TESS", b.min_sale));
+			}
+			let due = payment_due(amount.0, b.price).ok_or("amount too large")?;
+			let payout = match (b.payment.chain, payout) {
+				(Chain::Bitcoin, _) => {
+					CompressedPublicKey::from_private_key(&Secp256k1::new(), &pay.btc_key()?).map_err(error)?.to_bytes().to_vec()
+				},
+				(_, Some(payout)) => match hex::decode(payout.trim().trim_start_matches("0x")) {
+					Ok(address) if address.len() == 20 => address,
+					_ => return Err("the payout is an EVM address: 0x and 40 digits".into()),
+				},
+				(_, None) => pay
+					.key()?
+					.ok_or("give the EVM key with --evm-key-file: it claims the payment, and pays its gas")?
+					.address()
+					.to_vec(),
+			};
+			w.confirm(&format!(
+				"Sell {amount} TESS of {account} to bid #{bid} for {} {} on {:?}, paid to 0x{}; the TESS are locked for the buyer, and return to you in 24 hours if it does not pay",
+				decimal(due, b.payment.decimals()),
+				b.payment.symbol(),
+				b.payment.chain,
+				hex::encode(&payout),
+			))?;
+			let key = w.key(&account)?;
+			let (secret, hash) = new_secret().map_err(error)?;
+			// The secret is saved before the TESS are locked: without it, the payment cannot be claimed.
+			save_secret(w, &secret)?;
+			let sale = client.sell(&key, bid, amount, hash, payout).await.map_err(error)?;
+			if !w.json {
+				eprintln!("Sale #{sale} made: {amount} TESS locked for the buyer. Waiting for its payment…");
+			}
+			collect_sale(w, &client, sale, &pay).await?;
+		},
+		SwapCommand::CollectSale { sale, pay } => {
+			let client = w.client().await?.clone();
+			collect_sale(w, &client, sale, &pay).await?;
+		},
+		SwapCommand::RefundSale { account, sale } => {
+			let key = w.key(&account)?;
+			let client = w.client().await?.clone();
+			let s = client.sale(sale).await.map_err(error)?.ok_or("no such sale: already claimed or refunded")?;
+			let best = client.best_block_number().await.map_err(error)?;
+			if best <= s.expires {
+				let hours = (u64::from(s.expires - best) * 18).div_ceil(3600);
+				return Err(format!("sale #{sale} can be taken back in about {hours} hour(s), once it expires"));
+			}
+			let outcome = client.refund_sale(&key, sale).await.map_err(error)?;
+			let _ = std::fs::remove_file(secret_path(w, &s.hash));
+			w.sent(outcome);
+		},
+		SwapCommand::Make { account, interval, keep_offers, keep_bids, pay } => {
 			let keep = keep_offers.iter().map(|spec| kept_offer(spec, &pay)).collect::<Result<Vec<_>>>()?;
-			make(w, &account, interval, &keep, pay).await?
+			let bids = keep_bids.iter().map(|spec| kept_bid(spec)).collect::<Result<Vec<_>>>()?;
+			make(w, &account, interval, &keep, &bids, pay).await?
 		},
 	}
 	Ok(())
+}
+
+/// Wait until the buyer of sale `id` locks and records its payment, check it, and claim it with the
+/// secret saved for the hash of the sale; then claim the TESS for the buyer, which costs nothing.
+async fn collect_sale(w: &mut Wallet, client: &Client, id: u64, pay: &PayArgs) -> Result<()> {
+	let sale = loop {
+		let Some(sale) = client.sale(id).await.map_err(error)? else {
+			return Err(format!("sale #{id} is already claimed or refunded"));
+		};
+		if !sale.payment_lock.is_empty() {
+			break sale;
+		}
+		let best = client.best_block_number().await.map_err(error)?;
+		if best > sale.expires {
+			return Err(format!("sale #{id} expired unpaid: take your TESS back with `swap refund-sale`"));
+		}
+		tokio::time::sleep(Duration::from_secs(10)).await;
+	};
+	let secret = load_secret(w, &sale.hash)?;
+	let due = payment_due(sale.amount.0, sale.price).ok_or("amount too large")?;
+	let claimed = if sale.payment.chain == Chain::Bitcoin {
+		claim_bitcoin_sale(w, client, &sale, due, secret, pay).await?
+	} else {
+		let evm = pay.connect(client, sale.payment.chain, true).await?;
+		let lock = B256::from_slice(&sale.payment_lock);
+		let status = evm.lock_status(lock).await.map_err(error)?.ok_or("the payment recorded is not a lock")?;
+		let (_, now) = evm.head().await.map_err(error)?;
+		let paid = (evm.network.asset(status.token) == Some(sale.payment.asset))
+			.then(|| u128::try_from(status.amount).ok())
+			.flatten()
+			.unwrap_or(0);
+		// Any mismatch: the secret stays private, and the TESS return after the sale expires.
+		let problem = if status.state != LockState::Locked {
+			Some(format!("the payment is already {:?}", status.state))
+		} else if status.hash != sale.hash {
+			Some("the payment is locked under another hash".into())
+		} else if status.recipient.as_slice() != sale.payout.as_slice() {
+			Some(format!("the payment goes to {}, not to you", status.recipient))
+		} else if paid < due {
+			Some(format!(
+				"the payment holds {} {} instead of {}",
+				decimal(paid, sale.payment.decimals()),
+				sale.payment.symbol(),
+				decimal(due, sale.payment.decimals())
+			))
+		} else if status.timelock < now + MIN_CLAIM_SECONDS {
+			Some("the payment expires in less than an hour".into())
+		} else {
+			None
+		};
+		if let Some(problem) = problem {
+			return Err(format!("{problem}: not claimed. The TESS return to you once sale #{id} expires (`swap refund-sale`)"));
+		}
+		let tx = evm.claim(lock, secret).await.map_err(error)?;
+		if !w.json {
+			eprintln!("Payment of {} {} claimed in {tx}", decimal(paid, sale.payment.decimals()), sale.payment.symbol());
+		}
+		tx.to_string()
+	};
+	// The secret is public now: deliver the TESS to the buyer.
+	if let Err(e) = client.claim_sale(id, secret).await {
+		eprintln!("The buyer claims its TESS itself: {e}");
+	}
+	let _ = std::fs::remove_file(secret_path(w, &sale.hash));
+	w.print(serde_json::json!({ "sale": id, "payment": claimed }), || format!("Sale #{id} done: payment claimed in {claimed}"));
+	Ok(())
+}
+
+/// Claim the Bitcoin payment of `sale`, once confirmed, with `secret`, to the address of the key.
+async fn claim_bitcoin_sale(
+	w: &mut Wallet,
+	client: &Client,
+	sale: &Sale,
+	due: u128,
+	secret: [u8; 32],
+	pay: &PayArgs,
+) -> Result<String> {
+	let key = pay.btc_key()?;
+	let own = CompressedPublicKey::from_private_key(&Secp256k1::new(), &key).map_err(error)?;
+	if own.to_bytes().as_slice() != sale.payout.as_slice() {
+		return Err("the sale is paid to another Bitcoin key than that of --btc-key-file".into());
+	}
+	let outpoint = btc::outpoint_of(&sale.payment_lock).ok_or("the payment recorded is not a Bitcoin output")?;
+	let esplora = pay.bitcoin(client).await?;
+	// An unconfirmed payment can be replaced: the secret is revealed only once it is buried.
+	loop {
+		let confirmations = esplora.confirmations(&outpoint.txid).await.map_err(error)?;
+		if confirmations >= btc::MIN_CONFIRMATIONS {
+			break;
+		}
+		if !w.json {
+			eprintln!("Payment {outpoint}: {confirmations}/{} confirmations…", btc::MIN_CONFIRMATIONS);
+		}
+		tokio::time::sleep(Duration::from_secs(60)).await;
+	}
+	let tx = esplora.transaction(&outpoint.txid).await.map_err(error)?;
+	let lock = btc::find_lock(&tx, &own)
+		.filter(|l| l.outpoint == outpoint)
+		.ok_or("the payment recorded is not locked for your key")?;
+	let now = esplora.median_time().await.map_err(error)?;
+	let problem = if lock.htlc.hash != sale.hash {
+		Some("the payment is locked under another hash".to_string())
+	} else if u128::from(lock.amount) < due {
+		Some(format!("the payment holds {} BTC instead of {}", decimal(u128::from(lock.amount), 8), decimal(due, 8)))
+	} else if u64::from(lock.htlc.timelock) < now + MIN_CLAIM_SECONDS {
+		Some("the payment expires in less than an hour".into())
+	} else if esplora.is_spent(&outpoint).await.map_err(error)? {
+		Some("the payment is already spent".into())
+	} else {
+		None
+	};
+	if let Some(problem) = problem {
+		return Err(format!("{problem}: not claimed. The TESS return to you once sale #{} expires (`swap refund-sale`)", sale.id));
+	}
+	let fee_rate = esplora.fee_rate(2).await.map_err(error)?;
+	let claim = btc::claim_transaction(&lock, secret, &key, fee_rate, esplora.network).map_err(error)?;
+	let txid = esplora.broadcast(&claim).await.map_err(error)?;
+	if !w.json {
+		eprintln!("Payment of {} BTC claimed in {txid}", decimal(u128::from(lock.amount), 8));
+	}
+	Ok(txid.to_string())
 }
 
 /// Lock the payment `due` in satoshis of offer `o` from the Bitcoin key, for `amount` TESS to
@@ -686,13 +1009,42 @@ struct MakerState {
 	/// Bitcoin transactions to the maker already read: filled, or not a payment that fits.
 	#[serde(default)]
 	bitcoin_seen: std::collections::BTreeSet<String>,
+	/// Sales into the bids of the maker it paid: their payment, until the TESS are claimed and the
+	/// payment claimed, or the payment taken back.
+	#[serde(default)]
+	paid_sales: BTreeMap<u64, PaidSale>,
+}
+
+/// The payment of a sale, locked by the maker for its seller.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct PaidSale {
+	/// Bitcoin, Ethereum, Base or Arbitrum.
+	chain: String,
+	/// 0x and the lock id on an EVM chain, txid:vout on Bitcoin.
+	lock: String,
+	/// The EVM block it was locked at, from which to look for the secret of its claim.
+	block: u64,
+	/// Unix time from which it can be taken back.
+	timelock: u64,
+	hash: String,
+	/// Recorded on Tesserax with `pay`.
+	recorded: bool,
+	/// The sale is over on Tesserax: only the payment is left to watch.
+	done: bool,
 }
 
 fn maker_state_path(w: &Wallet, account: &str) -> PathBuf {
 	w.dir.join("swaps").join(format!("maker-{account}.json"))
 }
 
-async fn make(w: &mut Wallet, account: &str, interval: u64, keep: &[KeptOffer], args: PayArgs) -> Result<()> {
+async fn make(
+	w: &mut Wallet,
+	account: &str,
+	interval: u64,
+	keep: &[KeptOffer],
+	keep_bids: &[KeptBid],
+	args: PayArgs,
+) -> Result<()> {
 	let key = w.key(account)?;
 	let maker = key.account_id();
 	let client = w.client().await?.clone();
@@ -703,13 +1055,22 @@ async fn make(w: &mut Wallet, account: &str, interval: u64, keep: &[KeptOffer], 
 		state.tesserax_block = client.best_block_number().await.map_err(error)?;
 	}
 	let mut chains: BTreeMap<String, Evm> = BTreeMap::new();
-	eprintln!("Maker of {} running: filling offers, collecting payments, refunding expired trades.", format_address(&maker));
+	eprintln!(
+		"Maker of {} running: filling offers, collecting payments, refunding expired trades, paying the sales of its bids.",
+		format_address(&maker)
+	);
 	loop {
 		if let Err(e) = keep_offers(&client, &key, &maker, keep).await {
 			eprintln!("Keeping the offers open: {e}");
 		}
+		if let Err(e) = keep_open_bids(&client, &key, &maker, keep_bids).await {
+			eprintln!("Keeping the bids open: {e}");
+		}
 		if let Err(e) = round(&client, &key, &maker, &args, &mut chains, &mut state).await {
 			eprintln!("{e}");
+		}
+		if let Err(e) = pay_sales(w, &client, &key, &maker, &args, &mut chains, &mut state).await {
+			eprintln!("Sales: {e}");
 		}
 		std::fs::create_dir_all(path.parent().expect("a directory; qed")).map_err(error)?;
 		std::fs::write(&path, serde_json::to_vec(&state).map_err(error)?).map_err(error)?;
@@ -748,6 +1109,260 @@ async fn keep_offers(client: &Client, key: &tesserax_sdk::Keypair, maker: &Accou
 		eprintln!("Offer #{id} open: {} TESS at {}", kept.amount, price_text(kept.payment, kept.price));
 	}
 	Ok(())
+}
+
+/// Bid again what `keep` asks for when the open bids of `buyer` for its payment want too little.
+async fn keep_open_bids(client: &Client, key: &tesserax_sdk::Keypair, buyer: &AccountId, keep: &[KeptBid]) -> Result<()> {
+	if keep.is_empty() {
+		return Ok(());
+	}
+	let bids = client.bids().await.map_err(error)?;
+	for kept in keep {
+		let open: u128 =
+			bids.iter().filter(|b| b.buyer == *buyer && b.payment == kept.payment).map(|b| b.wanted.0).sum();
+		if open >= kept.min.0 {
+			continue;
+		}
+		let id = client.create_bid(key, kept.payment, kept.price, kept.amount, kept.min).await.map_err(error)?;
+		eprintln!("Bid #{id} open: {} TESS wanted at {}", kept.amount, price_text(kept.payment, kept.price));
+	}
+	Ok(())
+}
+
+/// The EVM chain `chain`, connected with the key of `args` the first time.
+async fn evm_chain<'a>(client: &Client, args: &PayArgs, chains: &'a mut BTreeMap<String, Evm>, chain: Chain) -> Result<&'a Evm> {
+	let name = format!("{chain:?}");
+	if !chains.contains_key(&name) {
+		let evm = args.connect(client, chain, true).await?;
+		chains.insert(name.clone(), evm);
+	}
+	Ok(&chains[&name])
+}
+
+/// Pay the sales into the bids of `buyer`, claim their TESS once their sellers claimed the
+/// payments, and take back the payments never claimed.
+async fn pay_sales(
+	w: &mut Wallet,
+	client: &Client,
+	key: &tesserax_sdk::Keypair,
+	buyer: &AccountId,
+	args: &PayArgs,
+	chains: &mut BTreeMap<String, Evm>,
+	state: &mut MakerState,
+) -> Result<()> {
+	let best = client.best_block_number().await.map_err(error)?;
+	let sales: Vec<_> = client.sales().await.map_err(error)?.into_iter().filter(|s| s.buyer == *buyer).collect();
+
+	// New sales: paid while they last long enough for the payment and the claim after it.
+	for sale in &sales {
+		if state.paid_sales.contains_key(&sale.id) || !sale.payment_lock.is_empty() || sale.expires < best + MIN_SALE_BLOCKS {
+			continue;
+		}
+		let Some(due) = payment_due(sale.amount.0, sale.price) else { continue };
+		let paid = if sale.payment.chain == Chain::Bitcoin {
+			lock_bitcoin_sale(w, client, args, sale, due).await
+		} else {
+			match evm_chain(client, args, chains, sale.payment.chain).await {
+				Ok(evm) => lock_evm_sale(evm, sale, due).await,
+				Err(e) => Err(e),
+			}
+		};
+		match paid {
+			Ok(paid) => {
+				eprintln!(
+					"Sale #{}: {} TESS paid {} {} on {:?}, lock {}",
+					sale.id,
+					sale.amount,
+					decimal(due, sale.payment.decimals()),
+					sale.payment.symbol(),
+					sale.payment.chain,
+					paid.lock
+				);
+				state.paid_sales.insert(sale.id, paid);
+			},
+			Err(e) => eprintln!("Paying sale #{}: {e}", sale.id),
+		}
+	}
+
+	// Recorded on Tesserax, so that the seller finds the payment: retried until it is.
+	for (id, paid) in state.paid_sales.iter_mut().filter(|(_, p)| !p.recorded && !p.done) {
+		let (_, lock) = lock_named(&paid.lock)?;
+		match client.pay_sale(key, *id, lock).await {
+			Ok(_) => paid.recorded = true,
+			Err(e) => eprintln!("Recording the payment of sale #{id}, again next round: {e}"),
+		}
+	}
+
+	// A sale gone from Tesserax is claimed or refunded; the others claim their TESS with the secret
+	// the seller revealed on the other chain, and a payment never claimed is taken back.
+	let open: std::collections::BTreeSet<u64> = sales.iter().map(|s| s.id).collect();
+	for (id, paid) in state.paid_sales.iter_mut() {
+		if !open.contains(id) {
+			paid.done = true;
+		}
+	}
+	for (id, paid) in state.paid_sales.clone() {
+		let hash = hex32(&paid.hash)?;
+		let outcome = if paid.chain == "Bitcoin" {
+			settle_bitcoin_sale(w, client, args, &paid, &hash).await
+		} else {
+			let Some(chain) =
+				[Chain::Ethereum, Chain::Base, Chain::Arbitrum].into_iter().find(|c| format!("{c:?}") == paid.chain)
+			else {
+				continue;
+			};
+			match evm_chain(client, args, chains, chain).await {
+				Ok(evm) => settle_evm_sale(evm, &paid).await,
+				Err(e) => Err(e),
+			}
+		};
+		match outcome {
+			Ok(Settled::Waiting) => {},
+			Ok(Settled::Secret(secret)) => match client.claim_sale(id, secret).await {
+				Ok(_) => {
+					eprintln!("Sale #{id}: TESS claimed");
+					state.paid_sales.remove(&id);
+				},
+				// The seller, or anyone, already submitted the same claim: it lands without us.
+				Err(e) if e.to_string().contains("Already Imported") => {},
+				Err(e) => eprintln!("Claiming sale #{id}, again next round: {e}"),
+			},
+			Ok(Settled::Refunded(tx)) => {
+				eprintln!("Sale #{id}: the seller never claimed the payment, taken back in {tx}");
+				state.paid_sales.remove(&id);
+			},
+			Ok(Settled::Over) => {
+				state.paid_sales.remove(&id);
+			},
+			Err(e) => eprintln!("Sale #{id}: {e}"),
+		}
+	}
+	Ok(())
+}
+
+/// Where the payment of a sale stands.
+enum Settled {
+	/// Locked, neither claimed nor expired; or claimed, with the TESS already received.
+	Waiting,
+	/// Claimed by the seller, which revealed the secret, and the TESS still to claim.
+	Secret([u8; 32]),
+	/// Taken back by the maker, in this transaction.
+	Refunded(String),
+	/// Nothing left to do.
+	Over,
+}
+
+/// Lock the payment `due` of `sale` on its EVM chain, for six hours.
+async fn lock_evm_sale(evm: &Evm, sale: &Sale, due: u128) -> Result<PaidSale> {
+	let (head, now) = evm.head().await.map_err(error)?;
+	let timelock = now + SALE_PAYMENT_SECONDS;
+	let recipient = EvmAddress::from_slice(&sale.payout);
+	let lock = evm
+		.lock_payment(sale.payment.asset, recipient, U256::from(due), sale.hash, timelock, sale.id, &sale.buyer)
+		.await
+		.map_err(error)?;
+	Ok(PaidSale {
+		chain: format!("{:?}", sale.payment.chain),
+		lock: lock.to_string(),
+		block: head,
+		timelock,
+		hash: hex::encode(sale.hash),
+		recorded: false,
+		done: false,
+	})
+}
+
+/// Where the EVM payment `paid` stands: its secret once claimed, taken back once expired.
+async fn settle_evm_sale(evm: &Evm, paid: &PaidSale) -> Result<Settled> {
+	let id = B256::from(hex32(&paid.lock)?);
+	let status = evm.lock_status(id).await.map_err(error)?.ok_or("the lock is gone")?;
+	match status.state {
+		LockState::Claimed if paid.done => Ok(Settled::Over),
+		LockState::Claimed => {
+			let secret =
+				evm.secret_of(id, paid.block).await.map_err(error)?.ok_or("claimed, but its secret is not found yet")?;
+			Ok(Settled::Secret(secret))
+		},
+		LockState::Refunded => Ok(Settled::Over),
+		LockState::Locked => {
+			let (_, now) = evm.head().await.map_err(error)?;
+			if now < status.timelock {
+				return Ok(Settled::Waiting);
+			}
+			Ok(Settled::Refunded(evm.refund(id).await.map_err(error)?.to_string()))
+		},
+	}
+}
+
+/// Lock the payment `due` of `sale` in satoshis from the Bitcoin key, for six hours, saving first
+/// what takes it back.
+async fn lock_bitcoin_sale(w: &mut Wallet, client: &Client, args: &PayArgs, sale: &Sale, due: u128) -> Result<PaidSale> {
+	let key = args.btc_key()?;
+	let esplora = args.bitcoin(client).await?;
+	let refund = CompressedPublicKey::from_private_key(&Secp256k1::new(), &key).map_err(error)?;
+	let seller = CompressedPublicKey::from_slice(&sale.payout).map_err(|_| "the payout of this sale is not a Bitcoin key")?;
+	let due = u64::try_from(due).map_err(|_| "amount too large")?;
+	let from = btc::address_of(&refund, esplora.network);
+	let utxos = esplora.utxos(&from).await.map_err(error)?;
+	if utxos.is_empty() {
+		return Err(format!("{from} has no bitcoin to pay with"));
+	}
+	let fee_rate = esplora.fee_rate(2).await.map_err(error)?;
+	let now = esplora.median_time().await.map_err(error)?;
+	let timelock = u32::try_from(now + SALE_PAYMENT_SECONDS).map_err(error)?;
+	let htlc = Htlc { hash: sale.hash, maker: seller, taker: refund, timelock };
+	let announcement = btc::Announcement { offer: sale.id, taker: sale.buyer.clone(), hash: sale.hash, timelock, refund: None };
+	let tx = btc::lock_transaction(&key, &utxos, &htlc, &announcement, due, fee_rate, esplora.network).map_err(error)?;
+	let lock = btc::find_lock(&tx, &seller).ok_or("the payment built cannot be found again")?;
+	let saved = SavedBitcoinLock {
+		hash: hex::encode(sale.hash),
+		maker: hex::encode(seller.to_bytes()),
+		taker: hex::encode(refund.to_bytes()),
+		timelock,
+		amount: due,
+		offer: sale.id,
+		account: format_address(&sale.buyer),
+		outpoint: Some(lock.outpoint.to_string()),
+	};
+	save_json(&bitcoin_lock_path(w, &sale.hash), &saved)?;
+	esplora.broadcast(&tx).await.map_err(error)?;
+	Ok(PaidSale {
+		chain: "Bitcoin".into(),
+		lock: lock.outpoint.to_string(),
+		block: 0,
+		timelock: u64::from(timelock),
+		hash: hex::encode(sale.hash),
+		recorded: false,
+		done: false,
+	})
+}
+
+/// Where the Bitcoin payment `paid` stands: its secret once claimed, taken back once expired.
+async fn settle_bitcoin_sale(w: &Wallet, client: &Client, args: &PayArgs, paid: &PaidSale, hash: &[u8; 32]) -> Result<Settled> {
+	let outpoint: OutPoint = paid.lock.parse().map_err(error)?;
+	let esplora = args.bitcoin(client).await?;
+	if let Some(spender) = esplora.spender(&outpoint).await.map_err(error)? {
+		let _ = std::fs::remove_file(bitcoin_lock_path(w, hash));
+		return Ok(match btc::secret_in_claim(&spender, &outpoint, hash) {
+			Some(_) if paid.done => Settled::Over,
+			Some(secret) => Settled::Secret(secret),
+			// Spent without the secret: taken back.
+			None => Settled::Over,
+		});
+	}
+	let now = esplora.median_time().await.map_err(error)?;
+	if now <= paid.timelock {
+		return Ok(Settled::Waiting);
+	}
+	let path = bitcoin_lock_path(w, hash);
+	let saved: SavedBitcoinLock =
+		serde_json::from_slice(&std::fs::read(&path).map_err(|_| "the script of this payment is not saved")?).map_err(error)?;
+	let lock = saved.lock()?;
+	let fee_rate = esplora.fee_rate(6).await.map_err(error)?;
+	let tx = btc::refund_transaction(&lock, &args.btc_key()?, fee_rate, esplora.network).map_err(error)?;
+	let txid = esplora.broadcast(&tx).await.map_err(error)?;
+	let _ = std::fs::remove_file(path);
+	Ok(Settled::Refunded(txid.to_string()))
 }
 
 async fn round(

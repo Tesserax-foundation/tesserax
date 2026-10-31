@@ -380,6 +380,10 @@ parameter_types! {
 	/// Six hours, 1,200 blocks of 18 seconds, for the taker to claim: the lock of its payment
 	/// lasts 24 hours, which leaves the maker the time to claim the payment.
 	pub const SwapTradeTimeout: BlockNumber = 1_200;
+	/// Twenty-four hours for the buyer of a bid to claim a sale: the lock of its payment lasts
+	/// six hours, so that the seller claims it in time and the buyer then has the time to claim the
+	/// TESS.
+	pub const SwapSaleTimeout: BlockNumber = DAYS;
 	pub const SwapMinOffer: Balance = UNIT;
 	pub const SwapOfferDeposit: Balance = deposit(1, 160);
 	pub const SwapClaimLongevity: u64 = 64;
@@ -391,6 +395,7 @@ impl pallet_swaps::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
 	type TradeTimeout = SwapTradeTimeout;
+	type SaleTimeout = SwapSaleTimeout;
 	type MinOffer = SwapMinOffer;
 	type OfferDeposit = SwapOfferDeposit;
 	type ClaimLongevity = SwapClaimLongevity;

@@ -181,3 +181,170 @@ fn makers_do_not_trade_with_themselves() {
 		);
 	});
 }
+
+const BUYER: u64 = OTHER;
+const SELLER: u64 = MAKER;
+
+/// A bid for 100,000 planck in sales of at least 10,000.
+fn bid() -> BidId {
+	assert_ok!(Swaps::bid(RuntimeOrigin::signed(BUYER), USDC_BASE, PRICE, 100_000, 10_000));
+	NextBidId::<Test>::get() - 1
+}
+
+fn sell(bid: BidId, amount: u128) -> SaleId {
+	assert_ok!(Swaps::sell(RuntimeOrigin::signed(SELLER), bid, amount, hash(), evm_address()));
+	NextSaleId::<Test>::get() - 1
+}
+
+#[test]
+fn bids_hold_only_a_deposit_and_check_what_they_ask() {
+	new_test_ext().execute_with(|| {
+		let id = bid();
+		assert_eq!(held(BUYER), DEPOSIT);
+		let bid = Bids::<Test>::get(id).unwrap();
+		assert_eq!((bid.buyer, bid.wanted, bid.min_sale, bid.price), (BUYER, 100_000, 10_000, PRICE));
+
+		let buyer = RuntimeOrigin::signed(BUYER);
+		let btc_usdc = Payment { chain: Chain::Bitcoin, asset: Asset::Usdc };
+		assert_noop!(Swaps::bid(buyer.clone(), btc_usdc, PRICE, 100_000, 0), Error::<Test>::UnsupportedPayment);
+		assert_noop!(Swaps::bid(buyer.clone(), USDC_BASE, 0, 100_000, 0), Error::<Test>::InvalidPrice);
+		assert_noop!(Swaps::bid(buyer.clone(), USDC_BASE, PRICE, MIN_OFFER - 1, 0), Error::<Test>::InvalidAmount);
+		assert_noop!(Swaps::bid(buyer, USDC_BASE, PRICE, 100_000, 100_001), Error::<Test>::InvalidAmount);
+	});
+}
+
+#[test]
+fn buyers_update_and_cancel_their_bids() {
+	new_test_ext().execute_with(|| {
+		let id = bid();
+		assert_noop!(Swaps::update_bid(RuntimeOrigin::signed(SELLER), id, PRICE, 0, 0), Error::<Test>::NotBuyer);
+		assert_ok!(Swaps::update_bid(RuntimeOrigin::signed(BUYER), id, 2 * PRICE, 50_000, 5_000));
+		let bid = Bids::<Test>::get(id).unwrap();
+		assert_eq!((bid.price, bid.wanted, bid.min_sale), (2 * PRICE, 50_000, 5_000));
+		assert_noop!(
+			Swaps::update_bid(RuntimeOrigin::signed(BUYER), id, PRICE, 50_000, 50_001),
+			Error::<Test>::InvalidAmount
+		);
+
+		assert_noop!(Swaps::cancel_bid(RuntimeOrigin::signed(SELLER), id), Error::<Test>::NotBuyer);
+		assert_ok!(Swaps::cancel_bid(RuntimeOrigin::signed(BUYER), id));
+		assert_eq!(held(BUYER), 0);
+		assert_eq!(Balances::balance(&BUYER), 100);
+		assert!(Bids::<Test>::get(id).is_none());
+	});
+}
+
+#[test]
+fn a_sale_is_paid_then_claimed_by_the_buyer_without_signer() {
+	new_test_ext().execute_with(|| {
+		let id = bid();
+		let sale = sell(id, 20_000);
+		assert_eq!(held(SELLER), 20_000);
+		assert_eq!(Bids::<Test>::get(id).unwrap().wanted, 80_000);
+		let recorded = Sales::<Test>::get(sale).unwrap();
+		assert_eq!((recorded.seller, recorded.buyer, recorded.amount), (SELLER, BUYER, 20_000));
+		assert_eq!(recorded.expires, 1 + SALE_TIMEOUT);
+		assert!(recorded.payment_lock.is_empty());
+
+		// The buyer records its payment once.
+		assert_noop!(Swaps::pay(RuntimeOrigin::signed(SELLER), sale, lock(1)), Error::<Test>::NotBuyer);
+		assert_ok!(Swaps::pay(RuntimeOrigin::signed(BUYER), sale, lock(1)));
+		assert_eq!(Sales::<Test>::get(sale).unwrap().payment_lock, lock(1));
+		assert_noop!(Swaps::pay(RuntimeOrigin::signed(BUYER), sale, lock(2)), Error::<Test>::AlreadyPaid);
+		System::assert_last_event(Event::SalePaid { sale, payment_lock: lock(1) }.into());
+
+		// Only the secret authorizes the claim.
+		assert_eq!(
+			Swaps::authorize_claim_sale(TransactionSource::External, &sale, &[8; 32]).unwrap_err(),
+			InvalidTransaction::BadProof.into()
+		);
+		assert!(Swaps::authorize_claim_sale(TransactionSource::External, &sale, &SECRET).is_ok());
+		assert_noop!(Swaps::claim_sale(RuntimeOrigin::signed(BUYER), sale, SECRET), DispatchError::BadOrigin);
+
+		assert_ok!(Swaps::claim_sale(authorized(), sale, SECRET));
+		// Its deposit stays held while the bid is open.
+		assert_eq!(Balances::balance(&BUYER), 100 - DEPOSIT + 20_000);
+		assert_eq!(held(SELLER), 0);
+		assert_eq!(Balances::balance(&SELLER), 1_000_000 - 20_000);
+		assert!(Sales::<Test>::get(sale).is_none());
+		let bid = Bids::<Test>::get(id).unwrap();
+		assert_eq!((bid.sales, bid.completed), (1, 1));
+		System::assert_last_event(Event::SaleClaimed { sale, buyer: BUYER, amount: 20_000, secret: SECRET }.into());
+		assert_eq!(
+			Swaps::authorize_claim_sale(TransactionSource::External, &sale, &SECRET).unwrap_err(),
+			InvalidTransaction::Stale.into()
+		);
+	});
+}
+
+#[test]
+fn sales_follow_their_bid() {
+	new_test_ext().execute_with(|| {
+		let id = bid();
+		let seller = RuntimeOrigin::signed(SELLER);
+		assert_noop!(Swaps::sell(seller.clone(), 9, 20_000, hash(), evm_address()), Error::<Test>::UnknownBid);
+		assert_noop!(Swaps::sell(seller.clone(), id, 5_000, hash(), evm_address()), Error::<Test>::BelowMinSale);
+		assert_noop!(Swaps::sell(seller.clone(), id, 100_001, hash(), evm_address()), Error::<Test>::NotEnoughWanted);
+		assert_noop!(Swaps::sell(seller.clone(), id, 0, hash(), evm_address()), Error::<Test>::InvalidAmount);
+		// Paid on Base: an EVM address of 20 bytes.
+		assert_noop!(
+			Swaps::sell(seller.clone(), id, 20_000, hash(), vec![2; 33].try_into().unwrap()),
+			Error::<Test>::InvalidPayout
+		);
+		assert_noop!(
+			Swaps::sell(RuntimeOrigin::signed(BUYER), id, 20_000, hash(), evm_address()),
+			Error::<Test>::SelfTrade
+		);
+		// A seller sells what it has.
+		assert!(Swaps::sell(RuntimeOrigin::signed(TAKER), id, 20_000, hash(), evm_address()).is_err());
+
+		// The last TESS wanted sell below the smallest sale.
+		sell(id, 95_000);
+		sell(id, 5_000);
+		assert_noop!(Swaps::sell(seller, id, 1, hash(), evm_address()), Error::<Test>::NotEnoughWanted);
+	});
+}
+
+#[test]
+fn a_payment_lock_pays_one_sale_before_it_expires() {
+	new_test_ext().execute_with(|| {
+		let id = bid();
+		let first = sell(id, 20_000);
+		let second = sell(id, 20_000);
+		assert_ok!(Swaps::pay(RuntimeOrigin::signed(BUYER), first, lock(1)));
+		assert_noop!(Swaps::pay(RuntimeOrigin::signed(BUYER), second, lock(1)), Error::<Test>::AlreadyPaid);
+		assert_noop!(Swaps::pay(RuntimeOrigin::signed(BUYER), second, Default::default()), Error::<Test>::InvalidAmount);
+
+		System::set_block_number(1 + SALE_TIMEOUT + 1);
+		assert_noop!(Swaps::pay(RuntimeOrigin::signed(BUYER), second, lock(2)), Error::<Test>::Expired);
+	});
+}
+
+#[test]
+fn expired_sales_return_to_the_seller_and_the_bid() {
+	new_test_ext().execute_with(|| {
+		let id = bid();
+		let first = sell(id, 20_000);
+		let second = sell(id, 30_000);
+		assert_eq!(Bids::<Test>::get(id).unwrap().wanted, 50_000);
+		assert_noop!(Swaps::refund_sale(RuntimeOrigin::signed(BUYER), first), Error::<Test>::NotExpired);
+
+		System::set_block_number(1 + SALE_TIMEOUT + 1);
+		assert_noop!(Swaps::claim_sale(authorized(), first, SECRET), Error::<Test>::Expired);
+		assert_eq!(
+			Swaps::authorize_claim_sale(TransactionSource::External, &first, &SECRET).unwrap_err(),
+			InvalidTransaction::Stale.into()
+		);
+		// Back to the seller, and wanted again by the open bid.
+		assert_ok!(Swaps::refund_sale(RuntimeOrigin::signed(BUYER), first));
+		assert_eq!(held(SELLER), 30_000);
+		assert_eq!(Bids::<Test>::get(id).unwrap().wanted, 70_000);
+		System::assert_last_event(Event::SaleRefunded { sale: first, seller: SELLER, amount: 20_000 }.into());
+
+		// Once the bid is cancelled, only to the seller.
+		assert_ok!(Swaps::cancel_bid(RuntimeOrigin::signed(BUYER), id));
+		assert_ok!(Swaps::refund_sale(RuntimeOrigin::signed(BUYER), second));
+		assert_eq!(held(SELLER), 0);
+		assert_eq!(Balances::balance(&SELLER), 1_000_000);
+	});
+}

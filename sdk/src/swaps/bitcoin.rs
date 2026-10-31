@@ -356,6 +356,14 @@ pub fn claim_transaction(lock: &BitcoinLock, secret: [u8; 32], key: &BitcoinKey,
 	})
 }
 
+/// The secret of `hash` revealed by `tx` if it claims `outpoint`: the second item of the witness
+/// of a claim (signature, secret, true, script).
+pub fn secret_in_claim(tx: &Transaction, outpoint: &OutPoint, hash: &[u8; 32]) -> Option<[u8; 32]> {
+	let input = tx.input.iter().find(|input| input.previous_output == *outpoint)?;
+	let secret: [u8; 32] = input.witness.nth(1)?.try_into().ok()?;
+	(sp_crypto_hashing::sha2_256(&secret) == *hash).then_some(secret)
+}
+
 /// The taker takes `lock` back once its timelock passed, to its own P2WPKH address.
 pub fn refund_transaction(lock: &BitcoinLock, key: &BitcoinKey, fee_rate: f64, network: BitcoinNetwork) -> Result<Transaction> {
 	let destination = address_of(&lock.htlc.taker, network).script_pubkey();
@@ -388,6 +396,7 @@ struct EsploraTx {
 #[derive(Deserialize)]
 struct EsploraOutspend {
 	spent: bool,
+	txid: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -516,6 +525,15 @@ impl Esplora {
 	pub async fn is_spent(&self, outpoint: &OutPoint) -> Result<bool> {
 		let outspend: EsploraOutspend = self.json(&format!("/tx/{}/outspend/{}", outpoint.txid, outpoint.vout)).await?;
 		Ok(outspend.spent)
+	}
+
+	/// The transaction spending `outpoint`, if any.
+	pub async fn spender(&self, outpoint: &OutPoint) -> Result<Option<Transaction>> {
+		let outspend: EsploraOutspend = self.json(&format!("/tx/{}/outspend/{}", outpoint.txid, outpoint.vout)).await?;
+		match outspend.txid.filter(|_| outspend.spent) {
+			Some(txid) => Ok(Some(self.transaction(&txid.parse().map_err(bitcoin_error)?).await?)),
+			None => Ok(None),
+		}
 	}
 
 	/// Broadcast `tx`. Returns its id.

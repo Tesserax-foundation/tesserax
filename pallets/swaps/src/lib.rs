@@ -20,6 +20,24 @@
 //! The chain cannot see the other chains: the maker checks the payment before filling. A maker
 //! filling without a payment, or a wrong amount, only exposes its own TESS: the taker cannot claim
 //! more than the trade, and the payment cannot be claimed without the secret of the taker.
+//!
+//! Bids go the other way, for those who sell TESS, miners first, without waiting for a buyer:
+//!
+//! - A buyer bids for TESS with [`Pallet::bid`]: a price in the smallest unit of the asset for one
+//!   TESS, the chain and asset it pays in, and how many TESS it wants. Only a deposit is held.
+//! - A seller picks a secret, and sells into the bid with [`Pallet::sell`]: its TESS are locked for
+//!   the buyer under the SHA-256 hash of the secret, for [`Config::SaleTimeout`] blocks, with the
+//!   address or key the seller is paid to.
+//! - The buyer checks the sale, locks the payment on the other chain for the seller under the same
+//!   hash, for less time than the sale has left, and records the lock with [`Pallet::pay`].
+//! - The seller checks the payment and claims it with the secret, which is now public: the buyer,
+//!   or anyone, claims the TESS for the buyer with [`Pallet::claim_sale`], without signer and
+//!   without fee.
+//! - A sale not claimed in time returns to the seller, [`Pallet::refund_sale`].
+//!
+//! A buyer who never pays only delays the seller: its TESS come back when the sale expires. The
+//! seller reveals the secret only by claiming a payment it checked, and the payment expires before
+//! the sale, which leaves the buyer the time to claim the TESS.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -43,6 +61,12 @@ pub type OfferId = u64;
 
 /// Identifier of a trade.
 pub type TradeId = u64;
+
+/// Identifier of a bid.
+pub type BidId = u64;
+
+/// Identifier of a sale into a bid.
+pub type SaleId = u64;
 
 /// Planck in one TESS: prices are for one TESS.
 pub const PLANCK_PER_TESS: u128 = 1_000_000_000_000;
@@ -144,6 +168,44 @@ pub struct Trade<AccountId, Balance, BlockNumber> {
 	pub expires: BlockNumber,
 }
 
+/// A bid for TESS, paid in the asset of another chain.
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+pub struct Bid<AccountId, Balance, BlockNumber> {
+	pub buyer: AccountId,
+	pub payment: Payment,
+	/// Smallest units of the asset for one TESS.
+	pub price: u128,
+	/// TESS still wanted.
+	pub wanted: Balance,
+	/// Smallest sale, unless less is wanted.
+	pub min_sale: Balance,
+	pub created: BlockNumber,
+	/// Sales made into the bid, and sales the buyer paid and received: how reliable the buyer is.
+	pub sales: u32,
+	pub completed: u32,
+	/// Deposit for the storage of the bid, held from the buyer.
+	pub deposit: Balance,
+}
+
+/// TESS a seller locked for the buyer of a bid.
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+pub struct Sale<AccountId, Balance, BlockNumber> {
+	pub bid: BidId,
+	pub seller: AccountId,
+	pub buyer: AccountId,
+	pub amount: Balance,
+	pub price: u128,
+	pub payment: Payment,
+	/// SHA-256 of the secret of the seller.
+	pub hash: [u8; 32],
+	/// Where the seller is paid: an EVM address, or its public key on Bitcoin.
+	pub payout: Payout,
+	/// The lock of the payment on its chain, empty until the buyer records it.
+	pub payment_lock: PaymentLock,
+	/// Last block the buyer may claim at; after it, the seller is refunded.
+	pub expires: BlockNumber,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -163,6 +225,10 @@ pub mod pallet {
 
 	pub type TradeOf<T> = Trade<<T as frame_system::Config>::AccountId, BalanceOf<T>, BlockNumberFor<T>>;
 
+	pub type BidOf<T> = Bid<<T as frame_system::Config>::AccountId, BalanceOf<T>, BlockNumberFor<T>>;
+
+	pub type SaleOf<T> = Sale<<T as frame_system::Config>::AccountId, BalanceOf<T>, BlockNumberFor<T>>;
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
@@ -180,11 +246,16 @@ pub mod pallet {
 		#[pallet::constant]
 		type TradeTimeout: Get<BlockNumberFor<Self>>;
 
-		/// Smallest offer.
+		/// Blocks a buyer has to claim a sale. The lock of its payment must expire sooner, so that
+		/// the buyer can claim the TESS with the secret the claim of the payment reveals.
+		#[pallet::constant]
+		type SaleTimeout: Get<BlockNumberFor<Self>>;
+
+		/// Smallest offer, and smallest bid.
 		#[pallet::constant]
 		type MinOffer: Get<BalanceOf<Self>>;
 
-		/// Deposit for the storage of an offer, returned when it is cancelled.
+		/// Deposit for the storage of an offer or a bid, returned when it is cancelled.
 		#[pallet::constant]
 		type OfferDeposit: Get<BalanceOf<Self>>;
 
@@ -202,7 +273,7 @@ pub mod pallet {
 	/// Reasons for funds held by this pallet.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
-		/// TESS of an offer or locked by a trade, and the deposit of an offer.
+		/// TESS of an offer, locked by a trade or a sale, and the deposit of an offer or a bid.
 		Swap,
 	}
 
@@ -224,6 +295,25 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type FilledLocks<T: Config> =
 		StorageDoubleMap<_, Blake2_128Concat, Chain, Blake2_128Concat, PaymentLock, TradeId, OptionQuery>;
+
+	#[pallet::storage]
+	pub type NextBidId<T: Config> = StorageValue<_, BidId, ValueQuery>;
+
+	#[pallet::storage]
+	pub type NextSaleId<T: Config> = StorageValue<_, SaleId, ValueQuery>;
+
+	/// Open bids.
+	#[pallet::storage]
+	pub type Bids<T: Config> = StorageMap<_, Blake2_128Concat, BidId, BidOf<T>, OptionQuery>;
+
+	/// Sales waiting for their claim or their refund.
+	#[pallet::storage]
+	pub type Sales<T: Config> = StorageMap<_, Blake2_128Concat, SaleId, SaleOf<T>, OptionQuery>;
+
+	/// Payment locks recorded for a sale: a payment pays one sale.
+	#[pallet::storage]
+	pub type PaidLocks<T: Config> =
+		StorageDoubleMap<_, Blake2_128Concat, Chain, Blake2_128Concat, PaymentLock, SaleId, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -252,6 +342,33 @@ pub mod pallet {
 		Claimed { trade: TradeId, taker: T::AccountId, amount: BalanceOf<T>, secret: [u8; 32] },
 		/// The trade expired unclaimed and returned to the maker.
 		Refunded { trade: TradeId, maker: T::AccountId, amount: BalanceOf<T> },
+		/// A buyer bid for `amount` TESS at `price` units of `payment` for one TESS.
+		BidPlaced { bid: BidId, buyer: T::AccountId, payment: Payment, price: u128, amount: BalanceOf<T> },
+		/// The buyer changed its bid.
+		BidUpdated { bid: BidId, price: u128, wanted: BalanceOf<T>, min_sale: BalanceOf<T> },
+		/// The buyer withdrew its bid.
+		BidCancelled { bid: BidId },
+		/// `seller` locked `amount` TESS for the buyer of bid `bid`, released by the secret of `hash`
+		/// until `expires`, to be paid to `payout`.
+		Sold {
+			sale: SaleId,
+			bid: BidId,
+			seller: T::AccountId,
+			buyer: T::AccountId,
+			amount: BalanceOf<T>,
+			price: u128,
+			payment: Payment,
+			hash: [u8; 32],
+			payout: Payout,
+			expires: BlockNumberFor<T>,
+		},
+		/// The buyer locked the payment of the sale, by `payment_lock`.
+		SalePaid { sale: SaleId, payment_lock: PaymentLock },
+		/// The buyer received the sale with `secret`, which the seller revealed by claiming its
+		/// payment.
+		SaleClaimed { sale: SaleId, buyer: T::AccountId, amount: BalanceOf<T>, secret: [u8; 32] },
+		/// The sale expired unclaimed and returned to the seller.
+		SaleRefunded { sale: SaleId, seller: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -282,8 +399,20 @@ pub mod pallet {
 		Expired,
 		/// The trade can still be claimed.
 		NotExpired,
-		/// A trade to the maker itself.
+		/// A trade to the maker itself, or a sale to the seller itself.
 		SelfTrade,
+		/// No bid has this identifier.
+		UnknownBid,
+		/// No sale has this identifier.
+		UnknownSale,
+		/// Only the buyer of the bid can do this.
+		NotBuyer,
+		/// The bid wants fewer TESS than the sale.
+		NotEnoughWanted,
+		/// The sale is smaller than the smallest sale of the bid.
+		BelowMinSale,
+		/// The payment of this sale is already recorded, or this lock pays another sale.
+		AlreadyPaid,
 	}
 
 	#[pallet::call]
@@ -503,6 +632,215 @@ pub mod pallet {
 			Self::deposit_event(Event::Refunded { trade: id, maker: trade.maker, amount: trade.amount });
 			Ok(())
 		}
+
+		/// Bid for `amount` TESS at `price` units of `payment` for one TESS, in sales of at least
+		/// `min_sale`. Only a storage deposit is held: the payment is locked sale by sale.
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::bid())]
+		pub fn bid(
+			origin: OriginFor<T>,
+			payment: Payment,
+			price: u128,
+			amount: BalanceOf<T>,
+			min_sale: BalanceOf<T>,
+		) -> DispatchResult {
+			let buyer = ensure_signed(origin)?;
+			ensure!(payment.is_supported(), Error::<T>::UnsupportedPayment);
+			Self::check_price(amount, price)?;
+			ensure!(amount >= T::MinOffer::get() && min_sale <= amount, Error::<T>::InvalidAmount);
+			let deposit = T::OfferDeposit::get();
+			T::Currency::hold(&HoldReason::Swap.into(), &buyer, deposit)?;
+
+			let id = NextBidId::<T>::mutate(|next| {
+				let id = *next;
+				*next = next.saturating_add(1);
+				id
+			});
+			Bids::<T>::insert(
+				id,
+				Bid {
+					buyer: buyer.clone(),
+					payment,
+					price,
+					wanted: amount,
+					min_sale,
+					created: frame_system::Pallet::<T>::block_number(),
+					sales: 0,
+					completed: 0,
+					deposit,
+				},
+			);
+			Self::deposit_event(Event::BidPlaced { bid: id, buyer, payment, price, amount });
+			Ok(())
+		}
+
+		/// Change the price of bid `id`, the TESS it still wants and its smallest sale, as its
+		/// buyer. Sales already made go on.
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::update_bid())]
+		pub fn update_bid(
+			origin: OriginFor<T>,
+			id: BidId,
+			price: u128,
+			wanted: BalanceOf<T>,
+			min_sale: BalanceOf<T>,
+		) -> DispatchResult {
+			let buyer = ensure_signed(origin)?;
+			Self::check_price(wanted, price)?;
+			ensure!(min_sale <= wanted || wanted.is_zero(), Error::<T>::InvalidAmount);
+			Bids::<T>::try_mutate(id, |bid| -> DispatchResult {
+				let bid = bid.as_mut().ok_or(Error::<T>::UnknownBid)?;
+				ensure!(bid.buyer == buyer, Error::<T>::NotBuyer);
+				bid.price = price;
+				bid.wanted = wanted;
+				bid.min_sale = min_sale;
+				Ok(())
+			})?;
+			Self::deposit_event(Event::BidUpdated { bid: id, price, wanted, min_sale });
+			Ok(())
+		}
+
+		/// Withdraw bid `id`, as its buyer: the deposit is released. Sales already made go on.
+		#[pallet::call_index(8)]
+		#[pallet::weight(T::WeightInfo::cancel_bid())]
+		pub fn cancel_bid(origin: OriginFor<T>, id: BidId) -> DispatchResult {
+			let buyer = ensure_signed(origin)?;
+			let bid = Bids::<T>::get(id).ok_or(Error::<T>::UnknownBid)?;
+			ensure!(bid.buyer == buyer, Error::<T>::NotBuyer);
+			T::Currency::release(&HoldReason::Swap.into(), &buyer, bid.deposit, Precision::BestEffort)?;
+			Bids::<T>::remove(id);
+			Self::deposit_event(Event::BidCancelled { bid: id });
+			Ok(())
+		}
+
+		/// Sell `amount` TESS into bid `id`: they are locked for its buyer, released by the secret
+		/// of `hash`, and the buyer pays `payout`, an EVM address or a public key on Bitcoin.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::sell())]
+		pub fn sell(
+			origin: OriginFor<T>,
+			id: BidId,
+			amount: BalanceOf<T>,
+			hash: [u8; 32],
+			payout: Payout,
+		) -> DispatchResult {
+			let seller = ensure_signed(origin)?;
+			let bid = Bids::<T>::try_mutate(id, |bid| -> Result<BidOf<T>, DispatchError> {
+				let bid = bid.as_mut().ok_or(Error::<T>::UnknownBid)?;
+				ensure!(bid.buyer != seller, Error::<T>::SelfTrade);
+				ensure!(payout.len() == bid.payment.payout_len(), Error::<T>::InvalidPayout);
+				ensure!(!amount.is_zero(), Error::<T>::InvalidAmount);
+				ensure!(amount <= bid.wanted, Error::<T>::NotEnoughWanted);
+				ensure!(amount >= bid.min_sale || amount == bid.wanted, Error::<T>::BelowMinSale);
+				bid.wanted.saturating_reduce(amount);
+				bid.sales.saturating_inc();
+				Ok(bid.clone())
+			})?;
+			T::Currency::hold(&HoldReason::Swap.into(), &seller, amount)?;
+
+			let sale = NextSaleId::<T>::mutate(|next| {
+				let id = *next;
+				*next = next.saturating_add(1);
+				id
+			});
+			let expires = frame_system::Pallet::<T>::block_number().saturating_add(T::SaleTimeout::get());
+			Sales::<T>::insert(
+				sale,
+				Sale {
+					bid: id,
+					seller: seller.clone(),
+					buyer: bid.buyer.clone(),
+					amount,
+					price: bid.price,
+					payment: bid.payment,
+					hash,
+					payout: payout.clone(),
+					payment_lock: Default::default(),
+					expires,
+				},
+			);
+			Self::deposit_event(Event::Sold {
+				sale,
+				bid: id,
+				seller,
+				buyer: bid.buyer,
+				amount,
+				price: bid.price,
+				payment: bid.payment,
+				hash,
+				payout,
+				expires,
+			});
+			Ok(())
+		}
+
+		/// Record `payment_lock`, the lock of the payment of sale `id` on its chain, as its buyer, so
+		/// that the seller finds it.
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::pay())]
+		pub fn pay(origin: OriginFor<T>, id: SaleId, payment_lock: PaymentLock) -> DispatchResult {
+			let buyer = ensure_signed(origin)?;
+			ensure!(!payment_lock.is_empty(), Error::<T>::InvalidAmount);
+			let sale = Sales::<T>::try_mutate(id, |sale| -> Result<SaleOf<T>, DispatchError> {
+				let sale = sale.as_mut().ok_or(Error::<T>::UnknownSale)?;
+				ensure!(sale.buyer == buyer, Error::<T>::NotBuyer);
+				ensure!(sale.payment_lock.is_empty(), Error::<T>::AlreadyPaid);
+				ensure!(frame_system::Pallet::<T>::block_number() <= sale.expires, Error::<T>::Expired);
+				sale.payment_lock = payment_lock.clone();
+				Ok(sale.clone())
+			})?;
+			ensure!(!PaidLocks::<T>::contains_key(sale.payment.chain, &payment_lock), Error::<T>::AlreadyPaid);
+			PaidLocks::<T>::insert(sale.payment.chain, &payment_lock, id);
+			Self::deposit_event(Event::SalePaid { sale: id, payment_lock });
+			Ok(())
+		}
+
+		/// Claim sale `id` for its buyer with `secret`. Submitted without signer and without fee:
+		/// the secret authorizes it, so that a buyer without TESS yet can claim.
+		#[pallet::call_index(11)]
+		#[pallet::weight(T::WeightInfo::claim_sale())]
+		#[pallet::authorize(Pallet::<T>::authorize_claim_sale)]
+		#[pallet::weight_of_authorize(T::WeightInfo::authorize_claim_sale())]
+		pub fn claim_sale(origin: OriginFor<T>, id: SaleId, secret: [u8; 32]) -> DispatchResult {
+			ensure_authorized(origin)?;
+			let sale = Self::claimable_sale(id, &secret)?;
+			T::Currency::transfer_on_hold(
+				&HoldReason::Swap.into(),
+				&sale.seller,
+				&sale.buyer,
+				sale.amount,
+				Precision::Exact,
+				Restriction::Free,
+				Fortitude::Polite,
+			)?;
+			Sales::<T>::remove(id);
+			Bids::<T>::mutate(sale.bid, |bid| {
+				if let Some(bid) = bid {
+					bid.completed.saturating_inc();
+				}
+			});
+			Self::deposit_event(Event::SaleClaimed { sale: id, buyer: sale.buyer, amount: sale.amount, secret });
+			Ok(())
+		}
+
+		/// Return sale `id` to its seller once it expired unclaimed, and what it took to its bid if
+		/// the bid is still open. Anyone can call it.
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::refund_sale())]
+		pub fn refund_sale(origin: OriginFor<T>, id: SaleId) -> DispatchResult {
+			ensure_signed(origin)?;
+			let sale = Sales::<T>::get(id).ok_or(Error::<T>::UnknownSale)?;
+			ensure!(frame_system::Pallet::<T>::block_number() > sale.expires, Error::<T>::NotExpired);
+			T::Currency::release(&HoldReason::Swap.into(), &sale.seller, sale.amount, Precision::BestEffort)?;
+			Bids::<T>::mutate(sale.bid, |bid| {
+				if let Some(bid) = bid {
+					bid.wanted.saturating_accrue(sale.amount);
+				}
+			});
+			Sales::<T>::remove(id);
+			Self::deposit_event(Event::SaleRefunded { sale: id, seller: sale.seller, amount: sale.amount });
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -519,6 +857,33 @@ pub mod pallet {
 			ensure!(sp_io::hashing::sha2_256(secret) == trade.hash, Error::<T>::WrongSecret);
 			ensure!(frame_system::Pallet::<T>::block_number() <= trade.expires, Error::<T>::Expired);
 			Ok(trade)
+		}
+
+		/// Sale `id`, if `secret` claims it now.
+		pub fn claimable_sale(id: SaleId, secret: &[u8; 32]) -> Result<SaleOf<T>, Error<T>> {
+			let sale = Sales::<T>::get(id).ok_or(Error::<T>::UnknownSale)?;
+			ensure!(sp_io::hashing::sha2_256(secret) == sale.hash, Error::<T>::WrongSecret);
+			ensure!(frame_system::Pallet::<T>::block_number() <= sale.expires, Error::<T>::Expired);
+			Ok(sale)
+		}
+
+		/// Authorization of [`Pallet::claim_sale`]: the secret of an open sale.
+		pub fn authorize_claim_sale(
+			_source: TransactionSource,
+			id: &SaleId,
+			secret: &[u8; 32],
+		) -> TransactionValidityWithRefund {
+			Self::claimable_sale(*id, secret).map_err(|error| match error {
+				Error::<T>::UnknownSale => InvalidTransaction::Stale,
+				Error::<T>::Expired => InvalidTransaction::Stale,
+				_ => InvalidTransaction::BadProof,
+			})?;
+			let validity = ValidTransaction::with_tag_prefix("Swaps")
+				.and_provides(("claim_sale", *id))
+				.longevity(T::ClaimLongevity::get())
+				.propagate(true)
+				.build()?;
+			Ok((validity, Weight::zero()))
 		}
 
 		/// Authorization of [`Pallet::claim`]: the secret of an open trade.

@@ -57,7 +57,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("tesserax"),
 	impl_name: alloc::borrow::Cow::Borrowed("tesserax-node"),
 	authoring_version: 1,
-	spec_version: 105,
+	spec_version: 106,
 	impl_version: 1,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,

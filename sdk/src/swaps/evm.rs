@@ -178,6 +178,10 @@ pub enum LockState {
 #[derive(Clone, Copy, Debug)]
 pub struct LockStatus {
 	pub state: LockState,
+	pub sender: Address,
+	pub recipient: Address,
+	pub token: Address,
+	pub amount: U256,
 	pub hash: [u8; 32],
 	/// Unix time from which the sender may take it back.
 	pub timelock: u64,
@@ -271,7 +275,15 @@ impl Evm {
 			3 => LockState::Refunded,
 			_ => return Ok(None),
 		};
-		Ok(Some(LockStatus { state, hash: l.hash.0, timelock: l.timelock }))
+		Ok(Some(LockStatus {
+			state,
+			sender: l.sender,
+			recipient: l.recipient,
+			token: l.token,
+			amount: l.amount,
+			hash: l.hash.0,
+			timelock: l.timelock,
+		}))
 	}
 
 	/// Locks created in blocks `from` to `to` for `recipient`, if given, with their current state.
@@ -359,6 +371,23 @@ impl Evm {
 			.await
 			.map_err(evm)?;
 		receipt.status().then_some(receipt.transaction_hash).ok_or_else(|| Error::Evm("the claim reverted".into()))
+	}
+
+	/// The secret that claimed lock `id`, from its `Claimed` event in blocks `from` to the latest,
+	/// if it was claimed.
+	pub async fn secret_of(&self, id: B256, from: u64) -> Result<Option<[u8; 32]>> {
+		let filter = Filter::new()
+			.address(SWAP_CONTRACT)
+			.event_signature(TesseraxSwap::Claimed::SIGNATURE_HASH)
+			.topic1(id)
+			.from_block(from);
+		for log in self.provider.get_logs(&filter).await.map_err(evm)? {
+			let event = TesseraxSwap::Claimed::decode_log(&log.inner).map_err(evm)?.data;
+			if event.id == id {
+				return Ok(Some(event.secret.0));
+			}
+		}
+		Ok(None)
 	}
 
 	/// Return lock `id` to its sender once its timelock passed. Returns the transaction hash.

@@ -15,6 +15,14 @@ pub trait WeightInfo {
 	fn authorize_claim() -> Weight;
 	fn claim() -> Weight;
 	fn refund() -> Weight;
+	fn bid() -> Weight;
+	fn update_bid() -> Weight;
+	fn cancel_bid() -> Weight;
+	fn sell() -> Weight;
+	fn pay() -> Weight;
+	fn authorize_claim_sale() -> Weight;
+	fn claim_sale() -> Weight;
+	fn refund_sale() -> Weight;
 }
 
 /// Weights for the runtime, with its database weights.
@@ -53,6 +61,44 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+	fn bid() -> Weight {
+		Weight::from_parts(60_000_000, 4_000)
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
+	fn update_bid() -> Weight {
+		Weight::from_parts(40_000_000, 4_000)
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	fn cancel_bid() -> Weight {
+		Weight::from_parts(55_000_000, 4_000)
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	fn sell() -> Weight {
+		Weight::from_parts(60_000_000, 4_500)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(5))
+	}
+	fn pay() -> Weight {
+		Weight::from_parts(40_000_000, 4_500)
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	fn claim_sale() -> Weight {
+		Weight::from_parts(80_000_000, 6_500)
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().writes(6))
+	}
+	fn refund_sale() -> Weight {
+		Weight::from_parts(60_000_000, 6_500)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
+	fn authorize_claim_sale() -> Weight {
+		Weight::from_parts(20_000_000, 3_000).saturating_add(T::DbWeight::get().reads(2))
+	}
 }
 
 impl WeightInfo for () {
@@ -76,5 +122,29 @@ impl WeightInfo for () {
 	}
 	fn refund() -> Weight {
 		Weight::from_parts(60_000_000, 6_500).saturating_add(RocksDbWeight::get().reads_writes(4, 4))
+	}
+	fn bid() -> Weight {
+		Weight::from_parts(60_000_000, 4_000).saturating_add(RocksDbWeight::get().reads_writes(3, 4))
+	}
+	fn update_bid() -> Weight {
+		Weight::from_parts(40_000_000, 4_000).saturating_add(RocksDbWeight::get().reads_writes(1, 1))
+	}
+	fn cancel_bid() -> Weight {
+		Weight::from_parts(55_000_000, 4_000).saturating_add(RocksDbWeight::get().reads_writes(3, 3))
+	}
+	fn sell() -> Weight {
+		Weight::from_parts(60_000_000, 4_500).saturating_add(RocksDbWeight::get().reads_writes(4, 5))
+	}
+	fn pay() -> Weight {
+		Weight::from_parts(40_000_000, 4_500).saturating_add(RocksDbWeight::get().reads_writes(2, 2))
+	}
+	fn claim_sale() -> Weight {
+		Weight::from_parts(80_000_000, 6_500).saturating_add(RocksDbWeight::get().reads_writes(6, 6))
+	}
+	fn refund_sale() -> Weight {
+		Weight::from_parts(60_000_000, 6_500).saturating_add(RocksDbWeight::get().reads_writes(4, 4))
+	}
+	fn authorize_claim_sale() -> Weight {
+		Weight::from_parts(20_000_000, 3_000).saturating_add(RocksDbWeight::get().reads(2))
 	}
 }
