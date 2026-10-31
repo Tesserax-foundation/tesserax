@@ -107,6 +107,7 @@ their blocks.
 | 103 | 2026-10-25 | Governance in place of sudo: referenda, conviction votes, the technical committee ([governance.md](governance.md)) |
 | 104 | 2026-10-26 | Atomic swaps of TESS against BTC, ETH, USDC and USDT ([swaps.md](swaps.md)): the first upgrade by referendum, #0 on the urgent track, whitelisted by the committee |
 | 105 | 2026-10-27 | Hours and days counted from milliseconds: the close period of channels, the longest task and the arbitration of tasks were 10% short. Referendum #1, on the urgent track |
+| 106 | 2026-10-31 | Bids: buyers bid for TESS, and sellers, miners first, sell into a bid at once. Referendum #2, on the urgent track |
 
 ## Demo maker
 

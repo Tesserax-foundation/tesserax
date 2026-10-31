@@ -91,6 +91,7 @@ Nodes need no update for a runtime upgrade: they execute the runtime stored on c
 | 103 | 2026-10-25 | Governance replaces sudo |
 | 104 | 2026-10-26 | Atomic swaps — the first upgrade by referendum, on the urgent track |
 | 105 | 2026-10-27 | Periods counted in exact hours and days |
+| 106 | 2026-10-31 | Bids: sellers sell TESS at once into the bids of buyers |
 
 ## 10.5 Limits
 
