@@ -69,6 +69,23 @@ for Linux (x64, arm64), macOS (Apple Silicon, Intel) and Windows (x64), with the
 fast mode, before it is published. On macOS, allow it once with
 `xattr -d com.apple.quarantine xmrig`.
 
+### Hive OS and RaveOS
+
+Rigs managed by Hive OS or RaveOS install the same miner as a custom miner, from its release:
+
+- **Hive OS**: in a flight sheet, the miner **Custom**, with the installation URL of
+  `tesserax-<version>.tar.gz` (the `-` of the version as `_`), the wallet and worker template
+  `%WAL%.%WORKER_NAME%` with your Tesserax address as wallet, the stratum address of the pool as
+  pool URL, and `x` as password. Optional XMRig settings go in JSON in the extra config, such as
+  `"randomx": {"mode": "light"}`. The dashboard shows the hashrate, shares and CPU temperature of
+  each rig.
+- **RaveOS**: in **Custom mining**, the archive `tesserax-raveos-<version>.zip` as a miner, a coin
+  `TESS` with the algorithm `rx/tess`, and the pool, its login being your address, a dot and the
+  name of the rig.
+
+The [README of the miner](https://github.com/Tesserax-foundation/tesserax-miner#hive-os) details
+every field.
+
 Or build it:
 
 ```bash
